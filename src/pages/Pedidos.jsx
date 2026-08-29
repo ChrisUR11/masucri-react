@@ -32,6 +32,7 @@ const FORM_PEDIDO_VACIO = {
     producto: '',
     desc: '',
     precio: '',
+    dejoAdelanto: false,
     adelanto: '',
     metodoAdelanto: 'Sinpe Móvil'
 };
@@ -155,7 +156,7 @@ export default function Pedidos() {
     const handleGuardarPedido = async (e) => {
         e.preventDefault();
         const pTotal = aNumeroSeguro(formPedido.precio);
-        const mAdelanto = aNumeroSeguro(formPedido.adelanto);
+        const mAdelanto = formPedido.dejoAdelanto ? aNumeroSeguro(formPedido.adelanto) : 0;
 
         if (!formPedido.cliente.trim()) return Swal.fire('Falta el cliente', 'Ingresa el nombre del cliente.', 'warning');
         if (!formPedido.producto.trim()) return Swal.fire('Falta el producto', 'Ingresa el producto solicitado.', 'warning');
@@ -221,6 +222,7 @@ export default function Pedidos() {
             producto: ped.producto,
             desc: ped.descripcion || '',
             precio: ped.precio || '',
+            dejoAdelanto: false,
             adelanto: '',
             metodoAdelanto: 'Sinpe Móvil'
         });
@@ -372,26 +374,32 @@ export default function Pedidos() {
                 <Modal.Header closeButton className="bg-primary text-white">
                     <Modal.Title className="fw-bold">{pedidoEdit ? 'Editar Pedido' : 'Nuevo Pedido'}</Modal.Title>
                 </Modal.Header>
-                <Modal.Body>
+                <Modal.Body className="pt-4">
                     <Form onSubmit={handleGuardarPedido}>
                         <Row className="mb-3">
                             <Col xs={6}>
-                                <Form.Label className="small text-muted">Solicitud</Form.Label>
-                                <Form.Control type="date" value={formPedido.fSolicitud} readOnly />
+                                <Form.Label className="small text-muted mb-1"><i className="fas fa-calendar-day me-1"></i> Solicitud</Form.Label>
+                                <Form.Control type="date" value={formPedido.fSolicitud} readOnly className="bg-light" />
                             </Col>
                             <Col xs={6}>
-                                <Form.Label className="small text-primary fw-bold">Entrega</Form.Label>
+                                <Form.Label className="small text-primary fw-bold mb-1"><i className="fas fa-truck me-1"></i> Entrega</Form.Label>
                                 <Form.Control type="date" className="border-primary" value={formPedido.fEntrega} onChange={actualizarForm('fEntrega')} />
                             </Col>
                         </Row>
+
                         <Form.Group className="mb-3">
-                            <Form.Label>Cliente</Form.Label>
-                            <Form.Control required type="text" value={formPedido.cliente} onChange={actualizarForm('cliente')} />
-                        </Form.Group>
-                        <Form.Group className="mb-3">
-                            <Form.Label>Teléfono</Form.Label>
+                            <Form.Label className="small fw-bold text-secondary mb-1">Cliente</Form.Label>
                             <InputGroup>
-                                <Form.Control type="text" value={formPedido.telefono} onChange={actualizarForm('telefono')} />
+                                <InputGroup.Text className="bg-light"><i className="fas fa-user text-muted"></i></InputGroup.Text>
+                                <Form.Control required type="text" placeholder="Ej: María Pérez" value={formPedido.cliente} onChange={actualizarForm('cliente')} />
+                            </InputGroup>
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                            <Form.Label className="small fw-bold text-secondary mb-1">Teléfono</Form.Label>
+                            <InputGroup>
+                                <InputGroup.Text className="bg-light"><i className="fab fa-whatsapp text-muted"></i></InputGroup.Text>
+                                <Form.Control type="text" placeholder="Ej: 8888-8888" value={formPedido.telefono} onChange={actualizarForm('telefono')} />
                                 {'contacts' in navigator && (
                                     <Button
                                         variant="outline-secondary"
@@ -403,45 +411,80 @@ export default function Pedidos() {
                                 )}
                             </InputGroup>
                         </Form.Group>
+
                         <Form.Group className="mb-3">
-                            <Form.Label>Producto</Form.Label>
+                            <Form.Label className="small fw-bold text-secondary mb-1">Producto</Form.Label>
+                            <InputGroup>
+                                <InputGroup.Text className="bg-light"><i className="fas fa-box-open text-muted"></i></InputGroup.Text>
+                                <Form.Control
+                                    required
+                                    type="text"
+                                    placeholder="Ej: Taza personalizada 11oz"
+                                    list="listaCatalogo"
+                                    value={formPedido.producto}
+                                    onChange={actualizarForm('producto')}
+                                    onBlur={(e) => {
+                                        const p = productosCatalogo.find((x) => x.nombre.toLowerCase() === e.target.value.toLowerCase());
+                                        if (p) setFormPedido((f) => ({ ...f, precio: p.precio_venta }));
+                                    }}
+                                />
+                            </InputGroup>
+                            <Form.Text className="text-muted">Si el nombre coincide con el catálogo, el precio se autocompleta.</Form.Text>
+                        </Form.Group>
+
+                        <Form.Group className="mb-3">
+                            <Form.Label className="small fw-bold text-secondary mb-1">Notas (opcional)</Form.Label>
                             <Form.Control
-                                required
-                                type="text"
-                                list="listaCatalogo"
-                                value={formPedido.producto}
-                                onChange={actualizarForm('producto')}
-                                onBlur={(e) => {
-                                    const p = productosCatalogo.find((x) => x.nombre.toLowerCase() === e.target.value.toLowerCase());
-                                    if (p) setFormPedido((f) => ({ ...f, precio: p.precio_venta }));
-                                }}
+                                as="textarea"
+                                rows={2}
+                                placeholder="Ej: sin canela, entregar en caja de regalo, color celeste..."
+                                value={formPedido.desc}
+                                onChange={actualizarForm('desc')}
                             />
                         </Form.Group>
+
                         <Form.Group className="mb-3">
-                            <Form.Label>Notas</Form.Label>
-                            <Form.Control as="textarea" rows={2} value={formPedido.desc} onChange={actualizarForm('desc')} />
+                            <Form.Label className="small fw-bold text-secondary mb-1">Precio Total</Form.Label>
+                            <InputGroup>
+                                <InputGroup.Text className="bg-light fw-bold">₡</InputGroup.Text>
+                                <Form.Control type="number" step="0.01" min="0" placeholder="0" value={formPedido.precio} onChange={actualizarForm('precio')} />
+                            </InputGroup>
                         </Form.Group>
-                        <Form.Group className="mb-3">
-                            <Form.Label className="fw-bold">Precio Total</Form.Label>
-                            <Form.Control type="number" step="0.01" min="0" value={formPedido.precio} onChange={actualizarForm('precio')} />
-                        </Form.Group>
+
                         {!pedidoEdit && (
-                            <Row className="mb-3 p-3 bg-light rounded mx-0">
-                                <Col xs={6}>
-                                    <Form.Label className="small">Adelanto (₡)</Form.Label>
-                                    <Form.Control type="number" step="0.01" min="0" value={formPedido.adelanto} onChange={actualizarForm('adelanto')} />
-                                </Col>
-                                <Col xs={6}>
-                                    <Form.Label className="small">Método</Form.Label>
-                                    <Form.Select value={formPedido.metodoAdelanto} onChange={actualizarForm('metodoAdelanto')}>
-                                        <option>Sinpe Móvil</option>
-                                        <option>Efectivo</option>
-                                    </Form.Select>
-                                </Col>
-                            </Row>
+                            <div className="mb-4 p-3 bg-light rounded border">
+                                <Form.Check
+                                    type="switch"
+                                    id="switch-adelanto"
+                                    label={<span className="fw-bold small">¿El cliente dejó adelanto?</span>}
+                                    checked={formPedido.dejoAdelanto}
+                                    onChange={(e) => setFormPedido((f) => ({ ...f, dejoAdelanto: e.target.checked, adelanto: e.target.checked ? f.adelanto : '' }))}
+                                />
+                                {formPedido.dejoAdelanto ? (
+                                    <Row className="mt-3">
+                                        <Col xs={6}>
+                                            <Form.Label className="small">Monto del adelanto</Form.Label>
+                                            <InputGroup size="sm">
+                                                <InputGroup.Text>₡</InputGroup.Text>
+                                                <Form.Control type="number" step="0.01" min="0" placeholder="0" value={formPedido.adelanto} onChange={actualizarForm('adelanto')} />
+                                            </InputGroup>
+                                        </Col>
+                                        <Col xs={6}>
+                                            <Form.Label className="small">Método</Form.Label>
+                                            <Form.Select size="sm" value={formPedido.metodoAdelanto} onChange={actualizarForm('metodoAdelanto')}>
+                                                <option>Sinpe Móvil</option>
+                                                <option>Efectivo</option>
+                                            </Form.Select>
+                                        </Col>
+                                    </Row>
+                                ) : (
+                                    <p className="small text-muted mb-0 mt-2">El pedido quedará registrado con el saldo total pendiente.</p>
+                                )}
+                            </div>
                         )}
-                        <Button type="submit" variant="primary" className="w-100 fw-bold" disabled={guardandoPedido}>
-                            {guardandoPedido ? 'Guardando...' : 'Guardar'}
+
+                        <Button type="submit" variant="primary" className="w-100 fw-bold py-2 shadow-sm" disabled={guardandoPedido}>
+                            {guardandoPedido ? 'Guardando...' : (<><i className="fas fa-save me-1"></i> Guardar Pedido</>)}
                         </Button>
                     </Form>
                 </Modal.Body>
