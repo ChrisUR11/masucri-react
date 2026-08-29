@@ -16,7 +16,7 @@ export default function NavBar({ user }) {
         <Navbar bg="dark" variant="dark" expand="lg" className="mb-4 shadow sticky-top">
             <Container>
                 <Navbar.Brand as={Link} to="/" className="d-flex align-items-center">
-                    <img src="/logo-masucri.png" alt="MASUCRI" height="35" className="d-inline-block align-text-top me-2" style={{ objectFit: 'contain' }} />
+                    <img src="./logo-masucri.png" alt="MASUCRI" height="35" className="d-inline-block align-text-top me-2" style={{ objectFit: 'contain' }} />
                 </Navbar.Brand>
                 <Navbar.Toggle aria-controls="basic-navbar-nav" />
                 <Navbar.Collapse id="basic-navbar-nav">

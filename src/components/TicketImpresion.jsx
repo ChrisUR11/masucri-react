@@ -8,7 +8,7 @@ export const TicketImpresion = React.forwardRef(({ pedido }, ref) => {
         <div ref={ref} className="ticket-impresion bg-white text-dark p-3" style={{ width: '300px', margin: '0 auto', fontFamily: 'monospace', fontSize: '14px' }}>
             
             <div className="text-center mb-3">
-                <img src="/logo-masucri.png" alt="MASUCRI" style={{ maxWidth: '120px' }} />
+                <img src="./logo-masucri.png" alt="MASUCRI" style={{ maxWidth: '120px' }} />
                 <h5 className="fw-bold mt-2 mb-0">MASUCRI</h5>
                 <p className="mb-0 small">Confecciones y Sublimaciones</p>
                 <p className="mb-0 small">WhatsApp: 8404-6513</p>
