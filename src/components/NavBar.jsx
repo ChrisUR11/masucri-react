@@ -19,7 +19,15 @@ export default function NavBar({ user }) {
     const cerrarMenu = () => setExpandido(false);
 
     return (
-        <Navbar bg="dark" variant="dark" expand="lg" expanded={expandido} onToggle={setExpandido} className="mb-4 shadow sticky-top">
+        <Navbar
+            bg="dark"
+            variant="dark"
+            expand="lg"
+            expanded={expandido}
+            onToggle={setExpandido}
+            className="mb-4 shadow sticky-top"
+            style={{ zIndex: 1035 }} // Por encima de los encabezados "sticky" de las tablas, que comparten el mismo z-index de Bootstrap y en celular podían quedar por encima del menú.
+        >
             <Container>
                 <Navbar.Brand as={Link} to="/" className="d-flex align-items-center" onClick={cerrarMenu}>
                     <img src="./logo-masucri.png" alt="MASUCRI" height="35" className="d-inline-block align-text-top me-2" style={{ objectFit: 'contain' }} />

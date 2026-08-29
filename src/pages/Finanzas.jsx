@@ -242,7 +242,7 @@ export default function Finanzas() {
                                 </Card.Header>
                                 <Card.Body className="p-0 table-responsive" style={{ height: '500px', overflowY: 'auto' }}>
                                     <Table hover className="align-middle m-0 text-nowrap">
-                                        <thead className="table-light sticky-top shadow-sm">
+                                        <thead className="table-light sticky-top shadow-sm" style={{ zIndex: 1 }}>
                                             <tr>
                                                 <th>Fecha</th>
                                                 <th>Detalle / Método</th>

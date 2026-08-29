@@ -118,14 +118,14 @@ export default function Historial() {
             </div>
 
             <Card className="shadow-sm border-0 d-print-none">
-                <Card.Body className="p-0 table-responsive" style={{ height: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+                <Card.Body className="p-0 table-responsive" style={{ height: 'calc(100dvh - 200px)', overflowY: 'auto' }}>
                     {error ? (
                         <EstadoError texto="No se pudo cargar el historial. Revisa tu conexión." />
                     ) : cargando ? (
                         <EstadoCarga texto="Cargando historial..." />
                     ) : (
                         <Table hover className="align-middle m-0 text-nowrap">
-                            <thead className="table-light sticky-top shadow-sm">
+                            <thead className="table-light sticky-top shadow-sm" style={{ zIndex: 1 }}>
                                 <tr><th>Estado</th><th>Cliente</th><th>Producto</th><th className="text-center">Acción</th></tr>
                             </thead>
                             <tbody>

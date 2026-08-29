@@ -151,9 +151,9 @@ export default function Catalogo() {
                     ) : cargando ? (
                         <EstadoCarga texto="Cargando catálogo..." />
                     ) : (
-                        <div className="table-responsive" style={{ height: 'calc(100vh - 240px)', overflowY: 'auto' }}>
+                        <div className="table-responsive" style={{ height: 'calc(100dvh - 240px)', overflowY: 'auto' }}>
                             <Table hover className="align-middle m-0 text-nowrap">
-                                <thead className="table-light sticky-top">
+                                <thead className="table-light sticky-top" style={{ zIndex: 1 }}>
                                     <tr>
                                         <th>Producto</th>
                                         <th>Proveedor (Lugar)</th>
