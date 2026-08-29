@@ -4,6 +4,9 @@ import { signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { Button, Card, Container, Spinner } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import NavBar from './components/NavBar';
+import ActualizacionPWA from './components/ActualizacionPWA';
+import BotonSubir from './components/BotonSubir';
+import EstadoConexion from './components/EstadoConexion';
 import { HashRouter, Routes, Route } from "react-router-dom";
 
 // Importamos nuestras páginas
@@ -44,26 +47,35 @@ export default function App() {
     };
 
     if (loading) {
-        return <div className="vh-100 d-flex justify-content-center align-items-center"><Spinner animation="border" variant="primary" /></div>;
+        return (
+            <>
+                <div className="vh-100 d-flex justify-content-center align-items-center"><Spinner animation="border" variant="primary" /></div>
+                <ActualizacionPWA />
+            </>
+        );
     }
 
     if (!user) {
         return (
-            <div className="vh-100 d-flex align-items-center justify-content-center bg-light">
-                <Card className="shadow p-4 text-center border-0" style={{ maxWidth: '400px', width: '100%' }}>
-                    <img src="/logo-masucri.png" alt="MASUCRI Logo" className="mx-auto mb-3" style={{ maxHeight: '80px', width: 'auto' }} />
-                    <p className="text-muted">Acceso exclusivo para administradores</p>
-                    <Button variant="dark" size="lg" className="w-100 mt-3 shadow-sm" onClick={handleLogin}>
-                        Iniciar sesión con Google
-                    </Button>
-                </Card>
-            </div>
+            <>
+                <div className="vh-100 d-flex align-items-center justify-content-center bg-light">
+                    <Card className="shadow p-4 text-center border-0" style={{ maxWidth: '400px', width: '100%' }}>
+                        <img src="/logo-masucri.png" alt="MASUCRI Logo" className="mx-auto mb-3" style={{ maxHeight: '80px', width: 'auto' }} />
+                        <p className="text-muted">Acceso exclusivo para administradores</p>
+                        <Button variant="dark" size="lg" className="w-100 mt-3 shadow-sm" onClick={handleLogin}>
+                            Iniciar sesión con Google
+                        </Button>
+                    </Card>
+                </div>
+                <ActualizacionPWA />
+            </>
         );
     }
 
     return (
         <HashRouter>
             <div className="d-flex flex-column min-vh-100 bg-light">
+                <EstadoConexion />
                 <NavBar user={user} />
 
                 {/* Aquí ocurre la magia: dependiendo de la URL, React inyecta una página distinta */}
@@ -81,6 +93,9 @@ export default function App() {
                         </Container>
                     } />
                 </Routes>
+
+                <BotonSubir />
+                <ActualizacionPWA />
             </div>
         </HashRouter>
     );

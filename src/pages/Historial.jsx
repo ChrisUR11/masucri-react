@@ -5,6 +5,7 @@ import { db } from '../config/firebase';
 import Swal from 'sweetalert2';
 import { TicketImpresion } from '../components/TicketImpresion';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
+import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import FichaPedidoDetalle from '../components/FichaPedidoDetalle';
 import { registrarAbono } from '../utils/abonoPedido';
@@ -22,6 +23,8 @@ export default function Historial() {
     const [showModal, setShowModal] = useState(false);
     const [pedidoActivo, setPedidoActivo] = useState(null);
 
+    const filtroTextoDebounced = useDebounce(filtroTexto, 250);
+
     const historialCompleto = useMemo(() => {
         let lista = pedidos.filter((p) => !ESTADOS_ACTIVOS.includes(p.estado));
         lista.sort((a, b) => new Date(b.fecha_cierre || '2000-01-01') - new Date(a.fecha_cierre || '2000-01-01'));
@@ -30,12 +33,12 @@ export default function Historial() {
         else if (filtroEstado === 'entregados') lista = lista.filter((p) => p.estado === 'Entregado' && (p.precio - (p.monto_pagado || 0)) <= 0);
         else if (filtroEstado === 'anulados') lista = lista.filter((p) => p.estado === 'Cancelado');
 
-        if (filtroTexto) {
-            const txt = filtroTexto.toLowerCase();
+        if (filtroTextoDebounced) {
+            const txt = filtroTextoDebounced.toLowerCase();
             lista = lista.filter((p) => p.cliente?.toLowerCase().includes(txt) || p.producto?.toLowerCase().includes(txt));
         }
         return lista;
-    }, [pedidos, filtroEstado, filtroTexto]);
+    }, [pedidos, filtroEstado, filtroTextoDebounced]);
 
     const total = historialCompleto.length;
     const historialCortado = historialCompleto.slice(0, limite);

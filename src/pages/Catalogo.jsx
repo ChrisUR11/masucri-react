@@ -4,6 +4,7 @@ import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, doc } from 'f
 import { db } from '../config/firebase';
 import Swal from 'sweetalert2';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
+import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import { formatoColones, aNumeroSeguro } from '../utils/formato';
 
@@ -91,9 +92,16 @@ export default function Catalogo() {
     };
 
     const handleDelete = async (id) => {
+        const producto = productos.find((p) => p.id === id);
+        const proveedor = producto?.proveedor?.trim();
+        const esUltimoDelProveedor =
+            proveedor && productos.filter((p) => p.id !== id && p.proveedor?.trim().toLowerCase() === proveedor.toLowerCase()).length === 0;
+
         const result = await Swal.fire({
             title: '¿Eliminar producto?',
-            text: 'Esto no afectará pedidos pasados.',
+            text: esUltimoDelProveedor
+                ? `Este es el último producto registrado de "${proveedor}". Esto no afectará pedidos pasados.`
+                : 'Esto no afectará pedidos pasados.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545'
@@ -108,13 +116,15 @@ export default function Catalogo() {
         }
     };
 
+    const filtroDebounced = useDebounce(filtro, 250);
+
     const filtrados = useMemo(() => {
-        const texto = filtro.trim().toLowerCase();
+        const texto = filtroDebounced.trim().toLowerCase();
         if (!texto) return productos;
         return productos.filter(
             (p) => p.nombre?.toLowerCase().includes(texto) || p.proveedor?.toLowerCase().includes(texto)
         );
-    }, [productos, filtro]);
+    }, [productos, filtroDebounced]);
 
     return (
         <Container className="mt-4 flex-grow-1">

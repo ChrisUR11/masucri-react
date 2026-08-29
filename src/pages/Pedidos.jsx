@@ -5,6 +5,7 @@ import { db } from '../config/firebase';
 import Swal from 'sweetalert2';
 import { TicketImpresion } from '../components/TicketImpresion';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
+import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import FichaPedidoDetalle from '../components/FichaPedidoDetalle';
 import VentaRapidaModal from '../components/VentaRapidaModal';
@@ -229,15 +230,17 @@ export default function Pedidos() {
         setShowNuevo(true);
     };
 
+    const filtroTextoDebounced = useDebounce(filtroTexto, 250);
+
     const activos = useMemo(() => {
         let lista = [...pedidos];
-        if (filtroTexto) {
-            const txt = filtroTexto.toLowerCase();
+        if (filtroTextoDebounced) {
+            const txt = filtroTextoDebounced.toLowerCase();
             lista = lista.filter((p) => p.cliente?.toLowerCase().includes(txt) || p.producto?.toLowerCase().includes(txt));
         }
         lista.sort((a, b) => new Date(a.fecha_entrega || '2099-01-01') - new Date(b.fecha_entrega || '2099-01-01'));
         return lista;
-    }, [pedidos, filtroTexto]);
+    }, [pedidos, filtroTextoDebounced]);
 
     const renderCard = (ped) => {
         const deuda = (ped.precio || 0) - (ped.monto_pagado || 0);
