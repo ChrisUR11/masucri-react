@@ -1,135 +1,170 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Container, Card, Table, Button, Modal, Form, Row, Col, Badge } from 'react-bootstrap';
-import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, deleteDoc, doc, limit } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, doc, limit } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import Swal from 'sweetalert2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
-import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
+import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
+import { obtenerFechaLocal } from '../utils/fecha';
+import { formatoColones, aNumeroSeguro } from '../utils/formato';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-// Función para obtener fecha local en formato YYYY-MM-DD
-const obtenerFechaLocal = () => {
-    const hoy = new Date();
-    const tzOffset = hoy.getTimezoneOffset() * 60000;
-    return new Date(hoy.getTime() - tzOffset).toISOString().split('T')[0];
-};
+const LIMITE_CONSULTA = 200;
+const FORM_VACIO = { tipo: 'entrada', fecha: obtenerFechaLocal(), metodoPago: 'Efectivo', descripcion: '', entidad: '', monto: '' };
 
 export default function Finanzas() {
-    const [movimientos, setMovimientos] = useState([]);
+    const { datos: movimientos, cargando, error } = useFirestoreCollection(
+        () => query(collection(db, 'movimientos'), orderBy('fecha', 'desc'), limit(LIMITE_CONSULTA)),
+        []
+    );
+
     const [filtroModo, setFiltroModo] = useState('ambos');
     const [filtroInicio, setFiltroInicio] = useState('');
     const [filtroFin, setFiltroFin] = useState('');
 
-    // Estados para el Modal de Registro/Edición
     const [showModal, setShowModal] = useState(false);
     const [editId, setEditId] = useState(null);
-    const [tipo, setTipo] = useState('entrada');
-    const [fecha, setFecha] = useState(obtenerFechaLocal());
-    const [metodoPago, setMetodoPago] = useState('Efectivo');
-    const [descripcion, setDescripcion] = useState('');
-    const [entidad, setEntidad] = useState('');
-    const [monto, setMonto] = useState('');
+    const [form, setForm] = useState(FORM_VACIO);
+    const [guardando, setGuardando] = useState(false);
 
-    // Conexión a Firebase
-    useEffect(() => {
-        const q = query(collection(db, "movimientos"), orderBy("fecha", "desc"), limit(200));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const movs = [];
-            snapshot.forEach((doc) => movs.push({ id: doc.id, ...doc.data() }));
-            setMovimientos(movs);
+    const actualizar = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }));
+
+    const filtrados = useMemo(() => {
+        let lista = movimientos;
+        if (filtroInicio) lista = lista.filter((m) => m.fecha >= filtroInicio);
+        if (filtroFin) lista = lista.filter((m) => m.fecha <= filtroFin);
+        if (filtroModo !== 'ambos') lista = lista.filter((m) => m.tipo === (filtroModo === 'entradas' ? 'entrada' : 'salida'));
+        return lista;
+    }, [movimientos, filtroInicio, filtroFin, filtroModo]);
+
+    const { totalEntradas, totalSalidas } = useMemo(() => {
+        let entradas = 0;
+        let salidas = 0;
+        filtrados.forEach((m) => {
+            if (m.tipo === 'entrada') entradas += m.monto || 0;
+            else salidas += m.monto || 0;
         });
-        return () => unsubscribe();
-    }, []);
+        return { totalEntradas: entradas, totalSalidas: salidas };
+    }, [filtrados]);
 
-    // Lógica de Filtros
-    let filtrados = movimientos;
-    if (filtroInicio) filtrados = filtrados.filter(m => m.fecha >= filtroInicio);
-    if (filtroFin) filtrados = filtrados.filter(m => m.fecha <= filtroFin);
-    if (filtroModo !== 'ambos') filtrados = filtrados.filter(m => m.tipo === (filtroModo === 'entradas' ? 'entrada' : 'salida'));
+    // Aviso suave si el usuario filtra fuera del rango de los últimos LIMITE_CONSULTA
+    // movimientos: los totales podrían no reflejar el histórico completo.
+    const posibleDatosIncompletos =
+        movimientos.length === LIMITE_CONSULTA && filtroInicio && filtroInicio < (movimientos[movimientos.length - 1]?.fecha || '');
 
-    // Cálculos Rápidos
-    let totalEntradas = 0;
-    let totalSalidas = 0;
-    filtrados.forEach(m => {
-        if (m.tipo === 'entrada') totalEntradas += m.monto;
-        else totalSalidas += m.monto;
-    });
-
-    // Configuración del Gráfico
     const chartData = {
         labels: filtroModo === 'ambos' ? ['Ingresos', 'Gastos'] : filtroModo === 'entradas' ? ['Ingresos'] : ['Gastos'],
-        datasets: [{
-            data: filtroModo === 'ambos' ? [totalEntradas, totalSalidas] : filtroModo === 'entradas' ? [totalEntradas] : [totalSalidas],
-            backgroundColor: filtroModo === 'ambos' ? ['#198754', '#dc3545'] : filtroModo === 'entradas' ? ['#198754'] : ['#dc3545']
-        }]
+        datasets: [
+            {
+                data: filtroModo === 'ambos' ? [totalEntradas, totalSalidas] : filtroModo === 'entradas' ? [totalEntradas] : [totalSalidas],
+                backgroundColor: filtroModo === 'ambos' ? ['#198754', '#dc3545'] : filtroModo === 'entradas' ? ['#198754'] : ['#dc3545']
+            }
+        ]
     };
 
-    // Funciones del Modal
     const handleClose = () => {
-        setShowModal(false); setEditId(null);
-        setTipo('entrada'); setFecha(obtenerFechaLocal()); setMetodoPago('Efectivo');
-        setDescripcion(''); setEntidad(''); setMonto('');
+        setShowModal(false);
+        setEditId(null);
+        setForm({ ...FORM_VACIO, fecha: obtenerFechaLocal() });
     };
 
     const handleOpen = (m = null) => {
         if (m) {
-            setEditId(m.id); setTipo(m.tipo); setFecha(m.fecha);
-            setMetodoPago(m.metodo_pago || 'Efectivo'); setDescripcion(m.descripcion);
-            setEntidad(m.entidad || ''); setMonto(m.monto);
+            setEditId(m.id);
+            setForm({
+                tipo: m.tipo,
+                fecha: m.fecha,
+                metodoPago: m.metodo_pago || 'Efectivo',
+                descripcion: m.descripcion || '',
+                entidad: m.entidad || '',
+                monto: m.monto ?? ''
+            });
         } else {
-            setFecha(obtenerFechaLocal()); // Resetea a hoy para nuevos
+            setForm({ ...FORM_VACIO, fecha: obtenerFechaLocal() });
         }
         setShowModal(true);
     };
 
     const handleSave = async (e) => {
         e.preventDefault();
+        const monto = aNumeroSeguro(form.monto);
+        if (monto <= 0) return Swal.fire('Monto inválido', 'Ingresa un monto mayor a cero.', 'warning');
+        if (!form.descripcion.trim()) return Swal.fire('Falta el concepto', 'Describe brevemente el movimiento.', 'warning');
+
         const datos = {
-            tipo, fecha, metodo_pago: metodoPago, descripcion: descripcion.trim(),
-            entidad: entidad.trim(), monto: parseFloat(monto) || 0, timestamp: new Date()
+            tipo: form.tipo,
+            fecha: form.fecha,
+            metodo_pago: form.metodoPago,
+            descripcion: form.descripcion.trim(),
+            entidad: form.entidad.trim(),
+            monto,
+            timestamp: new Date()
         };
 
+        setGuardando(true);
         try {
-            if (editId) await updateDoc(doc(db, "movimientos", editId), datos);
-            else await addDoc(collection(db, "movimientos"), datos);
+            if (editId) await updateDoc(doc(db, 'movimientos', editId), datos);
+            else await addDoc(collection(db, 'movimientos'), datos);
             handleClose();
             Swal.fire({ icon: 'success', title: 'Registrado', timer: 1000, showConfirmButton: false });
         } catch (err) {
-            Swal.fire('Error', 'Fallo al guardar', 'error');
+            console.error(err);
+            Swal.fire('Error', 'Fallo al guardar. Intenta de nuevo.', 'error');
+        } finally {
+            setGuardando(false);
         }
     };
 
     const handleDelete = async (id) => {
-        const result = await Swal.fire({ title: '¿Eliminar movimiento?', text: 'Esto alterará tu balance.', icon: 'warning', showCancelButton: true });
-        if (result.isConfirmed) await deleteDoc(doc(db, "movimientos", id));
+        const result = await Swal.fire({
+            title: '¿Eliminar movimiento?',
+            text: 'Esto alterará tu balance.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545'
+        });
+        if (result.isConfirmed) {
+            try {
+                await deleteDoc(doc(db, 'movimientos', id));
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error', 'No se pudo eliminar el movimiento.', 'error');
+            }
+        }
     };
 
-    // Exportaciones
     const exportarPDF = () => {
-        if (filtrados.length === 0) return Swal.fire('Aviso', 'No hay datos', 'warning');
+        if (filtrados.length === 0) return Swal.fire('Aviso', 'No hay datos para exportar.', 'warning');
         const docPDF = new jsPDF();
-        docPDF.text("Reporte Contable - MASUCRI", 14, 15);
+        docPDF.text('Reporte Contable - MASUCRI', 14, 15);
         docPDF.autoTable({
-            head: [["Fecha", "Método", "Tipo", "Concepto", "Monto"]],
-            body: filtrados.map(m => [m.fecha, m.metodo_pago || 'Manual', m.tipo.toUpperCase(), m.descripcion, `₡${m.monto.toLocaleString('es-CR')}`]),
+            head: [['Fecha', 'Método', 'Tipo', 'Concepto', 'Monto']],
+            body: filtrados.map((m) => [m.fecha, m.metodo_pago || 'Manual', m.tipo.toUpperCase(), m.descripcion, formatoColones(m.monto)]),
             startY: 28
         });
-        docPDF.save("Finanzas_MASUCRI.pdf");
+        docPDF.save('Finanzas_MASUCRI.pdf');
     };
 
     const exportarExcel = () => {
-        if (filtrados.length === 0) return Swal.fire('Aviso', 'No hay datos', 'warning');
-        const ws = XLSX.utils.json_to_sheet(filtrados.map(m => ({
-            "Fecha": m.fecha, "Método": m.metodo_pago || 'Manual', "Tipo": m.tipo.toUpperCase(),
-            "Concepto": m.descripcion, "Monto": m.monto
-        })));
+        if (filtrados.length === 0) return Swal.fire('Aviso', 'No hay datos para exportar.', 'warning');
+        const ws = XLSX.utils.json_to_sheet(
+            filtrados.map((m) => ({
+                Fecha: m.fecha,
+                Método: m.metodo_pago || 'Manual',
+                Tipo: m.tipo.toUpperCase(),
+                Concepto: m.descripcion,
+                Monto: m.monto
+            }))
+        );
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Datos");
-        XLSX.writeFile(wb, "Finanzas_MASUCRI.xlsx");
+        XLSX.utils.book_append_sheet(wb, ws, 'Datos');
+        XLSX.writeFile(wb, 'Finanzas_MASUCRI.xlsx');
     };
 
     return (
@@ -141,97 +176,117 @@ export default function Finanzas() {
                 </Button>
             </div>
 
-            {/* Tarjetas de Resumen */}
-            <Row className="mb-4">
-                <Col md={4} className="mb-3">
-                    <Card className="text-bg-success shadow-sm text-center h-100 border-0">
-                        <Card.Body><h6>Entradas</h6><h3>₡{totalEntradas.toLocaleString('es-CR')}</h3></Card.Body>
-                    </Card>
-                </Col>
-                <Col md={4} className="mb-3">
-                    <Card className="text-bg-danger shadow-sm text-center h-100 border-0">
-                        <Card.Body><h6>Salidas</h6><h3>₡{totalSalidas.toLocaleString('es-CR')}</h3></Card.Body>
-                    </Card>
-                </Col>
-                <Col md={4} className="mb-3">
-                    <Card className="text-bg-info text-white shadow-sm text-center h-100 border-0">
-                        <Card.Body><h6>Balance Neto</h6><h3>₡{(totalEntradas - totalSalidas).toLocaleString('es-CR')}</h3></Card.Body>
-                    </Card>
-                </Col>
-            </Row>
+            {error ? (
+                <EstadoError texto="No se pudo cargar Caja. Revisa tu conexión." />
+            ) : cargando ? (
+                <EstadoCarga texto="Cargando movimientos..." />
+            ) : (
+                <>
+                    <Row className="mb-4">
+                        <Col md={4} className="mb-3">
+                            <Card className="text-bg-success shadow-sm text-center h-100 border-0">
+                                <Card.Body><h6>Entradas</h6><h3>{formatoColones(totalEntradas)}</h3></Card.Body>
+                            </Card>
+                        </Col>
+                        <Col md={4} className="mb-3">
+                            <Card className="text-bg-danger shadow-sm text-center h-100 border-0">
+                                <Card.Body><h6>Salidas</h6><h3>{formatoColones(totalSalidas)}</h3></Card.Body>
+                            </Card>
+                        </Col>
+                        <Col md={4} className="mb-3">
+                            <Card className="text-bg-info text-white shadow-sm text-center h-100 border-0">
+                                <Card.Body><h6>Balance Neto</h6><h3>{formatoColones(totalEntradas - totalSalidas)}</h3></Card.Body>
+                            </Card>
+                        </Col>
+                    </Row>
 
-            <Row>
-                {/* Panel Lateral: Filtros y Gráfico */}
-                <Col lg={4} className="mb-4">
-                    <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-white fw-bold">Filtros y Resumen</Card.Header>
-                        <Card.Body>
-                            <Form.Select className="mb-3" value={filtroModo} onChange={e => setFiltroModo(e.target.value)}>
-                                <option value="ambos">Ver Todo</option>
-                                <option value="entradas">Solo Entradas</option>
-                                <option value="salidas">Solo Salidas</option>
-                            </Form.Select>
-                            <Form.Control type="date" className="mb-3" value={filtroInicio} onChange={e => setFiltroInicio(e.target.value)} />
-                            <Form.Control type="date" className="mb-4" value={filtroFin} onChange={e => setFiltroFin(e.target.value)} />
+                    {posibleDatosIncompletos && (
+                        <div className="alert alert-warning small">
+                            <i className="fas fa-triangle-exclamation"></i> Solo se consultan los últimos {LIMITE_CONSULTA} movimientos.
+                            Si filtras fechas muy antiguas, los totales podrían no incluir todo el histórico.
+                        </div>
+                    )}
 
-                            <div className="d-flex justify-content-center" style={{ maxHeight: '250px' }}>
-                                {(totalEntradas > 0 || totalSalidas > 0) ? <Doughnut data={chartData} options={{ maintainAspectRatio: false }} /> : <p className="text-muted mt-4">Sin datos para graficar</p>}
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
+                    <Row>
+                        <Col lg={4} className="mb-4">
+                            <Card className="shadow-sm border-0 h-100">
+                                <Card.Header className="bg-white fw-bold">Filtros y Resumen</Card.Header>
+                                <Card.Body>
+                                    <Form.Select className="mb-3" value={filtroModo} onChange={(e) => setFiltroModo(e.target.value)}>
+                                        <option value="ambos">Ver Todo</option>
+                                        <option value="entradas">Solo Entradas</option>
+                                        <option value="salidas">Solo Salidas</option>
+                                    </Form.Select>
+                                    <Form.Control type="date" className="mb-3" value={filtroInicio} onChange={(e) => setFiltroInicio(e.target.value)} aria-label="Fecha inicio" />
+                                    <Form.Control type="date" className="mb-4" value={filtroFin} onChange={(e) => setFiltroFin(e.target.value)} aria-label="Fecha fin" />
 
-                {/* Tabla de Registros */}
-                <Col lg={8} className="mb-4">
-                    <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-white fw-bold d-flex justify-content-between align-items-center">
-                            <span>Libro Diario</span>
-                            <div>
-                                <Button variant="danger" size="sm" className="me-2 px-3" onClick={exportarPDF}><i className="fas fa-file-pdf"></i> PDF</Button>
-                                <Button variant="success" size="sm" className="px-3" onClick={exportarExcel}><i className="fas fa-file-excel"></i> Excel</Button>
-                            </div>
-                        </Card.Header>
-                        <Card.Body className="p-0 table-responsive" style={{ height: '500px', overflowY: 'auto' }}>
-                            <Table hover className="align-middle m-0 text-nowrap">
-                                <thead className="table-light sticky-top shadow-sm">
-                                    <tr>
-                                        <th>Fecha</th>
-                                        <th>Detalle / Método</th>
-                                        <th>Monto</th>
-                                        <th className="text-center">Acciones</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filtrados.length === 0 ? (
-                                        <tr><td colSpan="4" className="text-center py-4 text-muted">No hay registros.</td></tr>
-                                    ) : (
-                                        filtrados.map(m => (
-                                            <tr key={m.id}>
-                                                <td>{m.fecha}</td>
-                                                <td>
-                                                    <strong>{m.descripcion}</strong> <Badge bg="secondary">{m.metodo_pago || 'Manual'}</Badge><br />
-                                                    <small className="text-muted">{m.entidad || ''}</small>
-                                                </td>
-                                                <td className={`fw-bold ${m.tipo === 'entrada' ? 'text-success' : 'text-danger'}`}>
-                                                    ₡{m.monto.toLocaleString('es-CR')}
-                                                </td>
-                                                <td className="text-center">
-                                                    <Button variant="outline-secondary" size="sm" className="me-1" onClick={() => handleOpen(m)}><i className="fas fa-pen"></i></Button>
-                                                    <Button variant="outline-danger" size="sm" onClick={() => handleDelete(m.id)}><i className="fas fa-trash"></i></Button>
-                                                </td>
+                                    <div className="d-flex justify-content-center" style={{ maxHeight: '250px' }}>
+                                        {totalEntradas > 0 || totalSalidas > 0 ? (
+                                            <Doughnut data={chartData} options={{ maintainAspectRatio: false }} />
+                                        ) : (
+                                            <p className="text-muted mt-4">Sin datos para graficar</p>
+                                        )}
+                                    </div>
+                                </Card.Body>
+                            </Card>
+                        </Col>
+
+                        <Col lg={8} className="mb-4">
+                            <Card className="shadow-sm border-0 h-100">
+                                <Card.Header className="bg-white fw-bold d-flex justify-content-between align-items-center">
+                                    <span>Libro Diario</span>
+                                    <div>
+                                        <Button variant="danger" size="sm" className="me-2 px-3" onClick={exportarPDF}><i className="fas fa-file-pdf"></i> PDF</Button>
+                                        <Button variant="success" size="sm" className="px-3" onClick={exportarExcel}><i className="fas fa-file-excel"></i> Excel</Button>
+                                    </div>
+                                </Card.Header>
+                                <Card.Body className="p-0 table-responsive" style={{ height: '500px', overflowY: 'auto' }}>
+                                    <Table hover className="align-middle m-0 text-nowrap">
+                                        <thead className="table-light sticky-top shadow-sm">
+                                            <tr>
+                                                <th>Fecha</th>
+                                                <th>Detalle / Método</th>
+                                                <th>Monto</th>
+                                                <th className="text-center">Acciones</th>
                                             </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </Table>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
+                                        </thead>
+                                        <tbody>
+                                            {filtrados.length === 0 ? (
+                                                <tr><td colSpan="4" className="text-center py-4 text-muted">No hay registros.</td></tr>
+                                            ) : (
+                                                filtrados.map((m) => (
+                                                    <tr key={m.id}>
+                                                        <td>{m.fecha}</td>
+                                                        <td>
+                                                            <strong>{m.descripcion}</strong> <Badge bg="secondary">{m.metodo_pago || 'Manual'}</Badge><br />
+                                                            <small className="text-muted">{m.entidad || ''}</small>
+                                                        </td>
+                                                        <td className={`fw-bold ${m.tipo === 'entrada' ? 'text-success' : 'text-danger'}`}>
+                                                            {formatoColones(m.monto)}
+                                                        </td>
+                                                        <td className="text-center">
+                                                            <Button variant="outline-secondary" size="sm" className="me-1" onClick={() => handleOpen(m)} aria-label="Editar movimiento">
+                                                                <i className="fas fa-pen"></i>
+                                                            </Button>
+                                                            <Button variant="outline-danger" size="sm" onClick={() => handleDelete(m.id)} aria-label="Eliminar movimiento">
+                                                                <i className="fas fa-trash"></i>
+                                                            </Button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </Table>
+                                </Card.Body>
+                            </Card>
+                        </Col>
+                    </Row>
+                </>
+            )}
 
             {/* MODAL DE REGISTRO / EDICIÓN */}
             <Modal show={showModal} onHide={handleClose} backdrop="static">
-                <Modal.Header closeButton className={tipo === 'entrada' ? 'bg-success text-white' : 'bg-danger text-white'}>
+                <Modal.Header closeButton className={form.tipo === 'entrada' ? 'bg-success text-white' : 'bg-danger text-white'}>
                     <Modal.Title className="fw-bold"><i className="fas fa-cash-register"></i> {editId ? 'Editar' : 'Registrar'} Movimiento</Modal.Title>
                 </Modal.Header>
                 <Modal.Body>
@@ -239,19 +294,19 @@ export default function Finanzas() {
                         <Row className="mb-3">
                             <Col md={6}>
                                 <Form.Label className="fw-bold">Tipo</Form.Label>
-                                <Form.Select value={tipo} onChange={e => setTipo(e.target.value)}>
+                                <Form.Select value={form.tipo} onChange={actualizar('tipo')}>
                                     <option value="entrada">Entrada (Ingreso)</option>
                                     <option value="salida">Salida (Gasto)</option>
                                 </Form.Select>
                             </Col>
                             <Col md={6}>
                                 <Form.Label className="fw-bold">Fecha</Form.Label>
-                                <Form.Control type="date" required value={fecha} onChange={e => setFecha(e.target.value)} />
+                                <Form.Control type="date" required value={form.fecha} onChange={actualizar('fecha')} />
                             </Col>
                         </Row>
                         <Form.Group className="mb-3">
                             <Form.Label className="fw-bold">Método de Pago</Form.Label>
-                            <Form.Select value={metodoPago} onChange={e => setMetodoPago(e.target.value)}>
+                            <Form.Select value={form.metodoPago} onChange={actualizar('metodoPago')}>
                                 <option value="Efectivo">Efectivo</option>
                                 <option value="Sinpe Móvil">Sinpe Móvil</option>
                                 <option value="Transferencia">Transferencia</option>
@@ -259,20 +314,20 @@ export default function Finanzas() {
                         </Form.Group>
                         <Form.Group className="mb-3">
                             <Form.Label className="fw-bold">Concepto</Form.Label>
-                            <Form.Control type="text" required placeholder="Ej: Compra de tintas" value={descripcion} onChange={e => setDescripcion(e.target.value)} />
+                            <Form.Control required type="text" placeholder="Ej: Compra de tintas" value={form.descripcion} onChange={actualizar('descripcion')} />
                         </Form.Group>
                         <Row className="mb-4">
                             <Col md={6}>
                                 <Form.Label className="fw-bold">Entidad (Opcional)</Form.Label>
-                                <Form.Control type="text" placeholder="Ej: Ubora" value={entidad} onChange={e => setEntidad(e.target.value)} />
+                                <Form.Control type="text" placeholder="Ej: Ubora" value={form.entidad} onChange={actualizar('entidad')} />
                             </Col>
                             <Col md={6}>
                                 <Form.Label className="fw-bold">Monto (₡)</Form.Label>
-                                <Form.Control type="number" step="0.01" min="1" required value={monto} onChange={e => setMonto(e.target.value)} />
+                                <Form.Control type="number" step="0.01" min="1" required value={form.monto} onChange={actualizar('monto')} />
                             </Col>
                         </Row>
-                        <Button type="submit" variant={tipo === 'entrada' ? 'success' : 'danger'} className="w-100 fw-bold shadow-sm">
-                            Guardar en Caja
+                        <Button type="submit" variant={form.tipo === 'entrada' ? 'success' : 'danger'} className="w-100 fw-bold shadow-sm" disabled={guardando}>
+                            {guardando ? 'Guardando...' : 'Guardar en Caja'}
                         </Button>
                     </Form>
                 </Modal.Body>
