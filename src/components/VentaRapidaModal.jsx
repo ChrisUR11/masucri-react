@@ -3,6 +3,7 @@ import { Modal, Form, Button, Row, Col, InputGroup } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import { registrarVentaRapida } from '../utils/ventaRapida';
 import { formatoColones, aNumeroSeguro } from '../utils/formato';
+import { seleccionarContacto, soportaSelectorContactos } from '../utils/contactos';
 
 const ESTADO_INICIAL = { cliente: '', telefono: '', producto: '', precio: '', pagado: '', metodo: 'Efectivo' };
 
@@ -16,6 +17,13 @@ export default function VentaRapidaModal({ show, onHide }) {
     const [guardando, setGuardando] = useState(false);
 
     const actualizar = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }));
+
+    const handleSeleccionarContacto = async () => {
+        const resultado = await seleccionarContacto();
+        if (!resultado) return;
+        if (resultado.telefono) setForm((f) => ({ ...f, telefono: resultado.telefono }));
+        if (resultado.nombre && !form.cliente) setForm((f) => ({ ...f, cliente: resultado.nombre }));
+    };
 
     const { precioNum, saldo } = useMemo(() => {
         const p = aNumeroSeguro(form.precio);
@@ -65,6 +73,11 @@ export default function VentaRapidaModal({ show, onHide }) {
                         <InputGroup>
                             <InputGroup.Text className="bg-light"><i className="fab fa-whatsapp text-muted"></i></InputGroup.Text>
                             <Form.Control type="text" placeholder="Ej: 8888-8888" value={form.telefono} onChange={actualizar('telefono')} />
+                            {soportaSelectorContactos() && (
+                                <Button variant="outline-secondary" onClick={handleSeleccionarContacto} aria-label="Elegir de contactos">
+                                    <i className="fas fa-address-book"></i>
+                                </Button>
+                            )}
                         </InputGroup>
                     </Form.Group>
 

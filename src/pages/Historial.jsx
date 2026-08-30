@@ -22,6 +22,7 @@ export default function Historial() {
 
     const [showModal, setShowModal] = useState(false);
     const [pedidoActivo, setPedidoActivo] = useState(null);
+    const [procesando, setProcesando] = useState(false);
 
     const filtroTextoDebounced = useDebounce(filtroTexto, 250);
 
@@ -56,7 +57,8 @@ export default function Historial() {
     const handleImprimirTicket = () => window.print();
 
     const handleRevertir = async () => {
-        if (!pedidoActivoActualizado) return;
+        if (!pedidoActivoActualizado || procesando) return;
+        setProcesando(true);
         try {
             await updateDoc(doc(db, 'pedidos', pedidoActivoActualizado.id), { estado: 'Pendiente' });
             setShowModal(false);
@@ -64,11 +66,13 @@ export default function Historial() {
         } catch (error) {
             console.error(error);
             Swal.fire('Error', 'No se pudo revertir', 'error');
+        } finally {
+            setProcesando(false);
         }
     };
 
     const handleBorrar = async () => {
-        if (!pedidoActivoActualizado) return;
+        if (!pedidoActivoActualizado || procesando) return;
         const result = await Swal.fire({
             title: '¿Borrar definitivo?',
             text: 'Se eliminará el registro permanentemente.',
@@ -77,6 +81,7 @@ export default function Historial() {
             confirmButtonColor: '#dc3545'
         });
         if (result.isConfirmed) {
+            setProcesando(true);
             try {
                 await deleteDoc(doc(db, 'pedidos', pedidoActivoActualizado.id));
                 setShowModal(false);
@@ -84,14 +89,21 @@ export default function Historial() {
             } catch (err) {
                 console.error(err);
                 Swal.fire('Error', 'No se pudo borrar el registro.', 'error');
+            } finally {
+                setProcesando(false);
             }
         }
     };
 
     const handleAbonar = async () => {
-        if (!pedidoActivoActualizado) return;
-        const registrado = await registrarAbono(pedidoActivoActualizado);
-        if (registrado) setShowModal(false);
+        if (!pedidoActivoActualizado || procesando) return;
+        setProcesando(true);
+        try {
+            const registrado = await registrarAbono(pedidoActivoActualizado);
+            if (registrado) setShowModal(false);
+        } finally {
+            setProcesando(false);
+        }
     };
 
     return (
@@ -190,18 +202,18 @@ export default function Historial() {
                     </Modal.Body>
                 )}
                 <Modal.Footer className="justify-content-center bg-white border-top-0 pt-3 gap-2 flex-wrap">
-                    <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleImprimirTicket}>
+                    <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleImprimirTicket} disabled={procesando}>
                         <i className="fas fa-receipt"></i> Ticket
                     </Button>
                     {pedidoActivoActualizado && (pedidoActivoActualizado.precio || 0) - (pedidoActivoActualizado.monto_pagado || 0) > 0 && (
-                        <Button variant="outline-primary" className="fw-bold flex-grow-1" onClick={handleAbonar}>
+                        <Button variant="outline-primary" className="fw-bold flex-grow-1" onClick={handleAbonar} disabled={procesando}>
                             <i className="fas fa-coins"></i> Abonar
                         </Button>
                     )}
-                    <Button variant="dark" className="fw-bold flex-grow-1" onClick={handleRevertir}>
+                    <Button variant="dark" className="fw-bold flex-grow-1" onClick={handleRevertir} disabled={procesando}>
                         <i className="fas fa-undo"></i> Revertir a Pendiente
                     </Button>
-                    <Button variant="outline-danger" onClick={handleBorrar} aria-label="Borrar registro definitivamente">
+                    <Button variant="outline-danger" onClick={handleBorrar} disabled={procesando} aria-label="Borrar registro definitivamente">
                         <i className="fas fa-trash"></i>
                     </Button>
                 </Modal.Footer>

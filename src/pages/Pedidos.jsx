@@ -11,6 +11,7 @@ import FichaPedidoDetalle from '../components/FichaPedidoDetalle';
 import VentaRapidaModal from '../components/VentaRapidaModal';
 import { registrarAbono } from '../utils/abonoPedido';
 import { abrirWhatsApp, mensajePedido } from '../utils/whatsapp';
+import { seleccionarContacto, soportaSelectorContactos } from '../utils/contactos';
 import { obtenerFechaLocal, diasHastaEntrega, formatearFechaCorta } from '../utils/fecha';
 import { formatoColones, aNumeroSeguro } from '../utils/formato';
 
@@ -66,25 +67,11 @@ export default function Pedidos() {
     const actualizarForm = (campo) => (e) => setFormPedido((f) => ({ ...f, [campo]: e.target.value }));
 
     // --- API Contactos ---
-    const handleSeleccionarContacto = async (setTelefonoFn, setClienteFn, clienteActual) => {
-        if ('contacts' in navigator && 'ContactsManager' in window) {
-            try {
-                const contactos = await navigator.contacts.select(['name', 'tel'], { multiple: false });
-                if (contactos.length > 0) {
-                    const contacto = contactos[0];
-                    if (contacto.tel?.length > 0) {
-                        let num = contacto.tel[0].replace(/[\s-]/g, '');
-                        if (num.startsWith('+506')) num = num.substring(4);
-                        setTelefonoFn(num);
-                    }
-                    if (contacto.name?.length > 0 && !clienteActual) setClienteFn(contacto.name[0]);
-                }
-            } catch (ex) {
-                console.log('Selección de contacto cancelada.');
-            }
-        } else {
-            Swal.fire('Aviso', 'Tu dispositivo no soporta la extracción de contactos.', 'info');
-        }
+    const handleSeleccionarContacto = async () => {
+        const resultado = await seleccionarContacto();
+        if (!resultado) return;
+        if (resultado.telefono) setFormPedido((f) => ({ ...f, telefono: resultado.telefono }));
+        if (resultado.nombre && !formPedido.cliente) setFormPedido((f) => ({ ...f, cliente: resultado.nombre }));
     };
 
     // --- Drag & Drop ---
@@ -403,10 +390,10 @@ export default function Pedidos() {
                             <InputGroup>
                                 <InputGroup.Text className="bg-light"><i className="fab fa-whatsapp text-muted"></i></InputGroup.Text>
                                 <Form.Control type="text" placeholder="Ej: 8888-8888" value={formPedido.telefono} onChange={actualizarForm('telefono')} />
-                                {'contacts' in navigator && (
+                                {soportaSelectorContactos() && (
                                     <Button
                                         variant="outline-secondary"
-                                        onClick={() => handleSeleccionarContacto((v) => setFormPedido((f) => ({ ...f, telefono: v })), (v) => setFormPedido((f) => ({ ...f, cliente: v })), formPedido.cliente)}
+                                        onClick={handleSeleccionarContacto}
                                         aria-label="Elegir de contactos"
                                     >
                                         <i className="fas fa-address-book"></i>
