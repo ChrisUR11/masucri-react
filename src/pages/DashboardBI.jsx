@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Container, Row, Col, Card, ProgressBar, Badge, ListGroup } from 'react-bootstrap';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -6,8 +6,10 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearSca
 import { Doughnut, Bar, Pie } from 'react-chartjs-2';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
+import SelectorRango, { calcularRangoPreset } from '../components/SelectorRango';
 import { calcularMetricas } from '../utils/metricasNegocio';
 import { formatoColones, formatoNumero } from '../utils/formato';
+import { formatoFechaLegible } from '../utils/fecha';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -42,7 +44,16 @@ export default function DashboardBI() {
     const cargando = cargandoPedidos || cargandoMovs;
     const error = errorPedidos || errorMovs;
 
-    const m = useMemo(() => calcularMetricas(pedidos, movimientos), [pedidos, movimientos]);
+    // Por defecto, al entrar, se ve "Mes actual" — el mismo comportamiento de siempre.
+    const [preset, setPreset] = useState('mes_actual');
+    const [rango, setRango] = useState(() => calcularRangoPreset('mes_actual'));
+
+    const cambiarPreset = (nuevoPreset) => {
+        setPreset(nuevoPreset);
+        if (nuevoPreset !== 'personalizado') setRango(calcularRangoPreset(nuevoPreset));
+    };
+
+    const m = useMemo(() => calcularMetricas(pedidos, movimientos, rango), [pedidos, movimientos, rango]);
 
     if (error) {
         return (
@@ -70,12 +81,20 @@ export default function DashboardBI() {
                 </small>
             </div>
 
+            {/* SELECTOR DE PERÍODO */}
+            <Card className="border-0 shadow-sm mb-3">
+                <Card.Body className="py-3">
+                    <SelectorRango preset={preset} setPreset={cambiarPreset} rango={rango} setRango={setRango} />
+                </Card.Body>
+            </Card>
+
             {/* UTILIDAD NETA */}
             <Card className={`border-${m.utilidad >= 0 ? 'success' : 'danger'} mb-4 shadow-sm text-center`}>
                 <Card.Body>
-                    <h6 className={`text-${m.utilidad >= 0 ? 'success' : 'danger'} fw-bold`}>Utilidad Neta (Mes Actual)</h6>
+                    <h6 className={`text-${m.utilidad >= 0 ? 'success' : 'danger'} fw-bold`}>Utilidad Neta</h6>
                     <h1 className={`fw-bold text-${m.utilidad >= 0 ? 'success' : 'danger'}`}>{formatoColones(m.utilidad)}</h1>
-                    <small className="text-muted">Ingresos: {formatoColones(m.ingresosMes)} | Gastos: {formatoColones(m.gastosMes)}</small>
+                    <small className="text-muted d-block">Ingresos: {formatoColones(m.ingresosPeriodo)} | Gastos: {formatoColones(m.gastosPeriodo)}</small>
+                    <small className="text-muted">{formatoFechaLegible(rango.inicio)} — {formatoFechaLegible(rango.fin)}</small>
                 </Card.Body>
             </Card>
 
@@ -83,7 +102,7 @@ export default function DashboardBI() {
             <Row className="mb-4">
                 <Col md={6} className="mb-3 mb-md-0">
                     <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-white fw-bold">Top 5 Clientes Históricos</Card.Header>
+                        <Card.Header className="bg-white fw-bold">Top 5 Clientes <small className="text-muted fw-normal">(histórico)</small></Card.Header>
                         {m.topClientes.length === 0 ? (
                             <Card.Body className="text-muted small">Aún no hay clientes registrados.</Card.Body>
                         ) : (
@@ -105,7 +124,7 @@ export default function DashboardBI() {
                 </Col>
                 <Col md={6}>
                     <Card className="shadow-sm border-0 h-100 text-center">
-                        <Card.Header className="bg-white fw-bold">Análisis de Riesgo y Volatilidad</Card.Header>
+                        <Card.Header className="bg-white fw-bold">Análisis de Riesgo y Volatilidad <small className="text-muted fw-normal">(histórico)</small></Card.Header>
                         <Card.Body className="d-flex flex-column justify-content-center align-items-center">
                             <Badge bg={m.volColor} className="w-100 py-2 fs-6 mb-3 border shadow-sm">{m.volStatus}</Badge>
                             {m.hasVol ? (
@@ -128,22 +147,22 @@ export default function DashboardBI() {
             <Row className="mb-4">
                 <Col lg={4} className="mb-3 mb-lg-0">
                     <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-white fw-bold text-center border-0">Retención vs Cancelación</Card.Header>
+                        <Card.Header className="bg-white fw-bold text-center border-0">Retención vs Cancelación <small className="text-muted fw-normal">(período)</small></Card.Header>
                         <Card.Body style={{ height: '200px' }} className="d-flex justify-content-center">
-                            {m.entregados + m.anulados > 0 ? (
+                            {m.entregadosPeriodo + m.anuladosPeriodo > 0 ? (
                                 <Pie
-                                    data={{ labels: ['Éxito (Entregados)', 'Anulados'], datasets: [{ data: [m.entregados, m.anulados], backgroundColor: ['#198754', '#dc3545'] }] }}
+                                    data={{ labels: ['Éxito (Entregados)', 'Anulados'], datasets: [{ data: [m.entregadosPeriodo, m.anuladosPeriodo], backgroundColor: ['#198754', '#dc3545'] }] }}
                                     options={{ maintainAspectRatio: false }}
                                 />
                             ) : (
-                                <p className="text-muted align-self-center">Sin datos suficientes.</p>
+                                <p className="text-muted align-self-center">Sin datos en este período.</p>
                             )}
                         </Card.Body>
                     </Card>
                 </Col>
                 <Col lg={4} className="mb-3 mb-lg-0">
                     <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-white fw-bold text-center border-0">Productos más vendidos</Card.Header>
+                        <Card.Header className="bg-white fw-bold text-center border-0">Productos más vendidos <small className="text-muted fw-normal">(período)</small></Card.Header>
                         <Card.Body style={{ height: '200px' }}>
                             {Object.keys(m.catProductos).length > 0 ? (
                                 <Bar
@@ -158,7 +177,7 @@ export default function DashboardBI() {
                 </Col>
                 <Col lg={4}>
                     <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-white fw-bold text-center border-0">Fuga de Capital (Gastos)</Card.Header>
+                        <Card.Header className="bg-white fw-bold text-center border-0">Fuga de Capital (Gastos) <small className="text-muted fw-normal">(período)</small></Card.Header>
                         <Card.Body style={{ height: '200px' }} className="d-flex justify-content-center">
                             {Object.keys(m.gastosAgrupados).length > 0 ? (
                                 <Doughnut
@@ -180,7 +199,7 @@ export default function DashboardBI() {
             <Row className="mb-4">
                 <Col md={6} className="mb-3 mb-md-0">
                     <Card className="shadow-sm border-0">
-                        <Card.Header className="bg-danger text-white fw-bold"><i className="fas fa-fire"></i> Top 3 Fugas de Capital (Lugares)</Card.Header>
+                        <Card.Header className="bg-danger text-white fw-bold"><i className="fas fa-fire"></i> Top 3 Fugas de Capital (Lugares, período)</Card.Header>
                         {m.topGastos.length === 0 ? (
                             <Card.Body className="text-muted small">Sin gastos registrados aún.</Card.Body>
                         ) : (
@@ -197,7 +216,7 @@ export default function DashboardBI() {
                 </Col>
                 <Col md={6}>
                     <Card className="shadow-sm border-0">
-                        <Card.Header className="bg-primary text-white fw-bold"><i className="fas fa-star"></i> Top 5 Productos Más Pedidos</Card.Header>
+                        <Card.Header className="bg-primary text-white fw-bold"><i className="fas fa-star"></i> Top 5 Productos Más Pedidos (período)</Card.Header>
                         {m.topProd.length === 0 ? (
                             <Card.Body className="text-muted small">Sin pedidos registrados aún.</Card.Body>
                         ) : (
@@ -218,13 +237,13 @@ export default function DashboardBI() {
             <Row className="mb-4">
                 <Col md={6} className="mb-3 mb-md-0">
                     <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-success text-white fw-bold"><i className="fas fa-arrow-down"></i> Ingresos por Método de Pago</Card.Header>
+                        <Card.Header className="bg-success text-white fw-bold"><i className="fas fa-arrow-down"></i> Ingresos por Método de Pago (período)</Card.Header>
                         <div className="pt-3"><ListaProgreso dataObj={m.entradasPorMetodo} total={m.totalEntradas} colorCls="success" /></div>
                     </Card>
                 </Col>
                 <Col md={6}>
                     <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-danger text-white fw-bold"><i className="fas fa-arrow-up"></i> Gastos por Método de Pago</Card.Header>
+                        <Card.Header className="bg-danger text-white fw-bold"><i className="fas fa-arrow-up"></i> Gastos por Método de Pago (período)</Card.Header>
                         <div className="pt-3"><ListaProgreso dataObj={m.salidasPorMetodo} total={m.totalSalidas} colorCls="danger" /></div>
                     </Card>
                 </Col>
@@ -232,7 +251,7 @@ export default function DashboardBI() {
 
             {/* FILA 5: RADIOGRAFÍA */}
             <Card className="shadow-sm border-0 mb-4">
-                <Card.Header className="bg-dark text-white fw-bold"><i className="fas fa-microscope"></i> Radiografía del Negocio</Card.Header>
+                <Card.Header className="bg-dark text-white fw-bold"><i className="fas fa-microscope"></i> Radiografía del Negocio <small className="text-white-50 fw-normal">(histórico)</small></Card.Header>
                 <Card.Body>
                     <Row>
                         <Col md={6} className="border-end mb-3 mb-md-0">

@@ -1,4 +1,4 @@
-import { obtenerMesActual, obtenerMesDeFecha } from './fecha';
+import { obtenerMesDeFecha } from './fecha';
 
 const GASTOS_AGRUPADOS_BASE = {
     'Telas y Costura': 0,
@@ -39,43 +39,57 @@ function estadisticasBasicas(valores) {
     return { media, desviacion };
 }
 
+/** true si la fecha (YYYY-MM-DD) cae dentro del rango [inicio, fin], ambos inclusive. */
+function dentroDeRango(fecha, rango) {
+    if (!fecha) return false;
+    if (rango.inicio && fecha < rango.inicio) return false;
+    if (rango.fin && fecha > rango.fin) return false;
+    return true;
+}
+
 /**
  * Calcula todas las métricas del Dashboard BI a partir de pedidos y movimientos.
- * Extraído de DashboardBI.jsx para que el componente se enfoque en render,
- * y para poder probar esta lógica de forma aislada si hace falta.
+ *
+ * Hay dos tipos de métricas:
+ * - "Del período": responden a "¿cómo me fue en [rango elegido]?" (utilidad,
+ *   gastos, productos más vendidos, métodos de pago). Se recalculan según
+ *   el `rango` que se les pase.
+ * - "Históricas": tienen sentido solo mirando todo el negocio de una vez
+ *   (mejores clientes de siempre, qué tan estables son los ingresos mes a
+ *   mes, quién debe más dinero ahora mismo). Estas siempre usan todos los
+ *   datos, sin importar el rango seleccionado — filtrarlas le quitaría el
+ *   sentido (ej. "mejor cliente histórico" solo del mes pasado no dice mucho).
+ *
+ * @param {object} rango - { inicio: 'YYYY-MM-DD'|null, fin: 'YYYY-MM-DD'|null }
  */
-export function calcularMetricas(pedidos, movimientos) {
-    const mesActual = obtenerMesActual();
-
+export function calcularMetricas(pedidos, movimientos, rango = {}) {
     const todasLasFechas = [...pedidos.map((p) => p.fecha_solicitud), ...movimientos.map((m) => m.fecha)].filter(Boolean).sort();
     const minFecha = todasLasFechas[0] || 'N/A';
     const maxFecha = todasLasFechas[todasLasFechas.length - 1] || 'N/A';
 
-    // --- Finanzas ---
-    let ingresosMes = 0;
-    let gastosMes = 0;
+    const movimientosPeriodo = movimientos.filter((m) => dentroDeRango(m.fecha, rango));
+    const pedidosPeriodo = pedidos.filter((p) => dentroDeRango(p.fecha_solicitud, rango));
+
+    // ========== MÉTRICAS DEL PERÍODO SELECCIONADO ==========
+    let ingresosPeriodo = 0;
+    let gastosPeriodo = 0;
     const entradasPorMetodo = {};
     const salidasPorMetodo = {};
     let totalEntradas = 0;
     let totalSalidas = 0;
     const gastosMap = {};
-    const ingresosPorMes = {};
     const gastosAgrupados = { ...GASTOS_AGRUPADOS_BASE };
 
-    movimientos.forEach((m) => {
+    movimientosPeriodo.forEach((m) => {
         const monto = m.monto || 0;
-        const mesMov = obtenerMesDeFecha(m.fecha);
-        if (m.fecha && mesMov === mesActual) {
-            if (m.tipo === 'entrada') ingresosMes += monto;
-            else gastosMes += monto;
-        }
-
         const metodo = m.metodo_pago || 'Desconocido';
+
         if (m.tipo === 'entrada') {
+            ingresosPeriodo += monto;
             entradasPorMetodo[metodo] = (entradasPorMetodo[metodo] || 0) + monto;
             totalEntradas += monto;
-            if (mesMov) ingresosPorMes[mesMov] = (ingresosPorMes[mesMov] || 0) + monto;
         } else {
+            gastosPeriodo += monto;
             salidasPorMetodo[metodo] = (salidasPorMetodo[metodo] || 0) + monto;
             totalSalidas += monto;
 
@@ -94,45 +108,64 @@ export function calcularMetricas(pedidos, movimientos) {
             gastosAgrupados[categoria] += monto;
         }
     });
+    Object.keys(gastosAgrupados).forEach((k) => { if (gastosAgrupados[k] === 0) delete gastosAgrupados[k]; });
 
-    // --- Pedidos ---
-    const prodMap = {};
-    const crmMap = {};
+    const prodMapPeriodo = {};
     const catProductos = {};
-    let anulados = 0;
-    let entregados = 0;
+    let entregadosPeriodo = 0;
+    let anuladosPeriodo = 0;
+
+    pedidosPeriodo.forEach((p) => {
+        if (p.estado === 'Cancelado') {
+            anuladosPeriodo++;
+            return;
+        }
+        if (p.estado === 'Entregado') entregadosPeriodo++;
+
+        if (p.producto) {
+            const nombre = p.producto.trim().toUpperCase();
+            prodMapPeriodo[nombre] = (prodMapPeriodo[nombre] || 0) + 1;
+            catProductos[categorizarProducto(nombre)] = (catProductos[categorizarProducto(nombre)] || 0) + 1;
+        }
+    });
+
+    // ========== MÉTRICAS HISTÓRICAS (todo el tiempo, ignoran el rango) ==========
+    const crmMap = {};
+    const ingresosPorMes = {};
+    const pedidosPorMes = {};
+    let anuladosHist = 0;
+    let entregadosHist = 0;
     let pagados100 = 0;
     let conDeuda = 0;
     const deudores = [];
-    const pedidosPorMes = {};
-    let totalTrabajos = 0;
+    let totalTrabajosHist = 0;
+
+    movimientos.forEach((m) => {
+        if (m.tipo === 'entrada') {
+            const mesMov = obtenerMesDeFecha(m.fecha);
+            if (mesMov) ingresosPorMes[mesMov] = (ingresosPorMes[mesMov] || 0) + (m.monto || 0);
+        }
+    });
 
     pedidos.forEach((p) => {
         if (p.estado === 'Cancelado') {
-            anulados++;
+            anuladosHist++;
             return;
         }
 
-        totalTrabajos++;
+        totalTrabajosHist++;
         const mesPed = obtenerMesDeFecha(p.fecha_solicitud);
         if (mesPed) pedidosPorMes[mesPed] = (pedidosPorMes[mesPed] || 0) + 1;
 
         const deuda = (p.precio || 0) - (p.monto_pagado || 0);
         if (p.estado === 'Entregado') {
-            entregados++;
+            entregadosHist++;
             if (deuda > 0) {
                 conDeuda++;
                 deudores.push({ cliente: p.cliente, debe: deuda });
             } else {
                 pagados100++;
             }
-        }
-
-        if (p.producto) {
-            const nombre = p.producto.trim().toUpperCase();
-            prodMap[nombre] = (prodMap[nombre] || 0) + 1;
-            const categoria = categorizarProducto(nombre);
-            catProductos[categoria] = (catProductos[categoria] || 0) + 1;
         }
 
         if (p.cliente) {
@@ -146,7 +179,7 @@ export function calcularMetricas(pedidos, movimientos) {
         }
     });
 
-    // --- Volatilidad de ingresos ---
+    // --- Volatilidad de ingresos (necesita historial completo para comparar meses) ---
     const valsIngresos = Object.values(ingresosPorMes);
     const { media: volMedia, desviacion: volDesv } = estadisticasBasicas(valsIngresos);
     const hasVol = valsIngresos.length >= 2;
@@ -163,25 +196,28 @@ export function calcularMetricas(pedidos, movimientos) {
         else { volStatus = 'Ingresos Estables'; volColor = 'success'; volMsg = 'Ventas predecibles.'; }
     }
 
-    // --- Estadísticas de trabajo ---
     const valsPedidos = Object.values(pedidosPorMes);
     const { media: pedMedia, desviacion: pedDesv } = estadisticasBasicas(valsPedidos);
-    const totalConsiderado = totalTrabajos + anulados;
-    const tasaCanc = totalConsiderado > 0 ? ((anulados / totalConsiderado) * 100).toFixed(1) : '0.0';
-
-    Object.keys(gastosAgrupados).forEach((k) => { if (gastosAgrupados[k] === 0) delete gastosAgrupados[k]; });
+    const totalConsiderado = totalTrabajosHist + anuladosHist;
+    const tasaCanc = totalConsiderado > 0 ? ((anuladosHist / totalConsiderado) * 100).toFixed(1) : '0.0';
 
     deudores.sort((a, b) => b.debe - a.debe);
 
     return {
         minFecha, maxFecha,
-        utilidad: ingresosMes - gastosMes, ingresosMes, gastosMes,
+
+        // --- del período seleccionado ---
+        utilidad: ingresosPeriodo - gastosPeriodo, ingresosPeriodo, gastosPeriodo,
         entradasPorMetodo, salidasPorMetodo, totalEntradas, totalSalidas,
         topGastos: Object.entries(gastosMap).sort((a, b) => b[1] - a[1]).slice(0, 3),
-        topProd: Object.entries(prodMap).sort((a, b) => b[1] - a[1]).slice(0, 5),
+        topProd: Object.entries(prodMapPeriodo).sort((a, b) => b[1] - a[1]).slice(0, 5),
+        catProductos, gastosAgrupados,
+        entregadosPeriodo, anuladosPeriodo,
+
+        // --- históricas (todo el negocio, sin filtrar) ---
         topClientes: Object.entries(crmMap).sort((a, b) => b[1].monto - a[1].monto).slice(0, 5),
         volMedia, volDesv, volStatus, volColor, volMsg, hasVol,
-        catProductos, gastosAgrupados, entregados, anulados, pagados100, conDeuda,
-        pedMedia, pedDesv, tasaCanc, mayorDeudor: deudores[0] || null
+        pagados100, conDeuda, pedMedia, pedDesv, tasaCanc,
+        mayorDeudor: deudores[0] || null
     };
 }

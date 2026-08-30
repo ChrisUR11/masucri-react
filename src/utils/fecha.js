@@ -19,6 +19,40 @@ export const obtenerMesDeFecha = (fechaISO) => (fechaISO ? fechaISO.substring(0,
 /** Formato corto "MM-DD" para tarjetas donde no hay espacio (Kanban). */
 export const formatearFechaCorta = (fechaISO) => (fechaISO ? fechaISO.slice(5) : 'S/F');
 
+/** Convierte YYYY-MM-DD a DD/MM/YYYY para mostrarlo de forma legible. */
+export const formatoFechaLegible = (fechaISO) => {
+    if (!fechaISO) return '';
+    const [y, m, d] = fechaISO.split('-');
+    return `${d}/${m}/${y}`;
+};
+
+/** Devuelve el primer día del mes de la fecha dada, en formato YYYY-MM-DD. */
+export const primerDiaMes = (fechaBase = new Date()) => {
+    const d = new Date(fechaBase);
+    d.setDate(1);
+    return obtenerFechaLocal(d);
+};
+
+/** Devuelve el último día del mes de la fecha dada, en formato YYYY-MM-DD. */
+export const ultimoDiaMes = (fechaBase = new Date()) => {
+    const d = new Date(fechaBase);
+    d.setMonth(d.getMonth() + 1, 0);
+    return obtenerFechaLocal(d);
+};
+
+/** Resta N días a hoy (o a la fecha dada) y devuelve YYYY-MM-DD. */
+export const restarDias = (dias, fechaBase = new Date()) => {
+    const d = new Date(fechaBase);
+    d.setDate(d.getDate() - dias);
+    return obtenerFechaLocal(d);
+};
+
+/** Primer día del año en curso, en formato YYYY-MM-DD. */
+export const primerDiaAnio = (fechaBase = new Date()) => {
+    const d = new Date(fechaBase);
+    d.setMonth(0, 1);
+    return obtenerFechaLocal(d);
+};
 /**
  * Calcula cuántos días faltan (o pasaron) para una fecha de entrega.
  * Positivo = faltan días, negativo = ya venció, 0 = hoy.

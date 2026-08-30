@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
 import { Container, Card, Table, Button, Modal, Form, Row, Col, Badge } from 'react-bootstrap';
-import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, doc, limit } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, doc, limit, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import Swal from 'sweetalert2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
@@ -32,6 +32,7 @@ export default function Finanzas() {
     const [editId, setEditId] = useState(null);
     const [form, setForm] = useState(FORM_VACIO);
     const [guardando, setGuardando] = useState(false);
+    const [generandoRespaldo, setGenerandoRespaldo] = useState(false);
 
     const actualizar = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }));
 
@@ -139,42 +140,143 @@ export default function Finanzas() {
         }
     };
 
+    /**
+     * Descarga TODO el negocio (pedidos, movimientos y catálogo completos —
+     * no solo lo que se ve filtrado en pantalla ni los últimos 200
+     * movimientos) en un solo Excel con 3 pestañas. Es una red de seguridad
+     * manual: si algo se borra por error, queda esta copia.
+     */
+    const handleRespaldoCompleto = async () => {
+        setGenerandoRespaldo(true);
+        try {
+            const [pedidosSnap, productosSnap, movimientosSnap] = await Promise.all([
+                getDocs(collection(db, 'pedidos')),
+                getDocs(collection(db, 'productos')),
+                getDocs(collection(db, 'movimientos'))
+            ]);
+
+            const pedidos = pedidosSnap.docs.map((d) => d.data());
+            const productos = productosSnap.docs.map((d) => d.data());
+            const todosMovimientos = movimientosSnap.docs.map((d) => d.data());
+
+            const wb = XLSX.utils.book_new();
+
+            XLSX.utils.book_append_sheet(
+                wb,
+                XLSX.utils.json_to_sheet(
+                    pedidos.map((p) => ({
+                        Cliente: p.cliente,
+                        Teléfono: p.telefono,
+                        Producto: p.producto,
+                        Descripción: p.descripcion,
+                        Precio: p.precio || 0,
+                        Pagado: p.monto_pagado || 0,
+                        Estado: p.estado,
+                        'Fecha Solicitud': p.fecha_solicitud,
+                        'Fecha Entrega': p.fecha_entrega,
+                        'Fecha Cierre': p.fecha_cierre
+                    }))
+                ),
+                'Pedidos'
+            );
+
+            XLSX.utils.book_append_sheet(
+                wb,
+                XLSX.utils.json_to_sheet(
+                    todosMovimientos.map((m) => ({
+                        Fecha: m.fecha,
+                        Tipo: m.tipo,
+                        Método: m.metodo_pago,
+                        Concepto: m.descripcion,
+                        Entidad: m.entidad,
+                        Monto: m.monto || 0
+                    }))
+                ),
+                'Movimientos'
+            );
+
+            XLSX.utils.book_append_sheet(
+                wb,
+                XLSX.utils.json_to_sheet(
+                    productos.map((p) => ({
+                        Nombre: p.nombre,
+                        Proveedor: p.proveedor,
+                        Código: p.codigo_proveedor,
+                        Costo: p.costo || 0,
+                        'Precio Venta': p.precio_venta || 0
+                    }))
+                ),
+                'Catálogo'
+            );
+
+            XLSX.writeFile(wb, `Respaldo_MASUCRI_${obtenerFechaLocal()}.xlsx`);
+            Swal.fire({ icon: 'success', title: 'Respaldo descargado', timer: 1200, showConfirmButton: false });
+        } catch (err) {
+            console.error('Error generando respaldo:', err);
+            Swal.fire('Error', 'No se pudo generar el respaldo. Revisa tu conexión e intenta de nuevo.', 'error');
+        } finally {
+            setGenerandoRespaldo(false);
+        }
+    };
+
     const exportarPDF = () => {
         if (filtrados.length === 0) return Swal.fire('Aviso', 'No hay datos para exportar.', 'warning');
-        const docPDF = new jsPDF();
-        docPDF.text('Reporte Contable - MASUCRI', 14, 15);
-        docPDF.autoTable({
-            head: [['Fecha', 'Método', 'Tipo', 'Concepto', 'Monto']],
-            body: filtrados.map((m) => [m.fecha, m.metodo_pago || 'Manual', m.tipo.toUpperCase(), m.descripcion, formatoColones(m.monto)]),
-            startY: 28
-        });
-        docPDF.save('Finanzas_MASUCRI.pdf');
+        try {
+            const docPDF = new jsPDF();
+            docPDF.text('Reporte Contable - MASUCRI', 14, 15);
+            autoTable(docPDF, {
+                head: [['Fecha', 'Método', 'Tipo', 'Concepto', 'Monto']],
+                body: filtrados.map((m) => [m.fecha, m.metodo_pago || 'Manual', m.tipo.toUpperCase(), m.descripcion, formatoColones(m.monto)]),
+                startY: 28
+            });
+            docPDF.save(`Finanzas_MASUCRI_${obtenerFechaLocal()}.pdf`);
+        } catch (err) {
+            console.error('Error generando PDF:', err);
+            Swal.fire('Error', 'No se pudo generar el PDF. Intenta de nuevo.', 'error');
+        }
     };
 
     const exportarExcel = () => {
         if (filtrados.length === 0) return Swal.fire('Aviso', 'No hay datos para exportar.', 'warning');
-        const ws = XLSX.utils.json_to_sheet(
-            filtrados.map((m) => ({
-                Fecha: m.fecha,
-                Método: m.metodo_pago || 'Manual',
-                Tipo: m.tipo.toUpperCase(),
-                Concepto: m.descripcion,
-                Monto: m.monto
-            }))
-        );
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Datos');
-        XLSX.writeFile(wb, 'Finanzas_MASUCRI.xlsx');
+        try {
+            const ws = XLSX.utils.json_to_sheet(
+                filtrados.map((m) => ({
+                    Fecha: m.fecha,
+                    Método: m.metodo_pago || 'Manual',
+                    Tipo: m.tipo.toUpperCase(),
+                    Concepto: m.descripcion,
+                    Monto: m.monto
+                }))
+            );
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Datos');
+            XLSX.writeFile(wb, `Finanzas_MASUCRI_${obtenerFechaLocal()}.xlsx`);
+        } catch (err) {
+            console.error('Error generando Excel:', err);
+            Swal.fire('Error', 'No se pudo generar el Excel. Intenta de nuevo.', 'error');
+        }
     };
 
     return (
         <Container className="mt-4 flex-grow-1">
-            <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <h3 className="fw-bold m-0 text-success"><i className="fas fa-wallet"></i> Finanzas y Caja</h3>
                 <Button variant="success" className="fw-bold shadow-sm" onClick={() => handleOpen()}>
                     <i className="fas fa-plus"></i> Registrar Movimiento
                 </Button>
             </div>
+
+            <Card className="border-0 shadow-sm mb-4 bg-dark text-white">
+                <Card.Body className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div>
+                        <div className="fw-bold"><i className="fas fa-shield-halved me-1"></i> Respaldo completo del negocio</div>
+                        <small className="text-white-50">Descarga TODOS los pedidos, movimientos y el catálogo en un solo Excel. Útil como copia de seguridad.</small>
+                    </div>
+                    <Button variant="light" className="fw-bold text-dark" onClick={handleRespaldoCompleto} disabled={generandoRespaldo}>
+                        {generandoRespaldo ? 'Generando...' : (<><i className="fas fa-download me-1"></i> Descargar Respaldo</>)}
+                    </Button>
+                </Card.Body>
+            </Card>
 
             {error ? (
                 <EstadoError texto="No se pudo cargar Caja. Revisa tu conexión." />
