@@ -64,7 +64,7 @@ export default function VentaRapidaModal({ show, onHide }) {
                         <Form.Label className="small fw-bold text-secondary mb-1">Cliente</Form.Label>
                         <InputGroup>
                             <InputGroup.Text className="bg-light"><i className="fas fa-user text-muted"></i></InputGroup.Text>
-                            <Form.Control required type="text" placeholder="Ej: Cliente de mostrador" value={form.cliente} onChange={actualizar('cliente')} />
+                            <Form.Control required name="cliente" type="text" placeholder="Ej: Cliente de mostrador" value={form.cliente} onChange={actualizar('cliente')} />
                         </InputGroup>
                     </Form.Group>
 
@@ -72,7 +72,7 @@ export default function VentaRapidaModal({ show, onHide }) {
                         <Form.Label className="small fw-bold text-secondary mb-1">Teléfono (opcional)</Form.Label>
                         <InputGroup>
                             <InputGroup.Text className="bg-light"><i className="fab fa-whatsapp text-muted"></i></InputGroup.Text>
-                            <Form.Control type="text" placeholder="Ej: 8888-8888" value={form.telefono} onChange={actualizar('telefono')} />
+                            <Form.Control name="telefono" type="text" placeholder="Ej: 8888-8888" value={form.telefono} onChange={actualizar('telefono')} />
                             {soportaSelectorContactos() && (
                                 <Button variant="outline-secondary" onClick={handleSeleccionarContacto} aria-label="Elegir de contactos">
                                     <i className="fas fa-address-book"></i>
@@ -85,7 +85,7 @@ export default function VentaRapidaModal({ show, onHide }) {
                         <Form.Label className="small fw-bold text-secondary mb-1">Producto</Form.Label>
                         <InputGroup>
                             <InputGroup.Text className="bg-light"><i className="fas fa-box-open text-muted"></i></InputGroup.Text>
-                            <Form.Control required type="text" placeholder="Ej: 2 llaveros personalizados" value={form.producto} onChange={actualizar('producto')} />
+                            <Form.Control required name="producto" type="text" placeholder="Ej: 2 llaveros personalizados" value={form.producto} onChange={actualizar('producto')} />
                         </InputGroup>
                     </Form.Group>
 

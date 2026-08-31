@@ -259,24 +259,12 @@ export default function Finanzas() {
 
     return (
         <Container className="mt-4 flex-grow-1">
-            <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                 <h3 className="fw-bold m-0 text-success"><i className="fas fa-wallet"></i> Finanzas y Caja</h3>
                 <Button variant="success" className="fw-bold shadow-sm" onClick={() => handleOpen()}>
                     <i className="fas fa-plus"></i> Registrar Movimiento
                 </Button>
             </div>
-
-            <Card className="border-0 shadow-sm mb-4 bg-dark text-white">
-                <Card.Body className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <div>
-                        <div className="fw-bold"><i className="fas fa-shield-halved me-1"></i> Respaldo completo del negocio</div>
-                        <small className="text-white-50">Descarga TODOS los pedidos, movimientos y el catálogo en un solo Excel. Útil como copia de seguridad.</small>
-                    </div>
-                    <Button variant="light" className="fw-bold text-dark" onClick={handleRespaldoCompleto} disabled={generandoRespaldo}>
-                        {generandoRespaldo ? 'Generando...' : (<><i className="fas fa-download me-1"></i> Descargar Respaldo</>)}
-                    </Button>
-                </Card.Body>
-            </Card>
 
             {error ? (
                 <EstadoError texto="No se pudo cargar Caja. Revisa tu conexión." />
@@ -339,7 +327,10 @@ export default function Finanzas() {
                                     <span>Libro Diario</span>
                                     <div>
                                         <Button variant="danger" size="sm" className="me-2 px-3" onClick={exportarPDF}><i className="fas fa-file-pdf"></i> PDF</Button>
-                                        <Button variant="success" size="sm" className="px-3" onClick={exportarExcel}><i className="fas fa-file-excel"></i> Excel</Button>
+                                        <Button variant="success" size="sm" className="me-2 px-3" onClick={exportarExcel}><i className="fas fa-file-excel"></i> Excel</Button>
+                                        <Button variant="dark" size="sm" className="px-3" onClick={handleRespaldoCompleto} disabled={generandoRespaldo} title="Descarga TODOS los pedidos, movimientos y catálogo (no solo lo filtrado aquí)">
+                                            <i className="fas fa-shield-halved"></i> {generandoRespaldo ? 'Generando...' : 'Respaldo Total'}
+                                        </Button>
                                     </div>
                                 </Card.Header>
                                 <Card.Body className="p-0 table-responsive" style={{ height: '500px', overflowY: 'auto' }}>
@@ -416,12 +407,12 @@ export default function Finanzas() {
                         </Form.Group>
                         <Form.Group className="mb-3">
                             <Form.Label className="fw-bold">Concepto</Form.Label>
-                            <Form.Control required type="text" placeholder="Ej: Compra de tintas" value={form.descripcion} onChange={actualizar('descripcion')} />
+                            <Form.Control required name="concepto" type="text" placeholder="Ej: Compra de tintas" value={form.descripcion} onChange={actualizar('descripcion')} />
                         </Form.Group>
                         <Row className="mb-4">
                             <Col md={6}>
                                 <Form.Label className="fw-bold">Entidad (Opcional)</Form.Label>
-                                <Form.Control type="text" placeholder="Ej: Ubora" value={form.entidad} onChange={actualizar('entidad')} />
+                                <Form.Control name="entidad" type="text" placeholder="Ej: Ubora" value={form.entidad} onChange={actualizar('entidad')} />
                             </Col>
                             <Col md={6}>
                                 <Form.Label className="fw-bold">Monto (₡)</Form.Label>

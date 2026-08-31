@@ -178,7 +178,7 @@ export default function Historial() {
             </Card>
 
             {/* MODAL DE DETALLE DE PEDIDO */}
-            <Modal show={showModal} onHide={() => setShowModal(false)} centered className="d-print-none">
+            <Modal show={showModal} onHide={() => setShowModal(false)} centered enforceFocus={false} className="d-print-none">
                 <Modal.Header closeButton className="bg-light border-bottom-0 pb-0">
                     <Modal.Title className="fw-bold fs-5"><i className="fas fa-file-invoice text-dark"></i> Detalle del Pedido</Modal.Title>
                 </Modal.Header>

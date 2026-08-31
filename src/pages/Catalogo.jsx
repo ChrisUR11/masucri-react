@@ -208,16 +208,16 @@ export default function Catalogo() {
                     <Form onSubmit={handleSave}>
                         <Form.Group className="mb-3">
                             <Form.Label className="fw-bold">Nombre del Producto <span className="text-danger">*</span></Form.Label>
-                            <Form.Control required type="text" value={form.nombre} onChange={actualizar('nombre')} placeholder="Ej: Taza Blanca 11oz" />
+                            <Form.Control required name="nombre_producto" type="text" value={form.nombre} onChange={actualizar('nombre')} placeholder="Ej: Taza Blanca 11oz" />
                         </Form.Group>
                         <div className="row mb-3">
                             <div className="col-6">
                                 <Form.Label className="small text-muted">Lugar de Compra</Form.Label>
-                                <Form.Control type="text" value={form.proveedor} onChange={actualizar('proveedor')} placeholder="Ej: Ubora" />
+                                <Form.Control name="proveedor" type="text" value={form.proveedor} onChange={actualizar('proveedor')} placeholder="Ej: Ubora" />
                             </div>
                             <div className="col-6">
                                 <Form.Label className="small text-muted">ID / Código</Form.Label>
-                                <Form.Control type="text" value={form.codigo} onChange={actualizar('codigo')} placeholder="Ej: UB-405" />
+                                <Form.Control name="codigo_proveedor" type="text" value={form.codigo} onChange={actualizar('codigo')} placeholder="Ej: UB-405" />
                             </div>
                         </div>
                         <div className="row mb-3 bg-light p-2 rounded border">

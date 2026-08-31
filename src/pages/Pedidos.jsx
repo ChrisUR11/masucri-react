@@ -319,7 +319,7 @@ export default function Pedidos() {
             <datalist id="listaCatalogo">{productosCatalogo.map((p) => <option key={p.id} value={p.nombre} />)}</datalist>
 
             {/* MODAL: DETALLE DEL PEDIDO */}
-            <Modal show={showDetalle} onHide={() => setShowDetalle(false)} centered className="d-print-none">
+            <Modal show={showDetalle} onHide={() => setShowDetalle(false)} centered enforceFocus={false} className="d-print-none">
                 <Modal.Header closeButton className="bg-light border-bottom-0 pb-0">
                     <Modal.Title className="fw-bold fs-5"><i className="fas fa-file-invoice text-dark"></i> Detalle del Pedido</Modal.Title>
                 </Modal.Header>
@@ -381,7 +381,7 @@ export default function Pedidos() {
                             <Form.Label className="small fw-bold text-secondary mb-1">Cliente</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light"><i className="fas fa-user text-muted"></i></InputGroup.Text>
-                                <Form.Control required type="text" placeholder="Ej: María Pérez" value={formPedido.cliente} onChange={actualizarForm('cliente')} />
+                                <Form.Control required name="cliente" type="text" placeholder="Ej: María Pérez" value={formPedido.cliente} onChange={actualizarForm('cliente')} />
                             </InputGroup>
                         </Form.Group>
 
@@ -389,7 +389,7 @@ export default function Pedidos() {
                             <Form.Label className="small fw-bold text-secondary mb-1">Teléfono</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light"><i className="fab fa-whatsapp text-muted"></i></InputGroup.Text>
-                                <Form.Control type="text" placeholder="Ej: 8888-8888" value={formPedido.telefono} onChange={actualizarForm('telefono')} />
+                                <Form.Control name="telefono" type="text" placeholder="Ej: 8888-8888" value={formPedido.telefono} onChange={actualizarForm('telefono')} />
                                 {soportaSelectorContactos() && (
                                     <Button
                                         variant="outline-secondary"
@@ -408,6 +408,7 @@ export default function Pedidos() {
                                 <InputGroup.Text className="bg-light"><i className="fas fa-box-open text-muted"></i></InputGroup.Text>
                                 <Form.Control
                                     required
+                                    name="producto"
                                     type="text"
                                     placeholder="Ej: Taza personalizada 11oz"
                                     list="listaCatalogo"
