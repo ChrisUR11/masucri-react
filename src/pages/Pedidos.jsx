@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Container, Card, Badge, Button, Form, Modal, Row, Col, InputGroup, ButtonGroup, ListGroup } from 'react-bootstrap';
 import { collection, query, orderBy, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -10,7 +10,8 @@ import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import FichaPedidoDetalle from '../components/FichaPedidoDetalle';
 import VentaRapidaModal from '../components/VentaRapidaModal';
 import { registrarAbono } from '../utils/abonoPedido';
-import { abrirWhatsApp, mensajePedido } from '../utils/whatsapp';
+import { entregarPedido } from '../utils/entregaPedido';
+import { abrirWhatsApp, mensajePedido, mensajeTicket } from '../utils/whatsapp';
 import { seleccionarContacto, soportaSelectorContactos } from '../utils/contactos';
 import { obtenerFechaLocal, diasHastaEntrega, formatearFechaCorta } from '../utils/fecha';
 import { formatoColones, aNumeroSeguro } from '../utils/formato';
@@ -60,6 +61,15 @@ export default function Pedidos() {
     const [formPedido, setFormPedido] = useState(FORM_PEDIDO_VACIO);
     const [guardandoPedido, setGuardandoPedido] = useState(false);
 
+    // Referencia al contenedor con scroll horizontal del Kanban, para que los
+    // botones de "ir a la columna siguiente/anterior" funcionen en celular
+    // (donde cada columna ocupa el ancho completo de la pantalla).
+    const kanbanScrollRef = useRef(null);
+    const irAColumna = (idx) => {
+        const el = kanbanScrollRef.current;
+        if (el) el.scrollTo({ left: el.clientWidth * idx, behavior: 'smooth' });
+    };
+
     // El pedido activo se busca por id en la lista en vivo, así el modal
     // siempre refleja el estado más reciente sin necesitar sincronización manual.
     const pedidoActivo = pedidoActivoId ? pedidos.find((p) => p.id === pedidoActivoId) || null : null;
@@ -92,22 +102,17 @@ export default function Pedidos() {
     };
 
     const handleWhatsApp = () => abrirWhatsApp(pedidoActivo.telefono, mensajePedido(pedidoActivo));
-    const handleImprimirTicket = () => window.print();
+
+    const handleEnviarTicket = () => {
+        if (!pedidoActivo.telefono) {
+            return Swal.fire('Sin teléfono', 'Este pedido no tiene un número de teléfono registrado.', 'warning');
+        }
+        abrirWhatsApp(pedidoActivo.telefono, mensajeTicket(pedidoActivo));
+    };
 
     const handleEntregar = async () => {
-        const deuda = (pedidoActivo.precio || 0) - (pedidoActivo.monto_pagado || 0);
-        const msg = deuda > 0 ? `Tiene un saldo pendiente de ${formatoColones(deuda)}. ¿Entregar de todas formas?` : '¿Marcar como entregado?';
-        const res = await Swal.fire({ title: '¿Entregar Trabajo?', text: msg, icon: 'question', showCancelButton: true });
-        if (res.isConfirmed) {
-            try {
-                await updateDoc(doc(db, 'pedidos', pedidoActivo.id), { estado: 'Entregado', fecha_cierre: obtenerFechaLocal() });
-                setShowDetalle(false);
-                Swal.fire({ icon: 'success', title: 'Entregado', timer: 1000, showConfirmButton: false });
-            } catch (err) {
-                console.error(err);
-                Swal.fire('Error', 'No se pudo marcar como entregado.', 'error');
-            }
-        }
+        const entregado = await entregarPedido(pedidoActivo);
+        if (entregado) setShowDetalle(false);
     };
 
     const handleAnular = async () => {
@@ -292,15 +297,51 @@ export default function Pedidos() {
             ) : cargando ? (
                 <EstadoCarga texto="Cargando pedidos..." />
             ) : (
-                <Row className="flex-nowrap overflow-auto pb-3 flex-grow-1 d-print-none" style={{ minHeight: '500px', scrollSnapType: 'x mandatory' }}>
-                    {COLUMNAS.map((col) => {
+                <Row
+                    ref={kanbanScrollRef}
+                    className="flex-nowrap overflow-auto pb-3 flex-grow-1 d-print-none"
+                    style={{ minHeight: '500px', scrollSnapType: 'x mandatory' }}
+                >
+                    {COLUMNAS.map((col, idx) => {
                         const pedidosColumna = activos.filter((p) => p.estado === col.estado);
                         return (
                             <Col xs={12} md={4} key={col.estado} style={{ minWidth: '300px', scrollSnapAlign: 'start' }}>
                                 <Card className="bg-light h-100 border-0 shadow-sm">
-                                    <Card.Header className={`fw-bold d-flex justify-content-between ${col.text}`} style={{ backgroundColor: col.bg, borderRadius: '8px 8px 0 0' }}>
-                                        <span><i className={`fas ${col.icon}`}></i> {col.label}</span>
-                                        <Badge bg="white" text="dark" className="rounded-pill">{pedidosColumna.length}</Badge>
+                                    <Card.Header className={`fw-bold d-flex justify-content-between align-items-center ${col.text}`} style={{ backgroundColor: col.bg, borderRadius: '8px 8px 0 0' }}>
+                                        {idx > 0 ? (
+                                            <Button
+                                                variant="light"
+                                                size="sm"
+                                                className="d-md-none rounded-circle p-0 d-flex align-items-center justify-content-center"
+                                                style={{ width: '26px', height: '26px' }}
+                                                onClick={() => irAColumna(idx - 1)}
+                                                aria-label={`Ir a ${COLUMNAS[idx - 1].label}`}
+                                            >
+                                                <i className="fas fa-chevron-left small"></i>
+                                            </Button>
+                                        ) : (
+                                            <span className="d-md-none" style={{ width: '26px' }}></span>
+                                        )}
+
+                                        <span className="text-truncate mx-1"><i className={`fas ${col.icon}`}></i> {col.label}</span>
+
+                                        <div className="d-flex align-items-center gap-1">
+                                            <Badge bg="white" text="dark" className="rounded-pill">{pedidosColumna.length}</Badge>
+                                            {idx < COLUMNAS.length - 1 ? (
+                                                <Button
+                                                    variant="light"
+                                                    size="sm"
+                                                    className="d-md-none rounded-circle p-0 d-flex align-items-center justify-content-center"
+                                                    style={{ width: '26px', height: '26px' }}
+                                                    onClick={() => irAColumna(idx + 1)}
+                                                    aria-label={`Ir a ${COLUMNAS[idx + 1].label}`}
+                                                >
+                                                    <i className="fas fa-chevron-right small"></i>
+                                                </Button>
+                                            ) : (
+                                                <span className="d-md-none" style={{ width: '26px' }}></span>
+                                            )}
+                                        </div>
                                     </Card.Header>
                                     <Card.Body className="p-2" onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, col.estado)}>
                                         {pedidosColumna.length === 0 ? (
@@ -350,7 +391,7 @@ export default function Pedidos() {
                 )}
                 <Modal.Footer className="justify-content-center bg-white border-top-0 pt-0 flex-wrap gap-2">
                     <div className="d-flex w-100 gap-2 mb-2 justify-content-center">
-                        <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleImprimirTicket}><i className="fas fa-receipt"></i> Ticket</Button>
+                        <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleEnviarTicket}><i className="fab fa-whatsapp"></i> Enviar Ticket</Button>
                         <Button variant="success" className="fw-bold flex-grow-1" onClick={handleEntregar}><i className="fas fa-check"></i> Entregar</Button>
                         <Button variant="outline-primary" className="fw-bold flex-grow-1" onClick={handleAbonar}><i className="fas fa-coins"></i> Abonar</Button>
                         <Button variant="outline-secondary" className="flex-grow-1" onClick={() => abrirEditar(pedidoActivo)}><i className="fas fa-pen"></i> Editar</Button>

@@ -9,7 +9,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import FichaPedidoDetalle from '../components/FichaPedidoDetalle';
 import { registrarAbono } from '../utils/abonoPedido';
-import { abrirWhatsApp, mensajePedido } from '../utils/whatsapp';
+import { abrirWhatsApp, mensajePedido, mensajeTicket } from '../utils/whatsapp';
 
 const ESTADOS_ACTIVOS = ['Pendiente', 'En producción', 'Por Retirar'];
 
@@ -54,7 +54,12 @@ export default function Historial() {
 
     const handleWhatsApp = () => abrirWhatsApp(pedidoActivoActualizado.telefono, mensajePedido(pedidoActivoActualizado));
 
-    const handleImprimirTicket = () => window.print();
+    const handleEnviarTicket = () => {
+        if (!pedidoActivoActualizado.telefono) {
+            return Swal.fire('Sin teléfono', 'Este pedido no tiene un número de teléfono registrado.', 'warning');
+        }
+        abrirWhatsApp(pedidoActivoActualizado.telefono, mensajeTicket(pedidoActivoActualizado));
+    };
 
     const handleRevertir = async () => {
         if (!pedidoActivoActualizado || procesando) return;
@@ -202,8 +207,8 @@ export default function Historial() {
                     </Modal.Body>
                 )}
                 <Modal.Footer className="justify-content-center bg-white border-top-0 pt-3 gap-2 flex-wrap">
-                    <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleImprimirTicket} disabled={procesando}>
-                        <i className="fas fa-receipt"></i> Ticket
+                    <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleEnviarTicket} disabled={procesando}>
+                        <i className="fab fa-whatsapp"></i> Enviar Ticket
                     </Button>
                     {pedidoActivoActualizado && (pedidoActivoActualizado.precio || 0) - (pedidoActivoActualizado.monto_pagado || 0) > 0 && (
                         <Button variant="outline-primary" className="fw-bold flex-grow-1" onClick={handleAbonar} disabled={procesando}>
