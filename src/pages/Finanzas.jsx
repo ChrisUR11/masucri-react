@@ -44,14 +44,16 @@ export default function Finanzas() {
         return lista;
     }, [movimientos, filtroInicio, filtroFin, filtroModo]);
 
-    const { totalEntradas, totalSalidas } = useMemo(() => {
+    const { totalEntradas, totalSalidas, movimientosInvalidos } = useMemo(() => {
         let entradas = 0;
         let salidas = 0;
+        let invalidos = 0;
         filtrados.forEach((m) => {
             if (m.tipo === 'entrada') entradas += m.monto || 0;
-            else salidas += m.monto || 0;
+            else if (m.tipo === 'salida') salidas += m.monto || 0;
+            else invalidos++; // 'tipo' vacío, mal escrito, o de datos viejos con otro esquema — no se suma a ningún lado.
         });
-        return { totalEntradas: entradas, totalSalidas: salidas };
+        return { totalEntradas: entradas, totalSalidas: salidas, movimientosInvalidos: invalidos };
     }, [filtrados]);
 
     // Aviso suave si el usuario filtra fuera del rango de los últimos LIMITE_CONSULTA
@@ -226,7 +228,7 @@ export default function Finanzas() {
             docPDF.text('Reporte Contable - MASUCRI', 14, 15);
             autoTable(docPDF, {
                 head: [['Fecha', 'Método', 'Tipo', 'Concepto', 'Monto']],
-                body: filtrados.map((m) => [m.fecha, m.metodo_pago || 'Manual', m.tipo.toUpperCase(), m.descripcion, formatoColones(m.monto)]),
+                body: filtrados.map((m) => [m.fecha, m.metodo_pago || 'Manual', (m.tipo || 'DESCONOCIDO').toUpperCase(), m.descripcion, formatoColones(m.monto)]),
                 startY: 28
             });
             docPDF.save(`Finanzas_MASUCRI_${obtenerFechaLocal()}.pdf`);
@@ -243,7 +245,7 @@ export default function Finanzas() {
                 filtrados.map((m) => ({
                     Fecha: m.fecha,
                     Método: m.metodo_pago || 'Manual',
-                    Tipo: m.tipo.toUpperCase(),
+                    Tipo: (m.tipo || 'DESCONOCIDO').toUpperCase(),
                     Concepto: m.descripcion,
                     Monto: m.monto
                 }))
@@ -294,6 +296,14 @@ export default function Finanzas() {
                         <div className="alert alert-warning small">
                             <i className="fas fa-triangle-exclamation"></i> Solo se consultan los últimos {LIMITE_CONSULTA} movimientos.
                             Si filtras fechas muy antiguas, los totales podrían no incluir todo el histórico.
+                        </div>
+                    )}
+
+                    {movimientosInvalidos > 0 && (
+                        <div className="alert alert-danger small">
+                            <i className="fas fa-triangle-exclamation"></i> Hay {movimientosInvalidos} movimiento(s) con un campo "tipo" que no es
+                            ni "entrada" ni "salida" (vacío, mal escrito, o de datos antiguos). No se están sumando a ningún total para
+                            evitar contarlos mal — revísalos en Firestore y corrige el campo <code>tipo</code>.
                         </div>
                     )}
 

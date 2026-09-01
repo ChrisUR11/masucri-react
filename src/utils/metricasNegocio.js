@@ -88,7 +88,7 @@ export function calcularMetricas(pedidos, movimientos, rango = {}) {
             ingresosPeriodo += monto;
             entradasPorMetodo[metodo] = (entradasPorMetodo[metodo] || 0) + monto;
             totalEntradas += monto;
-        } else {
+        } else if (m.tipo === 'salida') {
             gastosPeriodo += monto;
             salidasPorMetodo[metodo] = (salidasPorMetodo[metodo] || 0) + monto;
             totalSalidas += monto;
@@ -107,6 +107,9 @@ export function calcularMetricas(pedidos, movimientos, rango = {}) {
             const categoria = categorizarGasto(desc, entidad);
             gastosAgrupados[categoria] += monto;
         }
+        // Si m.tipo no es ni 'entrada' ni 'salida' (vacío, mal escrito, dato viejo),
+        // no se suma a ningún lado — antes cualquier valor no-'entrada' caía aquí
+        // como salida, inflando el total de gastos con datos inválidos.
     });
     Object.keys(gastosAgrupados).forEach((k) => { if (gastosAgrupados[k] === 0) delete gastosAgrupados[k]; });
 
