@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Container, Card, Table, Button, Modal, Form, Row, Col, Badge } from 'react-bootstrap';
-import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, doc, limit, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import Swal from 'sweetalert2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
@@ -15,18 +15,24 @@ import { formatoColones, aNumeroSeguro } from '../utils/formato';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-const LIMITE_CONSULTA = 200;
+const FILAS_INICIALES = 100;
 const FORM_VACIO = { tipo: 'entrada', fecha: obtenerFechaLocal(), metodoPago: 'Efectivo', descripcion: '', entidad: '', monto: '' };
 
 export default function Finanzas() {
+    // Sin límite: los totales de Entradas/Salidas/Balance deben reflejar SIEMPRE
+    // el histórico completo. Antes había un limit(200) aquí — con más de 200
+    // movimientos, los más viejos se cortaban en silencio y el Balance Neto
+    // quedaba mal sin ningún aviso. La tabla de abajo sí se pagina para no
+    // renderizar miles de filas de una vez (ver `filasVisibles`).
     const { datos: movimientos, cargando, error } = useFirestoreCollection(
-        () => query(collection(db, 'movimientos'), orderBy('fecha', 'desc'), limit(LIMITE_CONSULTA)),
+        () => query(collection(db, 'movimientos'), orderBy('fecha', 'desc')),
         []
     );
 
     const [filtroModo, setFiltroModo] = useState('ambos');
     const [filtroInicio, setFiltroInicio] = useState('');
     const [filtroFin, setFiltroFin] = useState('');
+    const [filasVisibles, setFilasVisibles] = useState(FILAS_INICIALES);
 
     const [showModal, setShowModal] = useState(false);
     const [editId, setEditId] = useState(null);
@@ -44,10 +50,14 @@ export default function Finanzas() {
         return lista;
     }, [movimientos, filtroInicio, filtroFin, filtroModo]);
 
+    const filtradosVisibles = filtrados.slice(0, filasVisibles);
+
     const { totalEntradas, totalSalidas, movimientosInvalidos } = useMemo(() => {
         let entradas = 0;
         let salidas = 0;
         let invalidos = 0;
+        // OJO: se calcula sobre TODO `filtrados`, no sobre `filtradosVisibles` — el
+        // recorte de filas es solo para la tabla, nunca para los totales de plata.
         filtrados.forEach((m) => {
             if (m.tipo === 'entrada') entradas += m.monto || 0;
             else if (m.tipo === 'salida') salidas += m.monto || 0;
@@ -55,11 +65,6 @@ export default function Finanzas() {
         });
         return { totalEntradas: entradas, totalSalidas: salidas, movimientosInvalidos: invalidos };
     }, [filtrados]);
-
-    // Aviso suave si el usuario filtra fuera del rango de los últimos LIMITE_CONSULTA
-    // movimientos: los totales podrían no reflejar el histórico completo.
-    const posibleDatosIncompletos =
-        movimientos.length === LIMITE_CONSULTA && filtroInicio && filtroInicio < (movimientos[movimientos.length - 1]?.fecha || '');
 
     const chartData = {
         labels: filtroModo === 'ambos' ? ['Ingresos', 'Gastos'] : filtroModo === 'entradas' ? ['Ingresos'] : ['Gastos'],
@@ -292,13 +297,6 @@ export default function Finanzas() {
                         </Col>
                     </Row>
 
-                    {posibleDatosIncompletos && (
-                        <div className="alert alert-warning small">
-                            <i className="fas fa-triangle-exclamation"></i> Solo se consultan los últimos {LIMITE_CONSULTA} movimientos.
-                            Si filtras fechas muy antiguas, los totales podrían no incluir todo el histórico.
-                        </div>
-                    )}
-
                     {movimientosInvalidos > 0 && (
                         <div className="alert alert-danger small">
                             <i className="fas fa-triangle-exclamation"></i> Hay {movimientosInvalidos} movimiento(s) con un campo "tipo" que no es
@@ -354,10 +352,10 @@ export default function Finanzas() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {filtrados.length === 0 ? (
+                                            {filtradosVisibles.length === 0 ? (
                                                 <tr><td colSpan="4" className="text-center py-4 text-muted">No hay registros.</td></tr>
                                             ) : (
-                                                filtrados.map((m) => (
+                                                filtradosVisibles.map((m) => (
                                                     <tr key={m.id}>
                                                         <td>{m.fecha}</td>
                                                         <td>
@@ -377,6 +375,15 @@ export default function Finanzas() {
                                                         </td>
                                                     </tr>
                                                 ))
+                                            )}
+                                            {filtrados.length > filasVisibles && (
+                                                <tr>
+                                                    <td colSpan="4" className="text-center py-3">
+                                                        <Button variant="outline-secondary" size="sm" onClick={() => setFilasVisibles((n) => n + FILAS_INICIALES)}>
+                                                            👇 Cargar más antiguos ({filtrados.length - filasVisibles} restantes)
+                                                        </Button>
+                                                    </td>
+                                                </tr>
                                             )}
                                         </tbody>
                                     </Table>
