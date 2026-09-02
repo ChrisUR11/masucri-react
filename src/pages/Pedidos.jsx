@@ -11,7 +11,8 @@ import FichaPedidoDetalle from '../components/FichaPedidoDetalle';
 import VentaRapidaModal from '../components/VentaRapidaModal';
 import { registrarAbono } from '../utils/abonoPedido';
 import { entregarPedido } from '../utils/entregaPedido';
-import { abrirWhatsApp, mensajePedido, mensajeTicket } from '../utils/whatsapp';
+import { abrirWhatsApp, mensajePedido } from '../utils/whatsapp';
+import { compartirTicket } from '../utils/ticketImagen';
 import { seleccionarContacto, soportaSelectorContactos } from '../utils/contactos';
 import { obtenerFechaLocal, diasHastaEntrega, formatearFechaCorta } from '../utils/fecha';
 import { formatoColones, aNumeroSeguro } from '../utils/formato';
@@ -103,11 +104,22 @@ export default function Pedidos() {
 
     const handleWhatsApp = () => abrirWhatsApp(pedidoActivo.telefono, mensajePedido(pedidoActivo));
 
-    const handleEnviarTicket = () => {
-        if (!pedidoActivo.telefono) {
-            return Swal.fire('Sin teléfono', 'Este pedido no tiene un número de teléfono registrado.', 'warning');
+    const handleEnviarTicket = async () => {
+        try {
+            const resultado = await compartirTicket(pedidoActivo);
+            if (resultado === 'descargado') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Ticket descargado',
+                    text: 'Este navegador no permite compartir archivos directamente. La imagen se descargó para que la adjuntes donde quieras enviarla.',
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+            }
+        } catch (err) {
+            console.error('Error generando el ticket:', err);
+            Swal.fire('Error', 'No se pudo generar el ticket.', 'error');
         }
-        abrirWhatsApp(pedidoActivo.telefono, mensajeTicket(pedidoActivo));
     };
 
     const handleEntregar = async () => {
@@ -391,7 +403,7 @@ export default function Pedidos() {
                 )}
                 <Modal.Footer className="justify-content-center bg-white border-top-0 pt-0 flex-wrap gap-2">
                     <div className="d-flex w-100 gap-2 mb-2 justify-content-center">
-                        <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleEnviarTicket}><i className="fab fa-whatsapp"></i> Enviar Ticket</Button>
+                        <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleEnviarTicket}><i className="fas fa-share-nodes"></i> Enviar Ticket</Button>
                         <Button variant="success" className="fw-bold flex-grow-1" onClick={handleEntregar}><i className="fas fa-check"></i> Entregar</Button>
                         <Button variant="outline-primary" className="fw-bold flex-grow-1" onClick={handleAbonar}><i className="fas fa-coins"></i> Abonar</Button>
                         <Button variant="outline-secondary" className="flex-grow-1" onClick={() => abrirEditar(pedidoActivo)}><i className="fas fa-pen"></i> Editar</Button>

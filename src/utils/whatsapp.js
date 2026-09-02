@@ -31,18 +31,3 @@ export const mensajePedido = (pedido) => {
     if (saldo > 0) txt += ` Queda un saldo pendiente de ${saldo.toLocaleString('es-CR')} colones.`;
     return txt;
 };
-
-/** Arma un comprobante/ticket en texto, listo para enviarse por WhatsApp. */
-export const mensajeTicket = (pedido) => {
-    const saldo = (pedido.precio || 0) - (pedido.monto_pagado || 0);
-    let txt = `🧾 *Comprobante MASUCRI*\n\n`;
-    txt += `Cliente: ${pedido.cliente}\n`;
-    txt += `Producto: ${pedido.producto}\n`;
-    if (pedido.descripcion) txt += `Detalle: ${pedido.descripcion}\n`;
-    txt += `\nPrecio Total: ₡${(pedido.precio || 0).toLocaleString('es-CR')}\n`;
-    txt += `Pagado: ₡${(pedido.monto_pagado || 0).toLocaleString('es-CR')}\n`;
-    txt += saldo > 0 ? `Saldo Pendiente: ₡${saldo.toLocaleString('es-CR')}\n` : `✅ Pagado en su totalidad\n`;
-    if (pedido.fecha_entrega) txt += `\nFecha de entrega: ${pedido.fecha_entrega}`;
-    txt += `\n\n¡Gracias por su compra! 🙏`;
-    return txt;
-};

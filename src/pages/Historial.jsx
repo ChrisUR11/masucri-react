@@ -9,7 +9,8 @@ import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import FichaPedidoDetalle from '../components/FichaPedidoDetalle';
 import { registrarAbono } from '../utils/abonoPedido';
-import { abrirWhatsApp, mensajePedido, mensajeTicket } from '../utils/whatsapp';
+import { abrirWhatsApp, mensajePedido } from '../utils/whatsapp';
+import { compartirTicket } from '../utils/ticketImagen';
 
 const ESTADOS_ACTIVOS = ['Pendiente', 'En producción', 'Por Retirar'];
 
@@ -54,11 +55,22 @@ export default function Historial() {
 
     const handleWhatsApp = () => abrirWhatsApp(pedidoActivoActualizado.telefono, mensajePedido(pedidoActivoActualizado));
 
-    const handleEnviarTicket = () => {
-        if (!pedidoActivoActualizado.telefono) {
-            return Swal.fire('Sin teléfono', 'Este pedido no tiene un número de teléfono registrado.', 'warning');
+    const handleEnviarTicket = async () => {
+        try {
+            const resultado = await compartirTicket(pedidoActivoActualizado);
+            if (resultado === 'descargado') {
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Ticket descargado',
+                    text: 'Este navegador no permite compartir archivos directamente. La imagen se descargó para que la adjuntes donde quieras enviarla.',
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+            }
+        } catch (err) {
+            console.error('Error generando el ticket:', err);
+            Swal.fire('Error', 'No se pudo generar el ticket.', 'error');
         }
-        abrirWhatsApp(pedidoActivoActualizado.telefono, mensajeTicket(pedidoActivoActualizado));
     };
 
     const handleRevertir = async () => {
@@ -208,7 +220,7 @@ export default function Historial() {
                 )}
                 <Modal.Footer className="justify-content-center bg-white border-top-0 pt-3 gap-2 flex-wrap">
                     <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleEnviarTicket} disabled={procesando}>
-                        <i className="fab fa-whatsapp"></i> Enviar Ticket
+                        <i className="fas fa-share-nodes"></i> Enviar Ticket
                     </Button>
                     {pedidoActivoActualizado && (pedidoActivoActualizado.precio || 0) - (pedidoActivoActualizado.monto_pagado || 0) > 0 && (
                         <Button variant="outline-primary" className="fw-bold flex-grow-1" onClick={handleAbonar} disabled={procesando}>
