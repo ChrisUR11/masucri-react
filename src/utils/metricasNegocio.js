@@ -12,11 +12,39 @@ const GASTOS_AGRUPADOS_BASE = {
 /** Clasifica un gasto en una categoría amplia para el gráfico de "Fuga de Capital". */
 function categorizarGasto(descripcion, entidad) {
     const txt = `${descripcion} ${entidad}`.toLowerCase();
-    if (txt.includes('tela') || txt.includes('aracely') || txt.includes('hilo')) return 'Telas y Costura';
-    if (txt.includes('ubora') || txt.includes('tinta') || txt.includes('papel') || txt.includes('vinil')) return 'Suministros (Sublimación)';
-    if (txt.includes('bus') || txt.includes('uber') || txt.includes('gasolina')) return 'Transporte';
-    if (txt.includes('ice') || txt.includes('luz') || txt.includes('agua')) return 'Servicios Públicos';
-    if (txt.includes('comida') || txt.includes('almuerzo')) return 'Alimentación';
+
+    if (
+        txt.includes('tela') || txt.includes('aracely') || txt.includes('hilo') || txt.includes('costura') ||
+        txt.includes('cinta') || txt.includes('encaje') || txt.includes('encage') || txt.includes('elástico') ||
+        txt.includes('elastico') || txt.includes('pasamaneria') || txt.includes('pasamanería')
+    ) return 'Telas y Costura';
+
+    if (
+        txt.includes('ubora') || txt.includes('tinta') || txt.includes('papel') || txt.includes('vinil') ||
+        txt.includes('sublimac') || txt.includes('fauca') || txt.includes('cameo') || txt.includes('sticker') ||
+        txt.includes('sublimaci')
+    ) return 'Suministros (Sublimación)';
+
+    // OJO: "transporte" y "bomba" (gasolinera) se agregaron después de revisar
+    // datos reales — muchos movimientos dicen solo "Transporte" sin la palabra
+    // "bus", así que antes se colaban en Gastos Generales por error.
+    if (
+        txt.includes('transporte') || txt.includes('bus') || txt.includes('uber') || txt.includes('gasolina') ||
+        txt.includes('tren') || txt.includes('bomba')
+    ) return 'Transporte';
+
+    if (
+        txt.includes('ice') || txt.includes('luz') || txt.includes('agua') || txt.includes('kolbi') ||
+        txt.includes('internet') || txt.includes('municipalidad')
+    ) return 'Servicios Públicos';
+
+    // Igual que con Transporte: "alimentación" sin más palabras se estaba
+    // clasificando mal porque solo se buscaba "comida" o "almuerzo".
+    if (
+        txt.includes('aliment') || txt.includes('comida') || txt.includes('almuerzo') || txt.includes('soda') ||
+        txt.includes('macdonalds') || txt.includes('mcdonalds') || txt.includes('taco bell') || txt.includes('tacobell')
+    ) return 'Alimentación';
+
     return 'Gastos Generales';
 }
 
