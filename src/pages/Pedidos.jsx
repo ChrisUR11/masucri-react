@@ -57,6 +57,7 @@ export default function Pedidos() {
     const [showVenta, setShowVenta] = useState(false);
     const [showDetalle, setShowDetalle] = useState(false);
     const [pedidoActivoId, setPedidoActivoId] = useState(null);
+    const [procesandoDetalle, setProcesandoDetalle] = useState(false);
     const [pedidoEdit, setPedidoEdit] = useState(null);
 
     const [formPedido, setFormPedido] = useState(FORM_PEDIDO_VACIO);
@@ -76,6 +77,14 @@ export default function Pedidos() {
     const pedidoActivo = pedidoActivoId ? pedidos.find((p) => p.id === pedidoActivoId) || null : null;
 
     const actualizarForm = (campo) => (e) => setFormPedido((f) => ({ ...f, [campo]: e.target.value }));
+
+    const handleProductoSeleccionado = () => {
+        if (!formPedido.producto.trim()) return;
+        const encontrado = productos.find((p) => p.nombre?.toLowerCase() === formPedido.producto.trim().toLowerCase());
+        if (encontrado && !formPedido.precio) {
+            setFormPedido((f) => ({ ...f, precio: encontrado.precio_venta || '' }));
+        }
+    };
 
     // --- API Contactos ---
     const handleSeleccionarContacto = async () => {
@@ -105,6 +114,7 @@ export default function Pedidos() {
     const handleWhatsApp = () => abrirWhatsApp(pedidoActivo.telefono, mensajePedido(pedidoActivo));
 
     const handleEnviarTicket = async () => {
+        setProcesandoDetalle(true);
         try {
             const resultado = await compartirTicket(pedidoActivo);
             if (resultado === 'descargado') {
@@ -119,22 +129,29 @@ export default function Pedidos() {
         } catch (err) {
             console.error('Error generando el ticket:', err);
             Swal.fire('Error', 'No se pudo generar el ticket.', 'error');
+        } finally {
+            setProcesandoDetalle(false);
         }
     };
 
     const handleEntregar = async () => {
+        setProcesandoDetalle(true);
         const entregado = await entregarPedido(pedidoActivo);
+        setProcesandoDetalle(false);
         if (entregado) setShowDetalle(false);
     };
 
     const handleAnular = async () => {
         const res = await Swal.fire({ title: '¿Anular Pedido?', text: 'Se moverá al historial como cancelado.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#dc3545' });
         if (res.isConfirmed) {
+            setProcesandoDetalle(true);
             try {
                 await updateDoc(doc(db, 'pedidos', pedidoActivo.id), { estado: 'Cancelado', fecha_cierre: obtenerFechaLocal() });
+                setProcesandoDetalle(false);
                 setShowDetalle(false);
                 Swal.fire({ icon: 'success', title: 'Anulado', timer: 1000, showConfirmButton: false });
             } catch (err) {
+                setProcesandoDetalle(false);
                 console.error(err);
                 Swal.fire('Error', 'No se pudo anular el pedido.', 'error');
             }
@@ -152,9 +169,14 @@ export default function Pedidos() {
 
     const handleAbonar = async () => {
         if (!pedidoActivo) return;
-        // A diferencia del código anterior, no cerramos el modal: así se puede
-        // ver de inmediato el nuevo saldo reflejado en la misma ficha.
-        await registrarAbono(pedidoActivo);
+        setProcesandoDetalle(true);
+        try {
+            // A diferencia del código anterior, no cerramos el modal: así se puede
+            // ver de inmediato el nuevo saldo reflejado en la misma ficha.
+            await registrarAbono(pedidoActivo);
+        } finally {
+            setProcesandoDetalle(false);
+        }
     };
 
     // --- Guardar Nuevo/Editar Pedido ---
@@ -249,10 +271,24 @@ export default function Pedidos() {
     const renderCard = (ped) => {
         const deuda = (ped.precio || 0) - (ped.monto_pagado || 0);
         const diff = diasHastaEntrega(ped.fecha_entrega);
-        let colorAlerta = 'border-secondary';
+        let colorAlerta = 'border-secondary'; // Por defecto, sin fecha
         if (diff !== null) {
-            if (diff < 0) colorAlerta = 'border-danger bg-danger-subtle';
-            else if (diff === 0) colorAlerta = 'border-warning bg-warning-subtle';
+            if (diff < 0) {
+                // Vencido: bien rojo
+                colorAlerta = 'border-danger bg-danger-subtle';
+            } else if (diff === 0) {
+                // Hoy: rojo también pero quizá con tonalidad distinta
+                colorAlerta = 'border-danger bg-danger-subtle';
+            } else if (diff <= 2) {
+                // 1-2 días: naranja/warning
+                colorAlerta = 'border-warning bg-warning-subtle';
+            } else if (diff <= 5) {
+                // 3-5 días: info/azul (requiere atención pero no urgente)
+                colorAlerta = 'border-info bg-info-subtle';
+            } else {
+                // 6+ días: verde/success (hay tiempo)
+                colorAlerta = 'border-success bg-success-subtle';
+            }
         }
 
         return (
@@ -403,12 +439,12 @@ export default function Pedidos() {
                 )}
                 <Modal.Footer className="justify-content-center bg-white border-top-0 pt-0 flex-wrap gap-2">
                     <div className="d-flex w-100 gap-2 mb-2 justify-content-center">
-                        <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleEnviarTicket}><i className="fas fa-share-nodes"></i> Enviar Ticket</Button>
-                        <Button variant="success" className="fw-bold flex-grow-1" onClick={handleEntregar}><i className="fas fa-check"></i> Entregar</Button>
-                        <Button variant="outline-primary" className="fw-bold flex-grow-1" onClick={handleAbonar}><i className="fas fa-coins"></i> Abonar</Button>
-                        <Button variant="outline-secondary" className="flex-grow-1" onClick={() => abrirEditar(pedidoActivo)}><i className="fas fa-pen"></i> Editar</Button>
+                        <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleEnviarTicket} disabled={procesandoDetalle}><i className="fas fa-share-nodes"></i> Enviar Ticket</Button>
+                        <Button variant="success" className="fw-bold flex-grow-1" onClick={handleEntregar} disabled={procesandoDetalle}><i className="fas fa-check"></i> Entregar</Button>
+                        <Button variant="outline-primary" className="fw-bold flex-grow-1" onClick={handleAbonar} disabled={procesandoDetalle}><i className="fas fa-coins"></i> Abonar</Button>
+                        <Button variant="outline-secondary" className="flex-grow-1" onClick={() => abrirEditar(pedidoActivo)} disabled={procesandoDetalle}><i className="fas fa-pen"></i> Editar</Button>
                     </div>
-                    <Button variant="outline-danger" size="sm" className="px-4 bg-white" onClick={handleAnular}><i className="fas fa-times"></i> Anular</Button>
+                    <Button variant="outline-danger" size="sm" className="px-4 bg-white" onClick={handleAnular} disabled={procesandoDetalle}><i className="fas fa-times"></i> Anular</Button>
                 </Modal.Footer>
             </Modal>
 
@@ -466,10 +502,21 @@ export default function Pedidos() {
                                     placeholder="Ej: Taza personalizada 11oz"
                                     list="listaCatalogo"
                                     value={formPedido.producto}
-                                    onChange={actualizarForm('producto')}
-                                    onBlur={(e) => {
-                                        const p = productosCatalogo.find((x) => x.nombre.toLowerCase() === e.target.value.toLowerCase());
-                                        if (p) setFormPedido((f) => ({ ...f, precio: p.precio_venta }));
+                                    onChange={(e) => {
+                                        const nombre = e.target.value;
+                                        setFormPedido((f) => {
+                                            const actualizado = { ...f, producto: nombre };
+                                            // Si coincide exactamente con el catálogo, autocomple el precio.
+                                            if (nombre.trim()) {
+                                                const encontrado = productosCatalogo.find(
+                                                    (p) => p.nombre.toLowerCase() === nombre.trim().toLowerCase()
+                                                );
+                                                if (encontrado && !f.precio) {
+                                                    actualizado.precio = (encontrado.precio_venta || '').toString();
+                                                }
+                                            }
+                                            return actualizado;
+                                        });
                                     }}
                                 />
                             </InputGroup>

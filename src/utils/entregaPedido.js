@@ -74,6 +74,7 @@ export async function entregarPedido(pedido) {
                 descripcion: `Pago al entregar: ${pedido.producto}`,
                 entidad: pedido.cliente,
                 monto: montoPagadoAhora,
+                pedido_id: pedido.id, // Para trazabilidad: poder borrar este movimiento si se borra el pedido.
                 timestamp: new Date()
             });
         }

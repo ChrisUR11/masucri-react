@@ -73,6 +73,7 @@ export async function registrarAbono(pedido) {
             descripcion: `Abono: ${pedido.producto}`,
             entidad: pedido.cliente,
             monto,
+            pedido_id: pedido.id, // Para trazabilidad: poder borrar este movimiento si se borra el pedido.
             timestamp: new Date()
         });
 

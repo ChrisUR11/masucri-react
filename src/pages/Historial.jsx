@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Container, Card, Table, Button, Form, Modal, Badge } from 'react-bootstrap';
-import { collection, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import Swal from 'sweetalert2';
 import { TicketImpresion } from '../components/TicketImpresion';
@@ -9,6 +9,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import FichaPedidoDetalle from '../components/FichaPedidoDetalle';
 import { registrarAbono } from '../utils/abonoPedido';
+import { borrarPedidoConTrazabilidad } from '../utils/trazabilidad';
 import { abrirWhatsApp, mensajePedido } from '../utils/whatsapp';
 import { compartirTicket } from '../utils/ticketImagen';
 
@@ -92,7 +93,7 @@ export default function Historial() {
         if (!pedidoActivoActualizado || procesando) return;
         const result = await Swal.fire({
             title: '¿Borrar definitivo?',
-            text: 'Se eliminará el registro permanentemente.',
+            text: 'Se eliminará el pedido Y todos sus movimientos en Finanzas (abonos). No se puede deshacer.',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#dc3545'
@@ -100,9 +101,15 @@ export default function Historial() {
         if (result.isConfirmed) {
             setProcesando(true);
             try {
-                await deleteDoc(doc(db, 'pedidos', pedidoActivoActualizado.id));
+                const { movimientosBorrados } = await borrarPedidoConTrazabilidad(pedidoActivoActualizado.id);
                 setShowModal(false);
-                Swal.fire({ icon: 'success', title: 'Borrado', timer: 1000, showConfirmButton: false });
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Borrado',
+                    text: `Se eliminó el pedido y ${movimientosBorrados} movimiento(s) de Finanzas.`,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
             } catch (err) {
                 console.error(err);
                 Swal.fire('Error', 'No se pudo borrar el registro.', 'error');
