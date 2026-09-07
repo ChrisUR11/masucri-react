@@ -340,6 +340,33 @@ export default function Pedidos() {
                 aria-label="Buscar pedido"
             />
 
+            {/* LEYENDA DE COLORES */}
+            <div className="mb-3 p-3 bg-white rounded border shadow-sm d-print-none">
+                <small className="fw-bold d-block mb-2">Código de colores por fecha de entrega:</small>
+                <div className="d-flex flex-wrap gap-3">
+                    <div className="d-flex align-items-center gap-2">
+                        <div className="rounded-circle" style={{ width: '12px', height: '12px', backgroundColor: '#dc3545' }}></div>
+                        <small><strong>Rojo:</strong> Hoy o vencido</small>
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                        <div className="rounded-circle" style={{ width: '12px', height: '12px', backgroundColor: '#fd7e14' }}></div>
+                        <small><strong>Naranja:</strong> 1-2 días</small>
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                        <div className="rounded-circle" style={{ width: '12px', height: '12px', backgroundColor: '#0dcaf0' }}></div>
+                        <small><strong>Azul:</strong> 3-5 días</small>
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                        <div className="rounded-circle" style={{ width: '12px', height: '12px', backgroundColor: '#198754' }}></div>
+                        <small><strong>Verde:</strong> 6+ días</small>
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                        <div className="rounded-circle" style={{ width: '12px', height: '12px', backgroundColor: '#6c757d' }}></div>
+                        <small><strong>Gris:</strong> Sin fecha</small>
+                    </div>
+                </div>
+            </div>
+
             {error ? (
                 <EstadoError texto="No se pudo cargar el tablero. Revisa tu conexión." />
             ) : cargando ? (
