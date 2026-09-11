@@ -8,6 +8,7 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import SelectorRango, { calcularRangoPreset } from '../components/SelectorRango';
 import { calcularMetricas } from '../utils/metricasNegocio';
+import { calcularMetricasContables } from '../utils/metricasContables';
 import { formatoColones, formatoNumero } from '../utils/formato';
 import { formatoFechaLegible } from '../utils/fecha';
 
@@ -47,6 +48,7 @@ export default function DashboardBI() {
     // Por defecto, al entrar, se ve "Mes actual" — el mismo comportamiento de siempre.
     const [preset, setPreset] = useState('mes_actual');
     const [rango, setRango] = useState(() => calcularRangoPreset('mes_actual'));
+    const [mostrarContabilidad, setMostrarContabilidad] = useState(false);
 
     const cambiarPreset = (nuevoPreset) => {
         setPreset(nuevoPreset);
@@ -54,6 +56,7 @@ export default function DashboardBI() {
     };
 
     const m = useMemo(() => calcularMetricas(pedidos, movimientos, rango), [pedidos, movimientos, rango]);
+    const mc = useMemo(() => calcularMetricasContables(pedidos, movimientos, rango), [pedidos, movimientos, rango]);
 
     if (error) {
         return (
@@ -74,11 +77,16 @@ export default function DashboardBI() {
     return (
         <Container className="mt-4 pb-5">
             {/* ENCABEZADO */}
-            <div className="mb-4">
-                <h3 className="fw-bold m-0"><i className="fas fa-chart-line text-secondary"></i> Inteligencia de Negocios (BI)</h3>
-                <small className="text-muted">
-                    <i className="fas fa-calendar-alt"></i> Analizando datos del historial: desde <strong>{m.minFecha}</strong> hasta <strong>{m.maxFecha}</strong>
-                </small>
+            <div className="mb-4 d-flex justify-content-between align-items-start">
+                <div>
+                    <h3 className="fw-bold m-0"><i className="fas fa-chart-line text-secondary"></i> Inteligencia de Negocios (BI)</h3>
+                    <small className="text-muted">
+                        <i className="fas fa-calendar-alt"></i> Analizando datos del historial: desde <strong>{m.minFecha}</strong> hasta <strong>{m.maxFecha}</strong>
+                    </small>
+                </div>
+                <Button variant={mostrarContabilidad ? 'success' : 'outline-success'} size="sm" onClick={() => setMostrarContabilidad(!mostrarContabilidad)}>
+                    <i className="fas fa-book-open me-1"></i> {mostrarContabilidad ? 'Ocultar' : 'Ver'} Contabilidad
+                </Button>
             </div>
 
             {/* SELECTOR DE PERÍODO */}
@@ -286,6 +294,119 @@ export default function DashboardBI() {
                     </Row>
                 </Card.Body>
             </Card>
+
+            {/* MÓDULO DE CONTABILIDAD (oculto por defecto) */}
+            {mostrarContabilidad && (
+                <div className="mt-5 pt-4 border-top">
+                    <h4 className="fw-bold mb-4"><i className="fas fa-book-open text-success me-2"></i>Análisis Contable y Financiero</h4>
+
+                    <Row className="mb-4">
+                        <Col lg={3} md={6} className="mb-3">
+                            <Card className="border-0 shadow-sm text-center bg-light">
+                                <Card.Body>
+                                    <small className="text-muted fw-bold">Ganancia Neta</small>
+                                    <h2 className={`fw-bold ${mc.gananciaTotal >= 0 ? 'text-success' : 'text-danger'}`}>
+                                        {formatoColones(mc.gananciaTotal)}
+                                    </h2>
+                                    <small className="text-muted">Ingresos - Gastos</small>
+                                </Card.Body>
+                            </Card>
+                        </Col>
+                        <Col lg={3} md={6} className="mb-3">
+                            <Card className="border-0 shadow-sm text-center bg-light">
+                                <Card.Body>
+                                    <small className="text-muted fw-bold">Margen Promedio</small>
+                                    <h2 className="fw-bold text-info">{mc.margenPromedio.toFixed(1)}%</h2>
+                                    <small className="text-muted">% de ganancia sobre venta</small>
+                                </Card.Body>
+                            </Card>
+                        </Col>
+                        <Col lg={3} md={6} className="mb-3">
+                            <Card className="border-0 shadow-sm text-center bg-light">
+                                <Card.Body>
+                                    <small className="text-muted fw-bold">Rentabilidad</small>
+                                    <h2 className={`fw-bold ${mc.rentabilidad >= 0 ? 'text-success' : 'text-warning'}`}>
+                                        {mc.rentabilidad.toFixed(1)}%
+                                    </h2>
+                                    <small className="text-muted">Flujo / Ingresos</small>
+                                </Card.Body>
+                            </Card>
+                        </Col>
+                        <Col lg={3} md={6} className="mb-3">
+                            <Card className="border-0 shadow-sm text-center bg-light">
+                                <Card.Body>
+                                    <small className="text-muted fw-bold">Ratio Gasto/Ingreso</small>
+                                    <h2 className={`fw-bold ${mc.ratioGastoIngreso <= 70 ? 'text-success' : 'text-warning'}`}>
+                                        {mc.ratioGastoIngreso.toFixed(1)}%
+                                    </h2>
+                                    <small className="text-muted">Ideal: &lt; 70%</small>
+                                </Card.Body>
+                            </Card>
+                        </Col>
+                    </Row>
+
+                    <Row className="mb-4">
+                        <Col lg={6} className="mb-3">
+                            <Card className="border-0 shadow-sm">
+                                <Card.Header className="bg-primary text-white fw-bold">Top 5 Clientes por Valor</Card.Header>
+                                <Card.Body>
+                                    {mc.topClientesPorValor.length === 0 ? (
+                                        <p className="text-muted small mb-0">Sin datos.</p>
+                                    ) : (
+                                        <ul className="small mb-0 list-unstyled">
+                                            {mc.topClientesPorValor.map((c, i) => (
+                                                <li key={i} className="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                                                    <span><strong>#{i + 1}</strong> {c.nombre} ({c.pedidos} pedidos)</span>
+                                                    <span className="fw-bold">{formatoColones(c.valor)}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </Card.Body>
+                            </Card>
+                        </Col>
+                        <Col lg={6} className="mb-3">
+                            <Card className="border-0 shadow-sm">
+                                <Card.Header className="bg-danger text-white fw-bold">Top 5 Productos por Margen</Card.Header>
+                                <Card.Body>
+                                    {mc.topMargen.length === 0 ? (
+                                        <p className="text-muted small mb-0">Sin datos (requiere costo unitario registrado).</p>
+                                    ) : (
+                                        <ul className="small mb-0 list-unstyled">
+                                            {mc.topMargen.map((p, i) => (
+                                                <li key={i} className="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                                                    <span><strong>#{i + 1}</strong> {p.nombre}</span>
+                                                    <span className={`fw-bold ${p.margen >= 40 ? 'text-success' : p.margen >= 20 ? 'text-warning' : 'text-danger'}`}>
+                                                        {p.margen.toFixed(1)}%
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </Card.Body>
+                            </Card>
+                        </Col>
+                    </Row>
+
+                    <Card className="border-0 shadow-sm">
+                        <Card.Header className="bg-info text-white fw-bold">Resumen Financiero del Período</Card.Header>
+                        <Card.Body className="small">
+                            <Row>
+                                <Col md={6}>
+                                    <p className="mb-2"><strong>Total Ingresos:</strong> {formatoColones(mc.ingresos)}</p>
+                                    <p className="mb-2"><strong>Total Gastos:</strong> {formatoColones(mc.gastos)}</p>
+                                    <p className="mb-0"><strong>Flujo de Caja:</strong> <span className={mc.flujoCaja >= 0 ? 'text-success' : 'text-danger'}>{formatoColones(mc.flujoCaja)}</span></p>
+                                </Col>
+                                <Col md={6}>
+                                    <p className="mb-2"><strong>Pedidos Entregados:</strong> {mc.pedidosEntregadosEnPeriodo}</p>
+                                    <p className="mb-2"><strong>Costo Total Estim:</strong> {formatoColones(mc.costoTotal)}</p>
+                                    <p className="mb-0"><strong>Precio Total Venta:</strong> {formatoColones(mc.precioTotalVenta)}</p>
+                                </Col>
+                            </Row>
+                        </Card.Body>
+                    </Card>
+                </div>
+            )}
         </Container>
     );
 }

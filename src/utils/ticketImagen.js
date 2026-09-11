@@ -1,160 +1,158 @@
-const ANCHO = 560;
-const PADDING = 32;
-const COLOR_TITULO = '#212529';
-const COLOR_TEXTO = '#333333';
-const COLOR_MUTED = '#6c757d';
-const COLOR_LINEA = '#dee2e6';
-const COLOR_EXITO = '#198754';
-const COLOR_ALERTA = '#fd7e14';
+const ANCHO = 600;
+const ALTO_LOGO = 60;
+const PADDING = 40;
+const COLOR_TITULO = '#1a5d3a';
+const COLOR_TEXTO = '#2c3e50';
+const COLOR_MUTED = '#7f8c8d';
+const COLOR_LINEA = '#ecf0f1';
+const COLOR_EXITO = '#27ae60';
+const COLOR_ALERTA = '#e74c3c';
+const FONT_TITULO = 'bold 24px "Arial", sans-serif';
+const FONT_SUBTITULO = 'bold 16px "Arial", sans-serif';
+const FONT_NORMAL = '14px "Arial", sans-serif';
+const FONT_SMALL = '12px "Arial", sans-serif';
 
-/** Corta un texto largo en varias líneas para que quepa en el ancho disponible. */
-function envolverTexto(ctx, texto, maxAncho) {
-    const palabras = texto.split(' ');
-    const lineas = [];
-    let actual = '';
-    palabras.forEach((palabra) => {
-        const prueba = actual ? `${actual} ${palabra}` : palabra;
-        if (ctx.measureText(prueba).width > maxAncho && actual) {
-            lineas.push(actual);
-            actual = palabra;
-        } else {
-            actual = prueba;
-        }
-    });
-    if (actual) lineas.push(actual);
-    return lineas;
-}
-
-/** Dibuja el comprobante del pedido en un <canvas> y devuelve un Blob PNG. */
 function generarTicketImagenBlob(pedido) {
     const saldo = (pedido.precio || 0) - (pedido.monto_pagado || 0);
-    const anchoTexto = ANCHO - PADDING * 2;
+    const historiaPagos = pedido.historial_pagos || [];
 
-    // Canvas "invisible" solo para medir cuánto ocupa el texto envuelto,
-    // antes de saber el alto final que va a necesitar el ticket real.
-    const medidor = document.createElement('canvas').getContext('2d');
-    medidor.font = '16px Arial';
-    const lineasProducto = envolverTexto(medidor, pedido.producto || '-', anchoTexto);
-    const lineasDetalle = pedido.descripcion ? envolverTexto(medidor, pedido.descripcion, anchoTexto) : [];
-
-    let alto = 300 + lineasProducto.length * 22 + lineasDetalle.length * 20;
-    if (pedido.fecha_entrega) alto += 26;
+    // Calcular alto dinámico según historial
+    let altoContent = 380 + historiaPagos.length * 30;
+    const altoFinal = altoContent + 60;
 
     const canvas = document.createElement('canvas');
     canvas.width = ANCHO;
-    canvas.height = alto;
+    canvas.height = altoFinal;
     const ctx = canvas.getContext('2d');
 
+    // Fondo blanco
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, ANCHO, alto);
+    ctx.fillRect(0, 0, ANCHO, altoFinal);
 
-    let y = 45;
+    let y = PADDING;
 
+    // ===== HEADER CON LOGO Y NOMBRE =====
     ctx.fillStyle = COLOR_TITULO;
-    ctx.font = 'bold 26px Arial';
+    ctx.font = FONT_TITULO;
     ctx.textAlign = 'center';
-    ctx.fillText('MASUCRI', ANCHO / 2, y);
-    y += 22;
-    ctx.font = '13px Arial';
+    ctx.fillText('MASUCRI', ANCHO / 2, y + 20);
+    y += 35;
+    ctx.font = FONT_SMALL;
     ctx.fillStyle = COLOR_MUTED;
     ctx.fillText('Confecciones y Sublimaciones', ANCHO / 2, y);
+    y += 20;
+
+    // Línea separadora
+    ctx.strokeStyle = COLOR_LINEA;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(PADDING, y);
+    ctx.lineTo(ANCHO - PADDING, y);
+    ctx.stroke();
+    y += 20;
+
+    // ID y fecha
+    ctx.textAlign = 'left';
+    ctx.font = FONT_SMALL;
+    ctx.fillStyle = COLOR_MUTED;
+    ctx.fillText(`ID: ${pedido.id || '-'}`, PADDING, y);
+    ctx.textAlign = 'right';
+    ctx.fillText(`${pedido.fecha_solicitud || '-'}`, ANCHO - PADDING, y);
     y += 22;
 
-    ctx.strokeStyle = COLOR_LINEA;
-    ctx.beginPath();
-    ctx.moveTo(PADDING, y);
-    ctx.lineTo(ANCHO - PADDING, y);
-    ctx.stroke();
-    y += 36;
     ctx.textAlign = 'left';
 
-    ctx.font = '12px Arial';
+    // ===== DATOS PRINCIPALES =====
+    ctx.font = FONT_SMALL;
     ctx.fillStyle = COLOR_MUTED;
     ctx.fillText('CLIENTE', PADDING, y);
-    y += 20;
-    ctx.font = 'bold 18px Arial';
+    y += 18;
+    ctx.font = FONT_SUBTITULO;
     ctx.fillStyle = COLOR_TEXTO;
     ctx.fillText(pedido.cliente || '-', PADDING, y);
-    y += 34;
+    y += 28;
 
-    ctx.font = '12px Arial';
+    ctx.font = FONT_SMALL;
     ctx.fillStyle = COLOR_MUTED;
     ctx.fillText('PRODUCTO', PADDING, y);
-    y += 20;
-    ctx.font = 'bold 16px Arial';
+    y += 18;
+    ctx.font = FONT_NORMAL;
     ctx.fillStyle = COLOR_TEXTO;
-    lineasProducto.forEach((linea) => {
-        ctx.fillText(linea, PADDING, y);
-        y += 22;
-    });
+    ctx.fillText(pedido.producto || '-', PADDING, y);
+    y += 24;
 
-    if (lineasDetalle.length > 0) {
-        y += 4;
-        ctx.font = '13px Arial';
-        ctx.fillStyle = COLOR_MUTED;
-        lineasDetalle.forEach((linea) => {
-            ctx.fillText(linea, PADDING, y);
-            y += 20;
-        });
-    }
-
-    y += 16;
+    // Línea separadora
     ctx.strokeStyle = COLOR_LINEA;
+    ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(PADDING, y);
     ctx.lineTo(ANCHO - PADDING, y);
     ctx.stroke();
-    y += 34;
+    y += 20;
 
-    const dibujarFila = (etiqueta, valor, color = COLOR_TEXTO, negrita = false) => {
-        ctx.font = '15px Arial';
+    // ===== MONTOS =====
+    const dibujarFila = (etiqueta, valor, esTotal = false) => {
+        ctx.font = esTotal ? 'bold 16px "Arial"' : FONT_NORMAL;
         ctx.fillStyle = COLOR_MUTED;
         ctx.textAlign = 'left';
         ctx.fillText(etiqueta, PADDING, y);
-        ctx.font = negrita ? 'bold 17px Arial' : '15px Arial';
-        ctx.fillStyle = color;
+        ctx.fillStyle = COLOR_TEXTO;
         ctx.textAlign = 'right';
         ctx.fillText(valor, ANCHO - PADDING, y);
         ctx.textAlign = 'left';
-        y += 28;
+        y += 26;
     };
 
     dibujarFila('Precio Total', `₡${(pedido.precio || 0).toLocaleString('es-CR')}`);
     dibujarFila('Pagado', `₡${(pedido.monto_pagado || 0).toLocaleString('es-CR')}`);
 
-    y += 4;
+    if (historiaPagos.length > 0) {
+        y += 8;
+        ctx.font = FONT_SMALL;
+        ctx.fillStyle = COLOR_MUTED;
+        ctx.fillText('Historial de pagos:', PADDING, y);
+        y += 18;
+
+        historiaPagos.forEach((pago) => {
+            ctx.font = FONT_SMALL;
+            ctx.fillStyle = COLOR_TEXTO;
+            ctx.fillText(`• ${pago.fecha} - ${pago.metodo}`, PADDING + 10, y);
+            ctx.textAlign = 'right';
+            ctx.fillText(`₡${(pago.monto || 0).toLocaleString('es-CR')}`, ANCHO - PADDING, y);
+            ctx.textAlign = 'left';
+            y += 24;
+        });
+
+        y += 8;
+    }
+
+    // Línea separadora
     ctx.strokeStyle = COLOR_LINEA;
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(PADDING, y);
     ctx.lineTo(ANCHO - PADDING, y);
     ctx.stroke();
-    y += 30;
+    y += 20;
 
+    // ===== SALDO FINAL =====
+    ctx.font = 'bold 18px "Arial"';
     if (saldo > 0) {
-        dibujarFila('Saldo Pendiente', `₡${saldo.toLocaleString('es-CR')}`, COLOR_ALERTA, true);
+        ctx.fillStyle = COLOR_ALERTA;
+        ctx.textAlign = 'center';
+        ctx.fillText(`Saldo Pendiente: ₡${saldo.toLocaleString('es-CR')}`, ANCHO / 2, y);
     } else {
-        ctx.font = 'bold 17px Arial';
         ctx.fillStyle = COLOR_EXITO;
         ctx.textAlign = 'center';
-        ctx.fillText('✓ Pagado en su totalidad', ANCHO / 2, y);
-        ctx.textAlign = 'left';
-        y += 28;
+        ctx.fillText('✓ PAGADO EN SU TOTALIDAD', ANCHO / 2, y);
     }
+    y += 32;
 
-    if (pedido.fecha_entrega) {
-        y += 8;
-        ctx.font = '13px Arial';
-        ctx.fillStyle = COLOR_MUTED;
-        ctx.textAlign = 'center';
-        ctx.fillText(`Fecha de entrega: ${pedido.fecha_entrega}`, ANCHO / 2, y);
-        y += 20;
-    }
-
-    y += 14;
-    ctx.font = 'italic 13px Arial';
+    // Pie de página
+    ctx.font = 'italic 12px "Arial"';
     ctx.fillStyle = COLOR_MUTED;
     ctx.textAlign = 'center';
-    ctx.fillText('¡Gracias por su compra! 🙏', ANCHO / 2, y);
+    ctx.fillText('¡Gracias por su compra!', ANCHO / 2, y);
 
     return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
 }
