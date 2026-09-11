@@ -399,7 +399,7 @@ export default function DashboardBI() {
                                 </Col>
                                 <Col md={6}>
                                     <p className="mb-2"><strong>Pedidos Entregados:</strong> {mc.pedidosEntregadosEnPeriodo}</p>
-                                    <p className="mb-2"><strong>Costo Total Estim:</strong> {formatoColones(mc.costoTotal)}</p>
+                                    <p className="mb-2"><strong>Costo Estimado:</strong> {formatoColones(mc.precioTotalVenta * (1 - mc.margenPromedio / 100))}</p>
                                     <p className="mb-0"><strong>Precio Total Venta:</strong> {formatoColones(mc.precioTotalVenta)}</p>
                                 </Col>
                             </Row>

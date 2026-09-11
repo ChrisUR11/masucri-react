@@ -12,12 +12,28 @@ const FONT_SUBTITULO = 'bold 16px "Arial", sans-serif';
 const FONT_NORMAL = '14px "Arial", sans-serif';
 const FONT_SMALL = '12px "Arial", sans-serif';
 
-function generarTicketImagenBlob(pedido) {
+/**
+ * Genera el comprobante del pedido en un <canvas> con logo y devuelve un Blob PNG.
+ */
+async function generarTicketImagenBlob(pedido) {
     const saldo = (pedido.precio || 0) - (pedido.monto_pagado || 0);
     const historiaPagos = pedido.historial_pagos || [];
 
+    // Cargar el logo
+    let logoImg = null;
+    try {
+        logoImg = await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('No se pudo cargar el logo'));
+            img.src = '/logo-masucri.png'; // Desde public/
+        });
+    } catch (err) {
+        console.warn('Logo no disponible, continuando sin él');
+    }
+
     // Calcular alto dinámico según historial
-    let altoContent = 380 + historiaPagos.length * 30;
+    let altoContent = 420 + historiaPagos.length * 30; // Más alto para el logo
     const altoFinal = altoContent + 60;
 
     const canvas = document.createElement('canvas');
@@ -29,9 +45,22 @@ function generarTicketImagenBlob(pedido) {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, ANCHO, altoFinal);
 
-    let y = PADDING;
+    let y = PADDING - 10;
 
-    // ===== HEADER CON LOGO Y NOMBRE =====
+    // ===== LOGO =====
+    if (logoImg) {
+        try {
+            const logoAlto = 70;
+            const logoAncho = (logoAlto / logoImg.height) * logoImg.width;
+            const logoX = (ANCHO - logoAncho) / 2;
+            ctx.drawImage(logoImg, logoX, y, logoAncho, logoAlto);
+            y += logoAlto + 15;
+        } catch (err) {
+            console.warn('Error dibujando logo:', err);
+        }
+    }
+
+    // ===== HEADER CON NOMBRE =====
     ctx.fillStyle = COLOR_TITULO;
     ctx.font = FONT_TITULO;
     ctx.textAlign = 'center';
