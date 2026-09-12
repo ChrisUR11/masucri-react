@@ -388,6 +388,37 @@ export default function DashboardBI() {
                         </Col>
                     </Row>
 
+                    {mc.morosos.length > 0 && (
+                        <Card className="border-0 shadow-sm mb-3 border-start border-5 border-danger">
+                            <Card.Header className="bg-danger text-white fw-bold">⚠️ Clientes Morosos ({mc.morosos.length})</Card.Header>
+                            <Card.Body className="small">
+                                <div className="table-responsive">
+                                    <table className="table table-sm table-striped mb-0">
+                                        <thead className="table-light">
+                                            <tr>
+                                                <th>Cliente</th>
+                                                <th>Deuda</th>
+                                                <th>Días Sin Pagar</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {mc.morosos.map((m, i) => (
+                                                <tr key={i} className={m.diasDeuda > 30 ? 'table-danger' : m.diasDeuda > 14 ? 'table-warning' : ''}>
+                                                    <td className="fw-bold">{m.cliente}</td>
+                                                    <td className="fw-bold text-danger">{formatoColones(m.deuda)}</td>
+                                                    <td>
+                                                        <span className={`badge ${m.diasDeuda > 30 ? 'bg-danger' : m.diasDeuda > 14 ? 'bg-warning text-dark' : 'bg-info'}`}>
+                                                            {m.diasDeuda} días
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </Card.Body>
+                        </Card>
+                    )}
                     <Card className="border-0 shadow-sm">
                         <Card.Header className="bg-info text-white fw-bold">Resumen Financiero del Período</Card.Header>
                         <Card.Body className="small">

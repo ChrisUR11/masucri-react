@@ -18,6 +18,10 @@ export default function Catalogo() {
 
     const [filtro, setFiltro] = useState('');
     const [showModal, setShowModal] = useState(false);
+    const [filtroCategoria, setFiltroCategoria] = useState('');
+    const [filtroPrecioMin, setFiltroPrecioMin] = useState('');
+    const [filtroPrecioMax, setFiltroPrecioMax] = useState('');
+    const [mostrarFiltros, setMostrarFiltros] = useState(false);
     const [editId, setEditId] = useState(null);
     const [form, setForm] = useState(FORM_VACIO);
     const [guardando, setGuardando] = useState(false);
