@@ -1,30 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useOfflineSync } from '../hooks/useOfflineSync';
 
-/**
- * Aviso discreto cuando el dispositivo se queda sin internet. Firestore
- * sigue funcionando en modo offline (guarda localmente y sincroniza al
- * volver la señal), pero sin este aviso el usuario no tiene forma de saber
- * por qué "no ve" los cambios reflejarse en otro dispositivo.
- */
 export default function EstadoConexion() {
-    const [online, setOnline] = useState(navigator.onLine);
+    const { offline, stats } = useOfflineSync();
+    const [visible, setVisible] = useState(offline);
 
     useEffect(() => {
-        const marcarOffline = () => setOnline(false);
-        const marcarOnline = () => setOnline(true);
-        window.addEventListener('offline', marcarOffline);
-        window.addEventListener('online', marcarOnline);
-        return () => {
-            window.removeEventListener('offline', marcarOffline);
-            window.removeEventListener('online', marcarOnline);
-        };
-    }, []);
+        setVisible(offline);
+    }, [offline]);
 
-    if (online) return null;
+    if (!visible) return null;
 
     return (
-        <div className="bg-danger text-white text-center small py-1 d-print-none fw-bold">
-            <i className="fas fa-wifi"></i> Sin conexión — los cambios se guardarán y sincronizarán al volver la señal.
+        <div
+            style={{
+                backgroundColor: '#dc3545',
+                color: 'white',
+                padding: '12px 16px',
+                textAlign: 'center',
+                fontSize: '14px',
+                fontWeight: '600',
+                zIndex: 1040
+            }}
+        >
+            <i className="fas fa-wifi-slash me-2"></i>
+            Sin conexión a internet
+            {stats.pendingSync > 0 && (
+                <span style={{ marginLeft: '10px' }}>
+                    • {stats.pendingSync} cambio(s) pendiente(s) de sincronizar
+                </span>
+            )}
         </div>
     );
 }

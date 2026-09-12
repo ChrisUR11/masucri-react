@@ -2,14 +2,12 @@ import { useState } from 'react';
 import { Navbar, Nav, Container, Button } from 'react-bootstrap';
 import { signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
-import { useModoOscuro } from '../context/ModoOscuroContext';
 import Swal from 'sweetalert2';
 import { Link, useLocation } from 'react-router-dom';
 
 export default function NavBar({ user }) {
     const location = useLocation();
     const [expandido, setExpandido] = useState(false);
-    const { oscuro, toggle } = useModoOscuro();
 
     const handleLogout = async () => {
         const result = await Swal.fire({ title: '¿Salir?', icon: 'warning', showCancelButton: true });
@@ -20,8 +18,8 @@ export default function NavBar({ user }) {
 
     return (
         <Navbar
-            bg={oscuro ? 'dark' : 'light'}
-            data-bs-theme={oscuro ? 'dark' : 'light'}
+            bg="dark"
+            variant="dark"
             expand="lg"
             expanded={expandido}
             onToggle={setExpandido}
@@ -41,17 +39,8 @@ export default function NavBar({ user }) {
                         <Nav.Link as={Link} to="/finanzas" active={location.pathname === '/finanzas'}>Finanzas</Nav.Link>
                         <Nav.Link as={Link} to="/bi" active={location.pathname === '/bi'} className="fw-bold text-warning">BI MASUCRI</Nav.Link>
                     </Nav>
-                    <div className="d-flex align-items-center gap-2 mt-2 mt-lg-0">
-                        <Button
-                            variant="outline-secondary"
-                            size="sm"
-                            onClick={toggle}
-                            aria-label="Toggle modo oscuro"
-                            title={oscuro ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-                        >
-                            <i className={`fas fa-${oscuro ? 'sun' : 'moon'}`}></i>
-                        </Button>
-                        <span className="text-nowrap fw-semibold small">Admin: {user.displayName}</span>
+                    <div className="d-flex align-items-center mt-2 mt-lg-0">
+                        <span className="text-white me-3 fw-semibold small">Admin: {user.displayName}</span>
                         <Button variant="outline-danger" size="sm" onClick={handleLogout}>Salir</Button>
                     </div>
                 </Navbar.Collapse>

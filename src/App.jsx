@@ -8,7 +8,6 @@ import ActualizacionPWA from './components/ActualizacionPWA';
 import BotonSubir from './components/BotonSubir';
 import EstadoConexion from './components/EstadoConexion';
 import { HashRouter, Routes, Route } from "react-router-dom";
-import { ModoOscuroProvider } from './context/ModoOscuroContext';
 
 // Importamos nuestras páginas
 import Pedidos from './pages/Pedidos';
@@ -16,6 +15,7 @@ import Catalogo from './pages/Catalogo';
 import Finanzas from './pages/Finanzas';
 import Historial from './pages/Historial';
 import DashboardBI from './pages/DashboardBI';
+import HistorialCliente from './pages/HistorialCliente';
 
 export default function App() {
     const [user, setUser] = useState(null);
@@ -74,32 +74,31 @@ export default function App() {
     }
 
     return (
-        <ModoOscuroProvider>
-            <HashRouter>
-                <div className="d-flex flex-column min-vh-100 bg-light" style={{ backgroundColor: 'var(--bs-body-bg)' }}>
-                    <EstadoConexion />
-                    <NavBar user={user} />
+        <HashRouter>
+            <div className="d-flex flex-column min-vh-100 bg-light">
+                <EstadoConexion />
+                <NavBar user={user} />
 
-                    {/* Aquí ocurre la magia: dependiendo de la URL, React inyecta una página distinta */}
-                    <Routes>
-                        <Route path="/" element={<Pedidos />} />
-                        <Route path="/historial" element={<Historial />} />
-                        <Route path="/catalogo" element={<Catalogo />} />
-                        <Route path="/finanzas" element={<Finanzas />} />
-                        <Route path="/bi" element={<DashboardBI />} />
+                {/* Aquí ocurre la magia: dependiendo de la URL, React inyecta una página distinta */}
+                <Routes>
+                    <Route path="/" element={<Pedidos />} />
+                    <Route path="/historial" element={<Historial />} />
+                    <Route path="/historial-cliente" element={<HistorialCliente />} />
+                    <Route path="/catalogo" element={<Catalogo />} />
+                    <Route path="/finanzas" element={<Finanzas />} />
+                    <Route path="/bi" element={<DashboardBI />} />
 
-                        {/* El asterisco (*) atrapa cualquier ruta que aún no hayamos creado */}
-                        <Route path="*" element={
-                            <Container className="mt-4">
-                                <h3 className="text-muted">Módulo en construcción... 🛠️</h3>
-                            </Container>
-                        } />
-                    </Routes>
+                    {/* El asterisco (*) atrapa cualquier ruta que aún no hayamos creado */}
+                    <Route path="*" element={
+                        <Container className="mt-4">
+                            <h3 className="text-muted">Módulo en construcción... 🛠️</h3>
+                        </Container>
+                    } />
+                </Routes>
 
-                    <BotonSubir />
-                    <ActualizacionPWA />
-                </div>
-            </HashRouter>
-        </ModoOscuroProvider>
+                <BotonSubir />
+                <ActualizacionPWA />
+            </div>
+        </HashRouter>
     );
 }
