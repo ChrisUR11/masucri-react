@@ -26,9 +26,16 @@ function generarTicketImagenBlob(pedido, logoImagen) {
         let y = PADDING;
 
         // Logo si existe
-        if (logoImagen) {
-            ctx.drawImage(logoImagen, ANCHO / 2 - 25, y, 50, 50);
-            y += 70;
+        if (logoImagen && logoImagen instanceof HTMLImageElement) {
+            try {
+                ctx.drawImage(logoImagen, ANCHO / 2 - 25, y, 50, 50);
+                y += 70;
+            } catch (err) {
+                console.warn('No se pudo dibujar el logo:', err);
+                y += 20;
+            }
+        } else {
+            y += 20;
         }
 
         // Título
@@ -157,31 +164,63 @@ function generarTicketImagenBlob(pedido, logoImagen) {
 
         // Convertir a blob
         canvas.toBlob((blob) => {
-            resolve(blob);
+            if (!blob) {
+                console.error('Error: canvas.toBlob retornó null');
+                resolve(null);
+            } else {
+                resolve(blob);
+            }
         }, 'image/png');
     });
 }
 
+async function cargarLogo() {
+    const rutasIntento = [
+        '/logo-masucri.png',
+        '/logo_masucri.png',
+        './logo-masucri.png',
+        'logo-masucri.png'
+    ];
+
+    for (const ruta of rutasIntento) {
+        try {
+            const response = await fetch(ruta);
+            if (response.ok) {
+                const blob = await response.blob();
+                return new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => resolve(img);
+                    img.onerror = () => reject(new Error(`No se pudo cargar imagen desde ${ruta}`));
+                    img.src = URL.createObjectURL(blob);
+                });
+            }
+        } catch (err) {
+            console.log(`Ruta ${ruta} no disponible`);
+        }
+    }
+
+    console.warn('Logo no encontrado en ninguna ruta, continuando sin él');
+    return null;
+}
+
 export async function compartirTicket(pedido) {
     try {
+        // Intentar cargar el logo (pero no fallar si no está disponible)
         let logoImagen = null;
-
-        // Intentar cargar el logo
         try {
-            const response = await fetch('/logo-masucri.png');
-            const blob = await response.blob();
-            logoImagen = await new Promise((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.onerror = reject;
-                img.src = URL.createObjectURL(blob);
-            });
+            logoImagen = await cargarLogo();
         } catch (err) {
-            console.warn('Logo no disponible, continuando sin él:', err);
+            console.warn('Error cargando logo:', err.message);
         }
 
         // Generar el blob del ticket
         const ticketBlob = await generarTicketImagenBlob(pedido, logoImagen);
+
+        if (!ticketBlob) {
+            throw new Error('No se pudo generar la imagen del ticket');
+        }
+
         const nombreArchivo = `Ticket_${(pedido.cliente || 'cliente').trim().replace(/\s+/g, '_')}.png`;
         const file = new File([ticketBlob], nombreArchivo, { type: 'image/png' });
 
