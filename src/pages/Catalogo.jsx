@@ -193,7 +193,7 @@ export default function Catalogo() {
                 icon: 'success',
                 title: 'Importación completada',
                 html: `
-                    <strong>${comparacion.nuevos.length}</strong> productos agregados<br>
+                    <strong>${comparacion.nuevos.length}</strong> productos agregados<br />
                     <strong>${comparacion.existentes.length}</strong> productos ya existían
                 `,
                 timer: 2000,
@@ -413,7 +413,7 @@ export default function Catalogo() {
                     {paso === 2 && comparacion && (
                         <div>
                             <Alert variant="info" className="small mb-3">
-                                <strong>Nuevos: {comparacion.nuevos.length}</strong> productos para agregar<br>
+                                <strong>Nuevos: {comparacion.nuevos.length}</strong> productos para agregar<br />
                                 <strong>Existentes: {comparacion.existentes.length}</strong> ya están en el catálogo
                             </Alert>
 
