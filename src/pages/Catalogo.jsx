@@ -37,7 +37,7 @@ export default function Catalogo() {
     const [comparacion, setComparacion] = useState(null);
     const [preciosVenta, setPreciosVenta] = useState({});
     const [aplicandoImportacion, setAplicandoImportacion] = useState(false);
-    const [paso, setPaso] = useState(1); // 1: seleccionar, 2: revisar, 3: precios
+    const [paso, setPaso] = useState(1);
 
     // Extrae categorías únicas
     const categorias = useMemo(() => {
@@ -80,13 +80,21 @@ export default function Catalogo() {
         e.preventDefault();
         if (!form.nombre.trim()) return Swal.fire('Error', 'El nombre es requerido.', 'error');
 
+        // Validar y convertir a números correctamente
+        const formGuardar = {
+            ...form,
+            precio_costo: form.precio_costo ? parseFloat(form.precio_costo) : 0,
+            precio_venta: form.precio_venta ? parseFloat(form.precio_venta) : 0,
+            cantidad: form.cantidad ? parseInt(form.cantidad) : 0
+        };
+
         setGuardando(true);
         try {
             if (editId) {
-                await updateDoc(doc(db, 'productos', editId), form);
+                await updateDoc(doc(db, 'productos', editId), formGuardar);
                 Swal.fire({ icon: 'success', title: 'Actualizado', timer: 1000, showConfirmButton: false });
             } else {
-                await addDoc(collection(db, 'productos'), form);
+                await addDoc(collection(db, 'productos'), formGuardar);
                 Swal.fire({ icon: 'success', title: 'Creado', timer: 1000, showConfirmButton: false });
             }
             setShowModal(false);
@@ -157,7 +165,6 @@ export default function Catalogo() {
             const comparar = compararProductos(importados, productos);
             setComparacion(comparar);
 
-            // Inicializar precios de venta
             const precios = {};
             comparar.nuevos.forEach((p) => {
                 precios[p.nombre] = '';
@@ -171,7 +178,6 @@ export default function Catalogo() {
     };
 
     const handleAplicarImportacion = async () => {
-        // Validar que todos los nuevos productos tengan precio de venta
         for (const nuevo of comparacion.nuevos) {
             if (!preciosVenta[nuevo.nombre] || preciosVenta[nuevo.nombre] === '') {
                 return Swal.fire('Error', `Falta precio de venta para: "${nuevo.nombre}"`, 'error');
@@ -180,7 +186,6 @@ export default function Catalogo() {
 
         setAplicandoImportacion(true);
         try {
-            // Agregar nuevos productos
             for (const nuevo of comparacion.nuevos) {
                 await addDoc(collection(db, 'productos'), {
                     ...nuevo,
@@ -200,7 +205,6 @@ export default function Catalogo() {
                 showConfirmButton: false
             });
 
-            // Resetear
             setShowImportar(false);
             setPaso(1);
             setArchivoSeleccionado(null);
@@ -231,7 +235,6 @@ export default function Catalogo() {
                 </div>
             </div>
 
-            {/* BUSCADOR */}
             <InputGroup className="mb-3 border-primary shadow-sm">
                 <InputGroup.Text className="bg-primary text-white"><i className="fas fa-search"></i></InputGroup.Text>
                 <Form.Control
@@ -242,7 +245,6 @@ export default function Catalogo() {
                 />
             </InputGroup>
 
-            {/* FILTROS AVANZADOS */}
             <Card className="border-0 shadow-sm mb-3">
                 <Card.Header className="bg-light d-flex justify-content-between align-items-center cursor-pointer" onClick={() => setMostrarFiltros(!mostrarFiltros)} style={{ cursor: 'pointer' }}>
                     <strong><i className={`fas fa-filter me-2`}></i> Filtros Avanzados</strong>
@@ -285,7 +287,6 @@ export default function Catalogo() {
                 )}
             </Card>
 
-            {/* PRODUCTOS */}
             {filtrados.length === 0 ? (
                 <p className="text-muted text-center py-4">Sin productos que coincidan con los filtros.</p>
             ) : (
@@ -323,7 +324,6 @@ export default function Catalogo() {
                 </Row>
             )}
 
-            {/* MODAL CREAR/EDITAR */}
             <Modal show={showModal} onHide={() => setShowModal(false)} centered>
                 <Modal.Header closeButton>
                     <Modal.Title>{editId ? 'Editar' : 'Nuevo'} Producto</Modal.Title>
@@ -380,7 +380,6 @@ export default function Catalogo() {
                 </Form>
             </Modal>
 
-            {/* MODAL IMPORTAR */}
             <Modal show={showImportar} onHide={() => { setShowImportar(false); setPaso(1); }} size={paso === 2 ? 'lg' : 'sm'} centered>
                 <Modal.Header closeButton>
                     <Modal.Title>
