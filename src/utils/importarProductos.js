@@ -1,6 +1,6 @@
 /**
  * Parsea un archivo CSV de productos.
- * Formato esperado: nombre,precio_costo,descripcion,categoria,proveedor
+ * Formato esperado: nombre,precio_costo,descripcion,categoria,proveedor,codigo (opcional)
  */
 export function parsearCSV(contenido) {
     const lineas = contenido.trim().split('\n');
@@ -80,11 +80,11 @@ export function compararProductos(productosImportados, productosExistentes) {
  * Descarga un archivo template CSV para que el usuario lo complete.
  */
 export function descargarTemplate() {
-    const encabezado = 'nombre,precio_costo,descripcion,categoria,proveedor\n';
+    const encabezado = 'nombre,precio_costo,descripcion,categoria,proveedor,codigo\n';
     const ejemplos = [
-        'Pijama talla 6,15000,Pijama completo de algodón,Pijamas,Ubora',
-        'Falda negra,8000,Falda casual,Faldas,Ubora',
-        'Blusa blanca,12500,Blusa de manga larga,Blusas,Ubora'
+        'Pijama talla 6,15000,Pijama completo de algodón,Pijamas,Ubora,UBR-001',
+        'Falda negra,8000,Falda casual,Faldas,Ubora,UBR-002',
+        'Blusa blanca,12500,Blusa de manga larga,Blusas,Ubora,UBR-003'
     ].join('\n');
 
     const contenido = encabezado + ejemplos;

@@ -9,7 +9,7 @@ import { parsearCSV, compararProductos, descargarTemplate } from '../utils/impor
 import Swal from 'sweetalert2';
 import { formatoColones } from '../utils/formato';
 
-const FORM_VACIO = { nombre: '', descripcion: '', precio_costo: '', precio_venta: '', cantidad: '', categoria: '', proveedor: '' };
+const FORM_VACIO = { nombre: '', descripcion: '', precio_costo: '', precio_venta: '', codigo: '', categoria: '', proveedor: '' };
 
 export default function Catalogo() {
     const { datos: productos, cargando, error } = useFirestoreCollection(
@@ -114,7 +114,7 @@ export default function Catalogo() {
             descripcion: producto.descripcion || '',
             precio_costo: producto.precio_costo ?? '',
             precio_venta: producto.precio_venta ?? '',
-            cantidad: producto.cantidad ?? '',
+            codigo: producto.codigo || '',
             categoria: producto.categoria || '',
             proveedor: producto.proveedor || ''
         });
@@ -297,14 +297,16 @@ export default function Catalogo() {
                             <Col key={p.id} xs={12} sm={6} md={4} lg={3}>
                                 <Card className="shadow-sm border-0 h-100 d-flex flex-column">
                                     <Card.Body className="flex-grow-1">
-                                        <Card.Title className="fw-bold small mb-2">{p.nombre}</Card.Title>
+                                        <div className="d-flex justify-content-between align-items-start mb-2">
+                                            <Card.Title className="fw-bold small m-0">{p.nombre}</Card.Title>
+                                            {p.codigo && <Badge bg="secondary" className="ms-2 text-nowrap" style={{ fontSize: '10px' }}>{p.codigo}</Badge>}
+                                        </div>
                                         {p.categoria && <Badge className="mb-2" bg="info">{p.categoria}</Badge>}
                                         {p.descripcion && <p className="small text-muted mb-2">{p.descripcion}</p>}
                                         <div className="small">
                                             {p.precio_costo && <p className="mb-1"><strong>C:</strong> {formatoColones(p.precio_costo)}</p>}
                                             {p.precio_venta && <p className="mb-1"><strong>V:</strong> <span className="text-success fw-bold">{formatoColones(p.precio_venta)}</span></p>}
                                             {p.precio_venta && p.precio_costo && <p className="mb-2 text-info"><strong>Margen:</strong> {margen}%</p>}
-                                            {p.cantidad && <p className="text-muted"><strong>Stock:</strong> {p.cantidad}</p>}
                                         </div>
                                     </Card.Body>
                                     <Card.Footer className="bg-white border-top-0 pt-0">
@@ -338,10 +340,20 @@ export default function Catalogo() {
                             <Form.Label className="fw-bold">Descripción</Form.Label>
                             <Form.Control as="textarea" rows={2} value={form.descripcion} onChange={actualizar('descripcion')} placeholder="Detalles opcionales" />
                         </Form.Group>
-                        <Form.Group className="mb-3">
-                            <Form.Label className="fw-bold">Categoría</Form.Label>
-                            <Form.Control value={form.categoria} onChange={actualizar('categoria')} placeholder="Ej: Pijamas, Ropa" />
-                        </Form.Group>
+                        <Row>
+                            <Col md={6}>
+                                <Form.Group className="mb-3">
+                                    <Form.Label className="fw-bold">Código (SKU)</Form.Label>
+                                    <Form.Control value={form.codigo} onChange={actualizar('codigo')} placeholder="Ej: UBR-001" />
+                                </Form.Group>
+                            </Col>
+                            <Col md={6}>
+                                <Form.Group className="mb-3">
+                                    <Form.Label className="fw-bold">Categoría</Form.Label>
+                                    <Form.Control value={form.categoria} onChange={actualizar('categoria')} placeholder="Ej: Pijamas, Ropa" />
+                                </Form.Group>
+                            </Col>
+                        </Row>
                         <Row>
                             <Col md={6}>
                                 <Form.Group className="mb-3">
@@ -356,20 +368,10 @@ export default function Catalogo() {
                                 </Form.Group>
                             </Col>
                         </Row>
-                        <Row>
-                            <Col md={6}>
-                                <Form.Group className="mb-3">
-                                    <Form.Label className="fw-bold">Cantidad en Stock</Form.Label>
-                                    <Form.Control type="number" value={form.cantidad} onChange={actualizar('cantidad')} placeholder="0" />
-                                </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                                <Form.Group className="mb-3">
-                                    <Form.Label className="fw-bold">Proveedor</Form.Label>
-                                    <Form.Control value={form.proveedor} onChange={actualizar('proveedor')} placeholder="Ej: Ubora" />
-                                </Form.Group>
-                            </Col>
-                        </Row>
+                        <Form.Group className="mb-3">
+                            <Form.Label className="fw-bold">Proveedor</Form.Label>
+                            <Form.Control value={form.proveedor} onChange={actualizar('proveedor')} placeholder="Ej: Ubora" />
+                        </Form.Group>
                     </Modal.Body>
                     <Modal.Footer>
                         <Button variant="secondary" onClick={() => setShowModal(false)}>Cancelar</Button>
@@ -392,7 +394,7 @@ export default function Catalogo() {
                         <div>
                             <p className="text-muted mb-3">
                                 Sube un archivo CSV con los productos de un proveedor. El archivo debe tener las columnas:
-                                <code className="d-block mt-2">nombre, precio_costo, descripcion, categoria, proveedor</code>
+                                <code className="d-block mt-2">nombre, precio_costo, descripcion, categoria, proveedor, codigo</code>
                             </p>
                             <Form.Group className="mb-3">
                                 <Form.Label className="fw-bold">Seleccionar archivo CSV</Form.Label>
