@@ -1,13 +1,13 @@
 import { useState, useMemo } from 'react';
 import { collection, query, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Container, Row, Col, Card, Button, Form, Modal, InputGroup, Badge } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Form, Modal, InputGroup, Badge, Alert, Spinner } from 'react-bootstrap';
 import { useDebounce } from '../hooks/useDebounce';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
+import { parsearCSV, compararProductos, descargarTemplate } from '../utils/importarProductos';
 import Swal from 'sweetalert2';
 import { formatoColones } from '../utils/formato';
-import { obtenerFechaLocal } from '../utils/fecha';
 
 const FORM_VACIO = { nombre: '', descripcion: '', precio_costo: '', precio_venta: '', cantidad: '', categoria: '', proveedor: '' };
 
@@ -30,6 +30,15 @@ export default function Catalogo() {
     const [form, setForm] = useState(FORM_VACIO);
     const [guardando, setGuardando] = useState(false);
 
+    // IMPORTACIÓN
+    const [showImportar, setShowImportar] = useState(false);
+    const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
+    const [productosImportados, setProductosImportados] = useState([]);
+    const [comparacion, setComparacion] = useState(null);
+    const [preciosVenta, setPreciosVenta] = useState({});
+    const [aplicandoImportacion, setAplicandoImportacion] = useState(false);
+    const [paso, setPaso] = useState(1); // 1: seleccionar, 2: revisar, 3: precios
+
     // Extrae categorías únicas
     const categorias = useMemo(() => {
         const cats = new Set(productos.map((p) => p.categoria).filter(Boolean));
@@ -39,7 +48,6 @@ export default function Catalogo() {
     const filtrados = useMemo(() => {
         let lista = productos;
 
-        // Filtro por texto (nombre, descripción, proveedor)
         if (filtroBuscador) {
             const texto = filtroBuscador.toLowerCase();
             lista = lista.filter(
@@ -50,12 +58,10 @@ export default function Catalogo() {
             );
         }
 
-        // Filtro por categoría
         if (filtroCategoria) {
             lista = lista.filter((p) => p.categoria === filtroCategoria);
         }
 
-        // Filtro por precio
         if (filtroPrecioMin) {
             const min = parseFloat(filtroPrecioMin);
             lista = lista.filter((p) => (p.precio_venta || 0) >= min);
@@ -133,16 +139,96 @@ export default function Catalogo() {
         setMostrarFiltros(false);
     };
 
+    // MANEJO DE IMPORTACIÓN
+    const handleSeleccionarArchivo = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setArchivoSeleccionado(file);
+    };
+
+    const handleProcesarArchivo = async () => {
+        if (!archivoSeleccionado) return;
+
+        try {
+            const contenido = await archivoSeleccionado.text();
+            const importados = parsearCSV(contenido);
+            setProductosImportados(importados);
+
+            const comparar = compararProductos(importados, productos);
+            setComparacion(comparar);
+
+            // Inicializar precios de venta
+            const precios = {};
+            comparar.nuevos.forEach((p) => {
+                precios[p.nombre] = '';
+            });
+            setPreciosVenta(precios);
+
+            setPaso(2);
+        } catch (err) {
+            Swal.fire('Error al procesar el archivo', err.message, 'error');
+        }
+    };
+
+    const handleAplicarImportacion = async () => {
+        // Validar que todos los nuevos productos tengan precio de venta
+        for (const nuevo of comparacion.nuevos) {
+            if (!preciosVenta[nuevo.nombre] || preciosVenta[nuevo.nombre] === '') {
+                return Swal.fire('Error', `Falta precio de venta para: "${nuevo.nombre}"`, 'error');
+            }
+        }
+
+        setAplicandoImportacion(true);
+        try {
+            // Agregar nuevos productos
+            for (const nuevo of comparacion.nuevos) {
+                await addDoc(collection(db, 'productos'), {
+                    ...nuevo,
+                    precio_costo: parseFloat(nuevo.precio_costo),
+                    precio_venta: parseFloat(preciosVenta[nuevo.nombre])
+                });
+            }
+
+            Swal.fire({
+                icon: 'success',
+                title: 'Importación completada',
+                html: `
+                    <strong>${comparacion.nuevos.length}</strong> productos agregados<br>
+                    <strong>${comparacion.existentes.length}</strong> productos ya existían
+                `,
+                timer: 2000,
+                showConfirmButton: false
+            });
+
+            // Resetear
+            setShowImportar(false);
+            setPaso(1);
+            setArchivoSeleccionado(null);
+            setProductosImportados([]);
+            setComparacion(null);
+            setPreciosVenta({});
+        } catch (err) {
+            Swal.fire('Error', err.message, 'error');
+        } finally {
+            setAplicandoImportacion(false);
+        }
+    };
+
     if (error) return <EstadoError texto="No se pudo cargar el catálogo." />;
     if (cargando) return <EstadoCarga texto="Cargando catálogo..." />;
 
     return (
         <Container className="pb-5">
-            <div className="mb-4 d-flex justify-content-between align-items-center">
+            <div className="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h3 className="fw-bold m-0">Catálogo ({filtrados.length})</h3>
-                <Button variant="success" size="sm" onClick={() => { setEditId(null); setForm(FORM_VACIO); setShowModal(true); }}>
-                    <i className="fas fa-plus me-2"></i> Nuevo Producto
-                </Button>
+                <div className="d-flex gap-2">
+                    <Button variant="info" size="sm" onClick={() => setShowImportar(true)}>
+                        <i className="fas fa-upload me-2"></i> Importar CSV
+                    </Button>
+                    <Button variant="success" size="sm" onClick={() => { setEditId(null); setForm(FORM_VACIO); setShowModal(true); }}>
+                        <i className="fas fa-plus me-2"></i> Nuevo Producto
+                    </Button>
+                </div>
             </div>
 
             {/* BUSCADOR */}
@@ -237,7 +323,7 @@ export default function Catalogo() {
                 </Row>
             )}
 
-            {/* MODAL */}
+            {/* MODAL CREAR/EDITAR */}
             <Modal show={showModal} onHide={() => setShowModal(false)} centered>
                 <Modal.Header closeButton>
                     <Modal.Title>{editId ? 'Editar' : 'Nuevo'} Producto</Modal.Title>
@@ -292,6 +378,139 @@ export default function Catalogo() {
                         </Button>
                     </Modal.Footer>
                 </Form>
+            </Modal>
+
+            {/* MODAL IMPORTAR */}
+            <Modal show={showImportar} onHide={() => { setShowImportar(false); setPaso(1); }} size={paso === 2 ? 'lg' : 'sm'} centered>
+                <Modal.Header closeButton>
+                    <Modal.Title>
+                        {paso === 1 ? 'Importar Productos' : paso === 2 ? 'Revisar Importación' : 'Establecer Precios'}
+                    </Modal.Title>
+                </Modal.Header>
+
+                <Modal.Body>
+                    {paso === 1 && (
+                        <div>
+                            <p className="text-muted mb-3">
+                                Sube un archivo CSV con los productos de un proveedor. El archivo debe tener las columnas:
+                                <code className="d-block mt-2">nombre, precio_costo, descripcion, categoria, proveedor</code>
+                            </p>
+                            <Form.Group className="mb-3">
+                                <Form.Label className="fw-bold">Seleccionar archivo CSV</Form.Label>
+                                <Form.Control type="file" accept=".csv" onChange={handleSeleccionarArchivo} />
+                            </Form.Group>
+                            <Button variant="outline-secondary" size="sm" className="w-100 mb-3" onClick={descargarTemplate}>
+                                <i className="fas fa-download me-2"></i> Descargar Plantilla
+                            </Button>
+                            {archivoSeleccionado && (
+                                <Alert variant="info" className="small mb-0">
+                                    <i className="fas fa-check me-2"></i> {archivoSeleccionado.name} ({(archivoSeleccionado.size / 1024).toFixed(1)} KB)
+                                </Alert>
+                            )}
+                        </div>
+                    )}
+
+                    {paso === 2 && comparacion && (
+                        <div>
+                            <Alert variant="info" className="small mb-3">
+                                <strong>Nuevos: {comparacion.nuevos.length}</strong> productos para agregar<br>
+                                <strong>Existentes: {comparacion.existentes.length}</strong> ya están en el catálogo
+                            </Alert>
+
+                            {comparacion.nuevos.length > 0 && (
+                                <div className="mb-3">
+                                    <h6 className="fw-bold text-success">✓ Nuevos productos:</h6>
+                                    <div className="table-responsive">
+                                        <table className="table table-sm table-striped">
+                                            <thead>
+                                                <tr>
+                                                    <th>Nombre</th>
+                                                    <th>Costo</th>
+                                                    <th>Proveedor</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {comparacion.nuevos.map((p, i) => (
+                                                    <tr key={i}>
+                                                        <td className="small fw-bold">{p.nombre}</td>
+                                                        <td className="small">{formatoColones(p.precio_costo)}</td>
+                                                        <td className="small">{p.proveedor}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {comparacion.existentes.length > 0 && (
+                                <div>
+                                    <h6 className="fw-bold text-warning">⚠️ Productos que ya existen:</h6>
+                                    <div className="small text-muted" style={{ maxHeight: '150px', overflow: 'auto' }}>
+                                        {comparacion.existentes.map((item, i) => (
+                                            <div key={i} className="mb-1">
+                                                • {item.importado.nombre}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {paso === 3 && comparacion && (
+                        <div>
+                            <p className="small text-muted mb-3">
+                                Ingresa el precio de venta para cada nuevo producto:
+                            </p>
+                            <div style={{ maxHeight: '300px', overflow: 'auto' }}>
+                                {comparacion.nuevos.map((p, i) => (
+                                    <Form.Group key={i} className="mb-2">
+                                        <Form.Label className="small fw-bold">{p.nombre}</Form.Label>
+                                        <div className="input-group input-group-sm">
+                                            <span className="input-group-text">₡</span>
+                                            <Form.Control
+                                                type="number"
+                                                placeholder="Precio de venta"
+                                                value={preciosVenta[p.nombre] || ''}
+                                                onChange={(e) => setPreciosVenta({ ...preciosVenta, [p.nombre]: e.target.value })}
+                                            />
+                                        </div>
+                                    </Form.Group>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </Modal.Body>
+
+                <Modal.Footer>
+                    {paso > 1 && (
+                        <Button variant="outline-secondary" onClick={() => setPaso(paso - 1)} disabled={aplicandoImportacion}>
+                            Atrás
+                        </Button>
+                    )}
+                    {paso < 3 && (
+                        <Button
+                            variant="primary"
+                            onClick={paso === 1 ? handleProcesarArchivo : () => setPaso(3)}
+                            disabled={!archivoSeleccionado || aplicandoImportacion}
+                        >
+                            {paso === 1 ? 'Revisar' : 'Establecer Precios'}
+                        </Button>
+                    )}
+                    {paso === 3 && (
+                        <Button
+                            variant="success"
+                            onClick={handleAplicarImportacion}
+                            disabled={aplicandoImportacion}
+                        >
+                            {aplicandoImportacion ? <><Spinner animation="border" size="sm" className="me-2" /> Importando...</> : 'Importar'}
+                        </Button>
+                    )}
+                    <Button variant="secondary" onClick={() => { setShowImportar(false); setPaso(1); }} disabled={aplicandoImportacion}>
+                        Cerrar
+                    </Button>
+                </Modal.Footer>
             </Modal>
         </Container>
     );

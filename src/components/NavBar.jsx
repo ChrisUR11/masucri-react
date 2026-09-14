@@ -38,6 +38,7 @@ export default function NavBar({ user }) {
                         <Nav.Link as={Link} to="/catalogo" active={location.pathname === '/catalogo'}>Catálogo</Nav.Link>
                         <Nav.Link as={Link} to="/finanzas" active={location.pathname === '/finanzas'}>Finanzas</Nav.Link>
                         <Nav.Link as={Link} to="/bi" active={location.pathname === '/bi'} className="fw-bold text-warning">BI MASUCRI</Nav.Link>
+                        <Nav.Link as={Link} to="/historial-cliente" active={location.pathname === '/historial-cliente'}>Clientes</Nav.Link>
                     </Nav>
                     <div className="d-flex align-items-center mt-2 mt-lg-0">
                         <span className="text-white me-3 fw-semibold small">Admin: {user.displayName}</span>
