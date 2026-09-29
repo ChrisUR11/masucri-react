@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Container, Row, Col, Card, Button, Form, Badge, Table } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Badge, Table } from 'react-bootstrap';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { obtenerHistorialCliente } from '../utils/historialClientes';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
@@ -127,8 +127,8 @@ export default function HistorialCliente() {
                             <Form.Select value={filtroPedidosEstado} onChange={(e) => setFiltroPedidosEstado(e.target.value)} size="sm" style={{ maxWidth: '200px' }}>
                                 <option value="">Todos</option>
                                 <option value="Pendiente">Pendiente</option>
-                                <option value="En Proceso">En Proceso</option>
-                                <option value="Listo para Retirar">Listo para Retirar</option>
+                                <option value="En producción">En producción</option>
+                                <option value="Por Retirar">Por Retirar</option>
                                 <option value="Entregado">Entregado</option>
                                 <option value="Cancelado">Cancelado</option>
                             </Form.Select>
@@ -142,8 +142,8 @@ export default function HistorialCliente() {
                             {pedidosFiltrados.length === 0 ? (
                                 <p className="text-muted text-center py-4 mb-0">Sin pedidos en este estado.</p>
                             ) : (
-                                <div className="table-responsive">
-                                    <Table hover className="mb-0" size="sm">
+                                <div className="table-responsive mobile-card-table-wrap">
+                                    <Table hover className="mobile-card-table mb-0" size="sm">
                                         <thead className="table-light">
                                             <tr>
                                                 <th>Fecha</th>
@@ -159,14 +159,14 @@ export default function HistorialCliente() {
                                                 const saldo = (p.precio || 0) - (p.monto_pagado || 0);
                                                 return (
                                                     <tr key={p.id}>
-                                                        <td className="small">{p.fecha_solicitud}</td>
-                                                        <td className="small fw-bold">{p.producto}</td>
-                                                        <td className="small">{formatoColones(p.precio)}</td>
-                                                        <td className="small text-success">{formatoColones(p.monto_pagado)}</td>
-                                                        <td className={`small fw-bold ${saldo > 0 ? 'text-danger' : 'text-success'}`}>
+                                                        <td data-label="Fecha" className="small">{p.fecha_solicitud}</td>
+                                                        <td data-label="Producto" className="small fw-bold">{p.producto}</td>
+                                                        <td data-label="Precio" className="small">{formatoColones(p.precio)}</td>
+                                                        <td data-label="Pagado" className="small text-success">{formatoColones(p.monto_pagado)}</td>
+                                                        <td data-label="Saldo" className={`small fw-bold ${saldo > 0 ? 'text-danger' : 'text-success'}`}>
                                                             {formatoColones(saldo)}
                                                         </td>
-                                                        <td className="small">
+                                                        <td data-label="Estado" className="small">
                                                             <Badge
                                                                 bg={
                                                                     p.estado === 'Entregado' ? 'success' :

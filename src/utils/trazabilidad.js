@@ -1,4 +1,4 @@
-import { doc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { db } from '../config/firebase';
 
 /**
@@ -19,12 +19,15 @@ export async function borrarPedidoConTrazabilidad(pedidoId) {
         );
         const movimientosSnap = await getDocs(movimientosQ);
 
-        // Borrar el pedido.
-        await deleteDoc(doc(db, 'pedidos', pedidoId));
+        if (movimientosSnap.size > 499) {
+            throw new Error('El pedido tiene demasiados movimientos para eliminarse en una sola operación.');
+        }
 
-        // Borrar todos los movimientos asociados.
-        const promesas = movimientosSnap.docs.map((doc) => deleteDoc(doc.ref));
-        await Promise.all(promesas);
+        // El pedido y sus movimientos se eliminan juntos para evitar registros huérfanos.
+        const batch = writeBatch(db);
+        batch.delete(doc(db, 'pedidos', pedidoId));
+        movimientosSnap.docs.forEach((movimientoDoc) => batch.delete(movimientoDoc.ref));
+        await batch.commit();
 
         return { exito: true, movimientosBorrados: movimientosSnap.size };
     } catch (err) {

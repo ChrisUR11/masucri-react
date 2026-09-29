@@ -6,7 +6,8 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearSca
 import { Doughnut, Bar, Pie } from 'react-chartjs-2';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
-import SelectorRango, { calcularRangoPreset } from '../components/SelectorRango';
+import SelectorRango from '../components/SelectorRango';
+import { calcularRangoPreset } from '../utils/rangoFechas';
 import { calcularMetricas } from '../utils/metricasNegocio';
 import { calcularMetricasContables } from '../utils/metricasContables';
 import { formatoColones, formatoNumero } from '../utils/formato';
@@ -77,7 +78,7 @@ export default function DashboardBI() {
     return (
         <Container className="mt-4 pb-5">
             {/* ENCABEZADO */}
-            <div className="mb-4 d-flex justify-content-between align-items-start">
+            <div className="page-heading mb-4 d-flex justify-content-between align-items-start">
                 <div>
                     <h3 className="fw-bold m-0"><i className="fas fa-chart-line text-secondary"></i> Inteligencia de Negocios (BI)</h3>
                     <small className="text-muted">
@@ -392,8 +393,8 @@ export default function DashboardBI() {
                         <Card className="border-0 shadow-sm mb-3 border-start border-5 border-danger">
                             <Card.Header className="bg-danger text-white fw-bold">⚠️ Clientes Morosos ({mc.morosos.length})</Card.Header>
                             <Card.Body className="small">
-                                <div className="table-responsive">
-                                    <table className="table table-sm table-striped mb-0">
+                                <div className="table-responsive mobile-card-table-wrap">
+                                    <table className="table table-sm table-striped mobile-card-table mb-0">
                                         <thead className="table-light">
                                             <tr>
                                                 <th>Cliente</th>
@@ -404,9 +405,9 @@ export default function DashboardBI() {
                                         <tbody>
                                             {mc.morosos.map((m, i) => (
                                                 <tr key={i} className={m.diasDeuda > 30 ? 'table-danger' : m.diasDeuda > 14 ? 'table-warning' : ''}>
-                                                    <td className="fw-bold">{m.cliente}</td>
-                                                    <td className="fw-bold text-danger">{formatoColones(m.deuda)}</td>
-                                                    <td>
+                                                    <td data-label="Cliente" className="fw-bold">{m.cliente}</td>
+                                                    <td data-label="Deuda" className="fw-bold text-danger">{formatoColones(m.deuda)}</td>
+                                                    <td data-label="Días sin pagar">
                                                         <span className={`badge ${m.diasDeuda > 30 ? 'bg-danger' : m.diasDeuda > 14 ? 'bg-warning text-dark' : 'bg-info'}`}>
                                                             {m.diasDeuda} días
                                                         </span>

@@ -132,11 +132,11 @@ export default function Historial() {
 
     return (
         <Container className="mt-4 flex-grow-1">
-            <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 d-print-none">
+            <div className="page-heading d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 d-print-none">
                 <h3 className="fw-bold m-0 text-dark"><i className="fas fa-history"></i> Historial de Trabajos</h3>
-                <div className="d-flex gap-2 flex-wrap flex-grow-1 justify-content-end">
+                <div className="page-heading-filters d-flex gap-2 flex-wrap flex-grow-1 justify-content-end">
                     <Form.Control
-                        type="text"
+                        type="search"
                         placeholder="Buscar cliente o producto..."
                         className="border-primary shadow-sm"
                         style={{ maxWidth: '250px' }}
@@ -144,7 +144,7 @@ export default function Historial() {
                         onChange={(e) => setFiltroTexto(e.target.value)}
                         aria-label="Buscar en el historial"
                     />
-                    <Form.Select className="w-auto border-primary fw-bold text-primary shadow-sm" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
+                    <Form.Select className="w-auto border-primary fw-bold text-primary shadow-sm" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} aria-label="Filtrar historial por estado de pago">
                         <option value="con_saldo">Mostrar: Con Saldo Pendiente</option>
                         <option value="todos">Mostrar: Todos</option>
                         <option value="entregados">Mostrar: Cancelados al 100%</option>
@@ -154,13 +154,13 @@ export default function Historial() {
             </div>
 
             <Card className="shadow-sm border-0 d-print-none">
-                <Card.Body className="p-0 table-responsive" style={{ height: 'calc(100dvh - 200px)', overflowY: 'auto' }}>
+                <Card.Body className="p-0 mobile-card-table-wrap">
                     {error ? (
                         <EstadoError texto="No se pudo cargar el historial. Revisa tu conexión." />
                     ) : cargando ? (
                         <EstadoCarga texto="Cargando historial..." />
                     ) : (
-                        <Table hover className="align-middle m-0 text-nowrap">
+                        <Table hover className="mobile-card-table align-middle m-0" aria-label="Pedidos finalizados">
                             <thead className="table-light sticky-top shadow-sm" style={{ zIndex: 1 }}>
                                 <tr><th>Estado</th><th>Cliente</th><th>Producto</th><th className="text-center">Acción</th></tr>
                             </thead>
@@ -176,10 +176,10 @@ export default function Historial() {
 
                                         return (
                                             <tr key={ped.id}>
-                                                <td><Badge bg={bColor}>{txtEst}</Badge></td>
-                                                <td className="fw-bold">{ped.cliente}</td>
-                                                <td className="text-truncate" style={{ maxWidth: '180px' }}>{ped.producto}</td>
-                                                <td className="text-center">
+                                                <td data-label="Estado"><Badge bg={bColor}>{txtEst}</Badge></td>
+                                                <td data-label="Cliente" className="fw-bold">{ped.cliente}</td>
+                                                <td data-label="Producto" className="text-truncate" style={{ maxWidth: '180px' }}>{ped.producto}</td>
+                                                <td data-label="Acción" className="text-center">
                                                     <Button variant="primary" size="sm" className="rounded-pill px-3 shadow-sm fw-bold" onClick={() => handleVerDetalle(ped)}>
                                                         <i className="fas fa-search"></i> Ver
                                                     </Button>
@@ -190,7 +190,7 @@ export default function Historial() {
                                 )}
                                 {total > limite && (
                                     <tr>
-                                        <td colSpan="4" className="text-center py-3">
+                                            <td colSpan="4" className="text-center py-3">
                                             <Button variant="outline-secondary" size="sm" onClick={() => setLimite((l) => l + 50)}>👇 Cargar más antiguos</Button>
                                         </td>
                                     </tr>

@@ -23,14 +23,14 @@ export default function NavBar({ user }) {
             expand="lg"
             expanded={expandido}
             onToggle={setExpandido}
-            className="mb-4 shadow sticky-top"
+            className="app-navbar shadow sticky-top"
             style={{ zIndex: 1035 }}
         >
             <Container>
                 <Navbar.Brand as={Link} to="/" className="d-flex align-items-center" onClick={cerrarMenu}>
                     <img src="./logo-masucri.png" alt="MASUCRI" height="35" className="d-inline-block align-text-top me-2" style={{ objectFit: 'contain' }} />
                 </Navbar.Brand>
-                <Navbar.Toggle aria-controls="basic-navbar-nav" />
+                <Navbar.Toggle aria-controls="basic-navbar-nav" aria-label="Abrir navegación" />
                 <Navbar.Collapse id="basic-navbar-nav">
                     <Nav className="me-auto" onClick={cerrarMenu}>
                         <Nav.Link as={Link} to="/" active={location.pathname === '/'}>Pedidos</Nav.Link>
@@ -40,9 +40,9 @@ export default function NavBar({ user }) {
                         <Nav.Link as={Link} to="/bi" active={location.pathname === '/bi'} className="fw-bold text-warning">BI MASUCRI</Nav.Link>
                         <Nav.Link as={Link} to="/historial-cliente" active={location.pathname === '/historial-cliente'}>Clientes</Nav.Link>
                     </Nav>
-                    <div className="d-flex align-items-center mt-2 mt-lg-0">
-                        <span className="text-white me-3 fw-semibold small">Admin: {user.displayName}</span>
-                        <Button variant="outline-danger" size="sm" onClick={handleLogout}>Salir</Button>
+                    <div className="navbar-account d-flex align-items-center gap-2 mt-2 mt-lg-0">
+                        <span className="text-white fw-semibold small text-break">Admin: {user.displayName || user.email}</span>
+                        <Button variant="outline-danger" size="sm" className="navbar-logout" onClick={handleLogout}>Salir</Button>
                     </div>
                 </Navbar.Collapse>
             </Container>

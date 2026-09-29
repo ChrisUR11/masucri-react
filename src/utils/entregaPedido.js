@@ -1,4 +1,4 @@
-import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, collection, writeBatch } from 'firebase/firestore';
 import Swal from 'sweetalert2';
 import { db } from '../config/firebase';
 import { obtenerFechaLocal } from './fecha';
@@ -55,6 +55,8 @@ export async function entregarPedido(pedido) {
     }
 
     const hoy = obtenerFechaLocal();
+    const pedidoRef = doc(db, 'pedidos', pedido.id);
+    const movimientoRef = montoPagadoAhora > 0 ? doc(collection(db, 'movimientos')) : null;
     const datosPedido = { estado: 'Entregado', fecha_cierre: hoy };
 
     if (montoPagadoAhora > 0) {
@@ -64,26 +66,27 @@ export async function entregarPedido(pedido) {
     }
 
     try {
-        await updateDoc(doc(db, 'pedidos', pedido.id), datosPedido);
-
-        if (montoPagadoAhora > 0) {
-            await addDoc(collection(db, 'movimientos'), {
+        const batch = writeBatch(db);
+        batch.update(pedidoRef, datosPedido);
+        if (movimientoRef) {
+            batch.set(movimientoRef, {
                 tipo: 'entrada',
                 metodo_pago: metodo,
                 fecha: hoy,
                 descripcion: `Pago al entregar: ${pedido.producto}`,
                 entidad: pedido.cliente,
                 monto: montoPagadoAhora,
-                pedido_id: pedido.id, // Para trazabilidad: poder borrar este movimiento si se borra el pedido.
+                pedido_id: pedido.id,
                 timestamp: new Date()
             });
         }
+        await batch.commit();
 
-        Swal.fire({ icon: 'success', title: 'Entregado', timer: 1200, showConfirmButton: false });
+        await Swal.fire({ icon: 'success', title: 'Entregado', timer: 1200, showConfirmButton: false });
         return true;
     } catch (err) {
         console.error('Error al entregar pedido:', err);
-        Swal.fire('Error', 'No se pudo marcar como entregado.', 'error');
+        await Swal.fire('Error', 'No se pudo marcar como entregado.', 'error');
         return false;
     }
 }

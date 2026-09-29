@@ -33,7 +33,6 @@ export default function Catalogo() {
     // IMPORTACIÓN
     const [showImportar, setShowImportar] = useState(false);
     const [archivoSeleccionado, setArchivoSeleccionado] = useState(null);
-    const [productosImportados, setProductosImportados] = useState([]);
     const [comparacion, setComparacion] = useState(null);
     const [preciosVenta, setPreciosVenta] = useState({});
     const [aplicandoImportacion, setAplicandoImportacion] = useState(false);
@@ -160,7 +159,6 @@ export default function Catalogo() {
         try {
             const contenido = await archivoSeleccionado.text();
             const importados = parsearCSV(contenido);
-            setProductosImportados(importados);
 
             const comparar = compararProductos(importados, productos);
             setComparacion(comparar);
@@ -208,7 +206,6 @@ export default function Catalogo() {
             setShowImportar(false);
             setPaso(1);
             setArchivoSeleccionado(null);
-            setProductosImportados([]);
             setComparacion(null);
             setPreciosVenta({});
         } catch (err) {
@@ -223,9 +220,9 @@ export default function Catalogo() {
 
     return (
         <Container className="pb-5">
-            <div className="mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div className="page-heading mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h3 className="fw-bold m-0">Catálogo ({filtrados.length})</h3>
-                <div className="d-flex gap-2">
+                <div className="page-action-buttons d-flex gap-2">
                     <Button variant="info" size="sm" onClick={() => setShowImportar(true)}>
                         <i className="fas fa-upload me-2"></i> Importar CSV
                     </Button>
@@ -237,7 +234,8 @@ export default function Catalogo() {
 
             <InputGroup className="mb-3 border-primary shadow-sm">
                 <InputGroup.Text className="bg-primary text-white"><i className="fas fa-search"></i></InputGroup.Text>
-                <Form.Control
+                    <Form.Control
+                    type="search"
                     placeholder="Buscar por nombre, descripción, proveedor..."
                     value={filtro}
                     onChange={(e) => setFiltro(e.target.value)}
@@ -246,13 +244,21 @@ export default function Catalogo() {
             </InputGroup>
 
             <Card className="border-0 shadow-sm mb-3">
-                <Card.Header className="bg-light d-flex justify-content-between align-items-center cursor-pointer" onClick={() => setMostrarFiltros(!mostrarFiltros)} style={{ cursor: 'pointer' }}>
-                    <strong><i className={`fas fa-filter me-2`}></i> Filtros Avanzados</strong>
-                    <i className={`fas fa-chevron-${mostrarFiltros ? 'up' : 'down'}`}></i>
+                <Card.Header className="bg-light p-0">
+                    <Button
+                        variant="link"
+                        className="filter-toggle d-flex justify-content-between align-items-center w-100 text-start text-decoration-none text-body px-3 py-3"
+                        onClick={() => setMostrarFiltros(!mostrarFiltros)}
+                        aria-expanded={mostrarFiltros}
+                        aria-controls="catalog-filter-options"
+                    >
+                        <strong><i className="fas fa-filter me-2"></i> Filtros Avanzados</strong>
+                        <i className={`fas fa-chevron-${mostrarFiltros ? 'up' : 'down'}`} aria-hidden="true"></i>
+                    </Button>
                 </Card.Header>
 
                 {mostrarFiltros && (
-                    <Card.Body>
+                    <Card.Body id="catalog-filter-options">
                         <Row className="g-3">
                             <Col md={3}>
                                 <Form.Group>
@@ -311,10 +317,10 @@ export default function Catalogo() {
                                     </Card.Body>
                                     <Card.Footer className="bg-white border-top-0 pt-0">
                                         <div className="d-flex gap-2">
-                                            <Button variant="outline-primary" size="sm" className="flex-grow-1" onClick={() => handleEditar(p)}>
+                                            <Button variant="outline-primary" size="sm" className="flex-grow-1" onClick={() => handleEditar(p)} aria-label={`Editar ${p.nombre}`}>
                                                 <i className="fas fa-pen"></i>
                                             </Button>
-                                            <Button variant="outline-danger" size="sm" className="flex-grow-1" onClick={() => handleEliminar(p.id, p.nombre)}>
+                                            <Button variant="outline-danger" size="sm" className="flex-grow-1" onClick={() => handleEliminar(p.id, p.nombre)} aria-label={`Eliminar ${p.nombre}`}>
                                                 <i className="fas fa-trash"></i>
                                             </Button>
                                         </div>
@@ -421,8 +427,8 @@ export default function Catalogo() {
                             {comparacion.nuevos.length > 0 && (
                                 <div className="mb-3">
                                     <h6 className="fw-bold text-success">✓ Nuevos productos:</h6>
-                                    <div className="table-responsive">
-                                        <table className="table table-sm table-striped">
+                                    <div className="table-responsive mobile-card-table-wrap">
+                                        <table className="table table-sm table-striped mobile-card-table">
                                             <thead>
                                                 <tr>
                                                     <th>Nombre</th>
@@ -433,9 +439,9 @@ export default function Catalogo() {
                                             <tbody>
                                                 {comparacion.nuevos.map((p, i) => (
                                                     <tr key={i}>
-                                                        <td className="small fw-bold">{p.nombre}</td>
-                                                        <td className="small">{formatoColones(p.precio_costo)}</td>
-                                                        <td className="small">{p.proveedor}</td>
+                                                        <td data-label="Nombre" className="small fw-bold">{p.nombre}</td>
+                                                        <td data-label="Costo" className="small">{formatoColones(p.precio_costo)}</td>
+                                                        <td data-label="Proveedor" className="small">{p.proveedor}</td>
                                                     </tr>
                                                 ))}
                                             </tbody>

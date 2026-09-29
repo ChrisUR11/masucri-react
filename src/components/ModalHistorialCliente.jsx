@@ -85,8 +85,8 @@ export default function ModalHistorialCliente({ show, cliente, pedidos, onHide }
                 {pedidosCliente.length === 0 ? (
                     <p className="text-muted small">Sin pedidos registrados.</p>
                 ) : (
-                    <div className="table-responsive">
-                        <Table striped hover size="sm" className="mb-0">
+                    <div className="table-responsive mobile-card-table-wrap">
+                        <Table striped hover size="sm" className="mobile-card-table mb-0">
                             <thead className="table-light">
                                 <tr>
                                     <th>Fecha</th>
@@ -102,14 +102,14 @@ export default function ModalHistorialCliente({ show, cliente, pedidos, onHide }
                                     const saldo = (p.precio || 0) - (p.monto_pagado || 0);
                                     return (
                                         <tr key={p.id}>
-                                            <td className="small">{p.fecha_solicitud}</td>
-                                            <td className="small fw-bold">{p.producto}</td>
-                                            <td className="small">{formatoColones(p.precio || 0)}</td>
-                                            <td className="small text-success">{formatoColones(p.monto_pagado || 0)}</td>
-                                            <td className={`small fw-bold ${saldo > 0 ? 'text-danger' : 'text-success'}`}>
+                                            <td data-label="Fecha" className="small">{p.fecha_solicitud}</td>
+                                            <td data-label="Producto" className="small fw-bold">{p.producto}</td>
+                                            <td data-label="Precio" className="small">{formatoColones(p.precio || 0)}</td>
+                                            <td data-label="Pagado" className="small text-success">{formatoColones(p.monto_pagado || 0)}</td>
+                                            <td data-label="Saldo" className={`small fw-bold ${saldo > 0 ? 'text-danger' : 'text-success'}`}>
                                                 {formatoColones(saldo)}
                                             </td>
-                                            <td className="small">
+                                            <td data-label="Estado" className="small">
                                                 <Badge bg={p.estado === 'Entregado' ? 'success' : p.estado === 'Pendiente' ? 'warning' : 'secondary'}>
                                                     {p.estado}
                                                 </Badge>

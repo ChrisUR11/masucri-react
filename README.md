@@ -79,10 +79,8 @@ todas las páginas que lo usan.
   "no hay productos registrados").
 - Confirmación suave si guardas un producto con precio de venta menor al
   costo (antes se guardaba sin avisar).
-- Aviso si los filtros de fecha en Finanzas caen fuera del rango de los
-  últimos 200 movimientos consultados (limitación existente del query,
-  ahora visible para el usuario en vez de dar totales silenciosamente
-  incompletos).
+- En Finanzas se consultan los movimientos del historial completo y los filtros
+  se aplican antes de limitar las filas visibles en pantalla.
 - Botones de guardar muestran "Guardando..." y se deshabilitan mientras la
   escritura a Firestore está en curso, para evitar doble clic / envíos
   duplicados.
@@ -113,6 +111,25 @@ Archivos modificados (reemplazan a los que ya tenías):
 - `src/pages/Catalogo.jsx` — buscador con debounce (250ms) + aviso si vas a borrar el último producto de un proveedor.
 - `src/pages/Historial.jsx` y `src/pages/Pedidos.jsx` — buscador con debounce (250ms).
 
+## Mejora móvil y flujo de pedidos
+
+- El tablero de producción apila sus etapas en teléfonos; ya no exige deslizar
+  horizontalmente para llegar a "En producción" o "Por Retirar".
+- Historial, Caja, reportes de clientes y listas dentro de modales se muestran
+  como tarjetas etiquetadas en pantallas pequeñas. Las tablas dejaron de tener
+  un scroll vertical separado de la página.
+- Los campos y botones tienen áreas táctiles más cómodas. Los formularios de
+  pedido abren el teclado numérico al ingresar el teléfono y pueden completar
+  nombre y número con el autocompletado del dispositivo.
+- Caja permite buscar por concepto, cliente o método de pago; también se puede
+  limpiar el filtro y acotar el rango de fechas.
+- La creación de un pedido con adelanto, el registro de abonos, la entrega con
+  pago y el borrado del pedido con sus movimientos se escriben en una sola
+  operación de Firestore. Los adelantos también quedan vinculados al pedido
+  mediante `pedido_id` para que se incluyan en su trazabilidad.
+- Los filtros de historial de cliente usan los estados que realmente maneja
+  Producción: "En producción" y "Por Retirar".
+
 ### Notas importantes
 
 **PWA / actualización**: con `registerType: 'prompt'`, cuando subas una nueva
@@ -129,10 +146,9 @@ inicio. Te recomiendo revisarlo en un celular real después del deploy — si
 se ve cortado, lo ideal es subir una segunda versión del logo con ~10% de
 margen alrededor, dedicada solo a esta entrada del manifest.
 
-**Botón "subir"**: funciona sobre el scroll de la ventana. En Catálogo,
-Historial y Finanzas, la tabla tiene su propio scroll interno (para que el
-encabezado quede fijo), así que ahí el botón ayuda menos — es más útil en
-el Dashboard BI, que es una sola página larga.
+**Botón "subir"**: funciona sobre el desplazamiento principal de la página.
+Las listas y tablas ya no tienen una barra de desplazamiento independiente,
+así que el mismo botón sirve en todos los módulos.
 
 **Indicador sin conexión**: es un aviso informativo. Firestore ya maneja el
 modo offline por su cuenta (guarda localmente y sincroniza solo), este banner
@@ -141,9 +157,8 @@ la app "no está guardando nada".
 
 
 - No se tocó el modelo de datos en Firestore ni los nombres de campos.
-- No se agregó ninguna librería nueva.
-- Los estilos (Bootstrap, clases, colores) se mantuvieron intactos para
-  no romper el look actual de la app.
+- No se agregó ninguna librería nueva; se conservó Bootstrap y se añadieron
+  reglas responsive para adaptar las pantallas pequeñas.
 - La categorización de gastos/productos por palabras clave (frágil, pero
   funcional) se mantuvo tal cual — moverla a un catálogo configurable en
   Firestore sería un cambio de producto, no un bugfix, y prefería

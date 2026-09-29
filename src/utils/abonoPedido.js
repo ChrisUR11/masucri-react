@@ -1,4 +1,4 @@
-import { doc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, collection, writeBatch } from 'firebase/firestore';
 import Swal from 'sweetalert2';
 import { db } from '../config/firebase';
 import { obtenerFechaLocal } from './fecha';
@@ -56,26 +56,29 @@ export async function registrarAbono(pedido) {
 
     const { monto, metodo } = formValues;
     const hoy = obtenerFechaLocal();
+    const pedidoRef = doc(db, 'pedidos', pedido.id);
+    const movimientoRef = doc(collection(db, 'movimientos'));
     const nuevoPagado = (pedido.monto_pagado || 0) + monto;
     const historialPagos = [...(pedido.historial_pagos || []), { fecha: hoy, monto, metodo }];
 
     try {
-        await updateDoc(doc(db, 'pedidos', pedido.id), {
+        const batch = writeBatch(db);
+        batch.update(pedidoRef, {
             monto_pagado: nuevoPagado,
             ultimo_metodo_pago: metodo,
             historial_pagos: historialPagos
         });
-
-        await addDoc(collection(db, 'movimientos'), {
+        batch.set(movimientoRef, {
             tipo: 'entrada',
             metodo_pago: metodo,
             fecha: hoy,
             descripcion: `Abono: ${pedido.producto}`,
             entidad: pedido.cliente,
             monto,
-            pedido_id: pedido.id, // Para trazabilidad: poder borrar este movimiento si se borra el pedido.
+            pedido_id: pedido.id,
             timestamp: new Date()
         });
+        await batch.commit();
 
         await Swal.fire({ icon: 'success', title: 'Abono Registrado', text: 'El dinero ya ingresó a Caja.', timer: 1500, showConfirmButton: false });
         return true;

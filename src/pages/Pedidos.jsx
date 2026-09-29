@@ -1,6 +1,6 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { Container, Card, Badge, Button, Form, Modal, Row, Col, InputGroup, ButtonGroup, ListGroup } from 'react-bootstrap';
-import { collection, query, orderBy, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, orderBy, updateDoc, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import Swal from 'sweetalert2';
 import { TicketImpresion } from '../components/TicketImpresion';
@@ -63,28 +63,11 @@ export default function Pedidos() {
     const [formPedido, setFormPedido] = useState(FORM_PEDIDO_VACIO);
     const [guardandoPedido, setGuardandoPedido] = useState(false);
 
-    // Referencia al contenedor con scroll horizontal del Kanban, para que los
-    // botones de "ir a la columna siguiente/anterior" funcionen en celular
-    // (donde cada columna ocupa el ancho completo de la pantalla).
-    const kanbanScrollRef = useRef(null);
-    const irAColumna = (idx) => {
-        const el = kanbanScrollRef.current;
-        if (el) el.scrollTo({ left: el.clientWidth * idx, behavior: 'smooth' });
-    };
-
     // El pedido activo se busca por id en la lista en vivo, así el modal
     // siempre refleja el estado más reciente sin necesitar sincronización manual.
     const pedidoActivo = pedidoActivoId ? pedidos.find((p) => p.id === pedidoActivoId) || null : null;
 
     const actualizarForm = (campo) => (e) => setFormPedido((f) => ({ ...f, [campo]: e.target.value }));
-
-    const handleProductoSeleccionado = () => {
-        if (!formPedido.producto.trim()) return;
-        const encontrado = productos.find((p) => p.nombre?.toLowerCase() === formPedido.producto.trim().toLowerCase());
-        if (encontrado && !formPedido.precio) {
-            setFormPedido((f) => ({ ...f, precio: encontrado.precio_venta || '' }));
-        }
-    };
 
     // --- API Contactos ---
     const handleSeleccionarContacto = async () => {
@@ -207,21 +190,30 @@ export default function Pedidos() {
                 datos.estado = 'Pendiente';
                 datos.monto_pagado = mAdelanto;
                 datos.historial_pagos = [];
+                const fechaAdelanto = mAdelanto > 0 ? obtenerFechaLocal() : null;
                 if (mAdelanto > 0) {
                     datos.ultimo_metodo_pago = formPedido.metodoAdelanto;
-                    datos.historial_pagos.push({ fecha: obtenerFechaLocal(), monto: mAdelanto, metodo: formPedido.metodoAdelanto });
-                    await addDoc(collection(db, 'movimientos'), {
+                    datos.historial_pagos.push({ fecha: fechaAdelanto, monto: mAdelanto, metodo: formPedido.metodoAdelanto });
+                }
+                datos.timestamp = new Date();
+                const pedidoRef = doc(collection(db, 'pedidos'));
+                const batch = writeBatch(db);
+                batch.set(pedidoRef, datos);
+
+                if (mAdelanto > 0) {
+                    const movimientoRef = doc(collection(db, 'movimientos'));
+                    batch.set(movimientoRef, {
                         tipo: 'entrada',
                         metodo_pago: formPedido.metodoAdelanto,
-                        fecha: obtenerFechaLocal(),
+                        fecha: fechaAdelanto,
                         descripcion: `Adelanto: ${datos.producto}`,
                         entidad: datos.cliente,
                         monto: mAdelanto,
+                        pedido_id: pedidoRef.id,
                         timestamp: new Date()
                     });
                 }
-                datos.timestamp = new Date();
-                await addDoc(collection(db, 'pedidos'), datos);
+                await batch.commit();
             }
             setShowNuevo(false);
             Swal.fire({ icon: 'success', title: 'Guardado', timer: 1000, showConfirmButton: false });
@@ -294,12 +286,15 @@ export default function Pedidos() {
         return (
             <Card
                 key={ped.id}
-                className={`mb-2 shadow-sm border-start border-4 ${colorAlerta}`}
+                className={`production-order-card mb-2 shadow-sm border-start border-4 ${colorAlerta}`}
                 draggable
                 onDragStart={(e) => handleDragStart(e, ped.id)}
                 style={{ cursor: 'grab' }}
             >
-                <Card.Body className="p-2" onClick={() => abrirDetalle(ped)}>
+                <Card.Body
+                    className="p-2"
+                    onClick={() => abrirDetalle(ped)}
+                >
                     <div className="d-flex justify-content-between">
                         <strong className="text-truncate">{ped.cliente}</strong>
                         <small className="text-muted fw-bold">{formatearFechaCorta(ped.fecha_entrega)}</small>
@@ -309,7 +304,16 @@ export default function Pedidos() {
                         <Badge bg={deuda > 0 ? 'warning' : ped.precio ? 'success' : 'secondary'} className="text-dark">
                             {deuda > 0 ? `Debe ${formatoColones(deuda)}` : ped.precio ? 'Pagado' : 'Sin precio'}
                         </Badge>
-                        <Button variant="light" size="sm" className="border shadow-sm" aria-label="Editar pedido">
+                        <Button
+                            variant="light"
+                            size="sm"
+                            className="border shadow-sm"
+                            aria-label={`Editar pedido de ${ped.cliente}`}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                abrirEditar(ped);
+                            }}
+                        >
                             <i className="fas fa-pen text-secondary"></i>
                         </Button>
                     </div>
@@ -319,10 +323,10 @@ export default function Pedidos() {
     };
 
     return (
-        <Container className="mt-4 flex-grow-1 d-flex flex-column">
-            <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 d-print-none">
+            <Container className="mt-4 flex-grow-1 d-flex flex-column">
+            <div className="page-heading d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 d-print-none">
                 <h3 className="fw-bold m-0 text-primary"><i className="fas fa-tasks"></i> Tablero de Producción</h3>
-                <div className="d-flex gap-2">
+                <div className="page-action-buttons d-flex gap-2">
                     <Button variant="warning" className="fw-bold shadow-sm text-dark" onClick={() => setShowVenta(true)}>
                         <i className="fas fa-bolt"></i> Venta Rápida
                     </Button>
@@ -332,7 +336,7 @@ export default function Pedidos() {
                 </div>
             </div>
             <Form.Control
-                type="text"
+                type="search"
                 placeholder="Buscar cliente o producto..."
                 className="mb-3 border-primary shadow-sm d-print-none"
                 value={filtroTexto}
@@ -372,53 +376,20 @@ export default function Pedidos() {
             ) : cargando ? (
                 <EstadoCarga texto="Cargando pedidos..." />
             ) : (
-                <Row
-                    ref={kanbanScrollRef}
-                    className="flex-nowrap overflow-auto pb-3 flex-grow-1 d-print-none"
-                    style={{ minHeight: '500px', scrollSnapType: 'x mandatory' }}
-                >
-                    {COLUMNAS.map((col, idx) => {
+                <Row className="production-board g-3 pb-3 flex-grow-1 d-print-none">
+                    {COLUMNAS.map((col) => {
                         const pedidosColumna = activos.filter((p) => p.estado === col.estado);
                         return (
-                            <Col xs={12} md={4} key={col.estado} style={{ minWidth: '300px', scrollSnapAlign: 'start' }}>
-                                <Card className="bg-light h-100 border-0 shadow-sm">
+                            <Col xs={12} sm={6} lg={4} key={col.estado}>
+                                <Card className="production-column bg-light h-100 border-0 shadow-sm">
                                     <Card.Header className={`fw-bold d-flex justify-content-between align-items-center ${col.text}`} style={{ backgroundColor: col.bg, borderRadius: '8px 8px 0 0' }}>
-                                        {idx > 0 ? (
-                                            <Button
-                                                variant="light"
-                                                size="sm"
-                                                className="d-md-none rounded-circle p-0 d-flex align-items-center justify-content-center"
-                                                style={{ width: '26px', height: '26px' }}
-                                                onClick={() => irAColumna(idx - 1)}
-                                                aria-label={`Ir a ${COLUMNAS[idx - 1].label}`}
-                                            >
-                                                <i className="fas fa-chevron-left small"></i>
-                                            </Button>
-                                        ) : (
-                                            <span className="d-md-none" style={{ width: '26px' }}></span>
-                                        )}
-
                                         <span className="text-truncate mx-1"><i className={`fas ${col.icon}`}></i> {col.label}</span>
 
                                         <div className="d-flex align-items-center gap-1">
                                             <Badge bg="white" text="dark" className="rounded-pill">{pedidosColumna.length}</Badge>
-                                            {idx < COLUMNAS.length - 1 ? (
-                                                <Button
-                                                    variant="light"
-                                                    size="sm"
-                                                    className="d-md-none rounded-circle p-0 d-flex align-items-center justify-content-center"
-                                                    style={{ width: '26px', height: '26px' }}
-                                                    onClick={() => irAColumna(idx + 1)}
-                                                    aria-label={`Ir a ${COLUMNAS[idx + 1].label}`}
-                                                >
-                                                    <i className="fas fa-chevron-right small"></i>
-                                                </Button>
-                                            ) : (
-                                                <span className="d-md-none" style={{ width: '26px' }}></span>
-                                            )}
                                         </div>
                                     </Card.Header>
-                                    <Card.Body className="p-2" onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, col.estado)}>
+                                    <Card.Body className="production-column-body p-2" onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, col.estado)}>
                                         {pedidosColumna.length === 0 ? (
                                             <p className="text-muted small text-center py-4 mb-0">Sin pedidos aquí.</p>
                                         ) : (
@@ -455,7 +426,7 @@ export default function Pedidos() {
                         >
                             <ListGroup.Item className="text-center py-3 bg-light">
                                 <small className="fw-bold text-dark d-block mb-2">Mover ficha a:</small>
-                                <ButtonGroup className="shadow-sm w-100">
+                                <ButtonGroup className="pedido-state-actions shadow-sm w-100">
                                     <Button variant={pedidoActivo.estado === 'Pendiente' ? 'secondary' : 'outline-secondary'} onClick={() => handleMoverFicha('Pendiente')}>Pendiente</Button>
                                     <Button variant={pedidoActivo.estado === 'En producción' ? 'info text-white' : 'outline-info'} onClick={() => handleMoverFicha('En producción')}>Produciendo</Button>
                                     <Button variant={pedidoActivo.estado === 'Por Retirar' ? 'warning text-dark' : 'outline-warning'} onClick={() => handleMoverFicha('Por Retirar')}>Por Retirar</Button>
@@ -465,7 +436,7 @@ export default function Pedidos() {
                     </Modal.Body>
                 )}
                 <Modal.Footer className="justify-content-center bg-white border-top-0 pt-0 flex-wrap gap-2">
-                    <div className="d-flex w-100 gap-2 mb-2 justify-content-center">
+                    <div className="pedido-detail-actions d-flex w-100 gap-2 mb-2 justify-content-center">
                         <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleEnviarTicket} disabled={procesandoDetalle}><i className="fas fa-share-nodes"></i> Enviar Ticket</Button>
                         <Button variant="success" className="fw-bold flex-grow-1" onClick={handleEntregar} disabled={procesandoDetalle}><i className="fas fa-check"></i> Entregar</Button>
                         <Button variant="outline-primary" className="fw-bold flex-grow-1" onClick={handleAbonar} disabled={procesandoDetalle}><i className="fas fa-coins"></i> Abonar</Button>
@@ -497,7 +468,7 @@ export default function Pedidos() {
                             <Form.Label className="small fw-bold text-secondary mb-1">Cliente</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light"><i className="fas fa-user text-muted"></i></InputGroup.Text>
-                                <Form.Control required name="cliente" type="text" placeholder="Ej: María Pérez" value={formPedido.cliente} onChange={actualizarForm('cliente')} />
+                                <Form.Control required name="cliente" type="text" autoComplete="name" placeholder="Ej: María Pérez" value={formPedido.cliente} onChange={actualizarForm('cliente')} />
                             </InputGroup>
                         </Form.Group>
 
@@ -505,7 +476,7 @@ export default function Pedidos() {
                             <Form.Label className="small fw-bold text-secondary mb-1">Teléfono</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light"><i className="fab fa-whatsapp text-muted"></i></InputGroup.Text>
-                                <Form.Control name="telefono" type="text" placeholder="Ej: 8888-8888" value={formPedido.telefono} onChange={actualizarForm('telefono')} />
+                                <Form.Control name="telefono" type="tel" inputMode="tel" autoComplete="tel" placeholder="Ej: 8888-8888" value={formPedido.telefono} onChange={actualizarForm('telefono')} />
                                 {soportaSelectorContactos() && (
                                     <Button
                                         variant="outline-secondary"

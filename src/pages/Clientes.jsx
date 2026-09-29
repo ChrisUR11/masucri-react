@@ -129,8 +129,8 @@ export default function Clientes() {
                         {morosos.length === 0 ? (
                             <p className="p-3 text-muted small mb-0">¡Sin clientes morosos! 🎉</p>
                         ) : (
-                            <div className="table-responsive">
-                                <Table striped hover className="mb-0">
+                            <div className="table-responsive mobile-card-table-wrap">
+                                <Table striped hover className="mobile-card-table mb-0">
                                     <thead className="table-light">
                                         <tr>
                                             <th>Cliente</th>
@@ -142,9 +142,9 @@ export default function Clientes() {
                                     <tbody>
                                         {morosos.map((m, i) => (
                                             <tr key={i}>
-                                                <td className="fw-bold">{m.cliente}</td>
-                                                <td className="text-danger fw-bold">{formatoColones(m.deuda)}</td>
-                                                <td>
+                                                <td data-label="Cliente" className="fw-bold">{m.cliente}</td>
+                                                <td data-label="Deuda" className="text-danger fw-bold">{formatoColones(m.deuda)}</td>
+                                                <td data-label="Días sin pagar">
                                                     <Badge
                                                         bg={m.diasDeuda > 30 ? 'danger' : m.diasDeuda > 14 ? 'warning' : 'info'}
                                                         className={m.diasDeuda > 30 || m.diasDeuda > 14 ? '' : 'text-dark'}
@@ -152,7 +152,7 @@ export default function Clientes() {
                                                         {m.diasDeuda} días
                                                     </Badge>
                                                 </td>
-                                                <td>
+                                                <td data-label="Acción">
                                                     <Button
                                                         variant="outline-primary"
                                                         size="sm"
@@ -178,8 +178,8 @@ export default function Clientes() {
                         {clientesFiltrados.length === 0 ? (
                             <p className="p-3 text-muted small mb-0">No hay clientes que coincidan.</p>
                         ) : (
-                            <div className="table-responsive">
-                                <Table striped hover className="mb-0">
+                            <div className="table-responsive mobile-card-table-wrap">
+                                <Table striped hover className="mobile-card-table mb-0">
                                     <thead className="table-light">
                                         <tr>
                                             <th>Cliente</th>
@@ -193,18 +193,18 @@ export default function Clientes() {
                                     <tbody>
                                         {clientesFiltrados.map((c, i) => (
                                             <tr key={i}>
-                                                <td className="fw-bold">{c.cliente}</td>
-                                                <td>{c.totalPedidos}</td>
-                                                <td className="text-success">{formatoColones(c.totalGastado)}</td>
-                                                <td className="text-info">{formatoColones(c.totalPagado)}</td>
-                                                <td
+                                                <td data-label="Cliente" className="fw-bold">{c.cliente}</td>
+                                                <td data-label="Pedidos">{c.totalPedidos}</td>
+                                                <td data-label="Total gastado" className="text-success">{formatoColones(c.totalGastado)}</td>
+                                                <td data-label="Total pagado" className="text-info">{formatoColones(c.totalPagado)}</td>
+                                                <td data-label="Deuda"
                                                     className={`fw-bold ${
                                                         c.deudaActual > 0 ? 'text-danger' : 'text-success'
                                                     }`}
                                                 >
                                                     {formatoColones(c.deudaActual)}
                                                 </td>
-                                                <td>
+                                                <td data-label="Acción">
                                                     <Button
                                                         variant="outline-primary"
                                                         size="sm"

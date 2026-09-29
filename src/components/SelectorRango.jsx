@@ -1,32 +1,5 @@
 import { ButtonGroup, Button, Form } from 'react-bootstrap';
-import { obtenerFechaLocal, primerDiaMes, ultimoDiaMes, restarDias, primerDiaAnio } from '../utils/fecha';
-
-export const PRESETS = [
-    { id: 'mes_actual', label: 'Mes actual' },
-    { id: 'mes_anterior', label: 'Mes anterior' },
-    { id: 'ultimos_30', label: '30 días' },
-    { id: 'este_anio', label: 'Este año' },
-    { id: 'personalizado', label: 'Personalizado' }
-];
-
-/** Calcula el rango { inicio, fin } (YYYY-MM-DD) para un preset dado. */
-export function calcularRangoPreset(presetId) {
-    const hoy = new Date();
-    switch (presetId) {
-        case 'mes_anterior': {
-            const base = new Date(hoy);
-            base.setMonth(base.getMonth() - 1);
-            return { inicio: primerDiaMes(base), fin: ultimoDiaMes(base) };
-        }
-        case 'ultimos_30':
-            return { inicio: restarDias(30), fin: obtenerFechaLocal() };
-        case 'este_anio':
-            return { inicio: primerDiaAnio(hoy), fin: obtenerFechaLocal() };
-        case 'mes_actual':
-        default:
-            return { inicio: primerDiaMes(hoy), fin: ultimoDiaMes(hoy) };
-    }
-}
+import { PRESETS } from '../utils/rangoFechas';
 
 /**
  * Botones de período rápido + rango de fechas personalizado. Por defecto
@@ -37,7 +10,7 @@ export function calcularRangoPreset(presetId) {
 export default function SelectorRango({ preset, setPreset, rango, setRango }) {
     return (
         <div className="d-flex flex-wrap gap-2 align-items-center justify-content-center">
-            <ButtonGroup size="sm">
+            <ButtonGroup size="sm" className="period-preset-buttons">
                 {PRESETS.map((p) => (
                     <Button
                         key={p.id}
@@ -49,7 +22,7 @@ export default function SelectorRango({ preset, setPreset, rango, setRango }) {
                 ))}
             </ButtonGroup>
             {preset === 'personalizado' && (
-                <div className="d-flex gap-2 align-items-center">
+                <div className="period-custom-range d-flex gap-2 align-items-center">
                     <Form.Control
                         size="sm"
                         type="date"

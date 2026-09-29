@@ -23,8 +23,7 @@ export default function BotonSubir() {
         <Button
             variant="dark"
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="shadow rounded-circle d-print-none d-flex align-items-center justify-content-center"
-            style={{ position: 'fixed', bottom: '20px', right: '20px', width: '48px', height: '48px', zIndex: 1030 }}
+            className="boton-subir shadow rounded-circle d-print-none d-flex align-items-center justify-content-center"
             aria-label="Subir al inicio de la página"
         >
             <i className="fas fa-arrow-up"></i>

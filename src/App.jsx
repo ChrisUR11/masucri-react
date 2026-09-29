@@ -17,11 +17,11 @@ import Historial from './pages/Historial';
 import DashboardBI from './pages/DashboardBI';
 import HistorialCliente from './pages/HistorialCliente';
 
+const CORREOS_PERMITIDOS = ["ulloarodriguezchris@gmail.com", "anisrmj5@gmail.com"];
+
 export default function App() {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-
-    const CORREOS_PERMITIDOS = ["ulloarodriguezchris@gmail.com", "anisrmj5@gmail.com"];
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -42,7 +42,7 @@ export default function App() {
     const handleLogin = async () => {
         try {
             await signInWithPopup(auth, googleProvider);
-        } catch (error) {
+        } catch {
             Swal.fire('Error', 'Fallo en login', 'error');
         }
     };
@@ -76,25 +76,37 @@ export default function App() {
     return (
         <HashRouter>
             <div className="d-flex flex-column min-vh-100 bg-light">
+                <a
+                    href="#main-content"
+                    className="skip-link btn btn-light shadow-sm"
+                    onClick={(event) => {
+                        event.preventDefault();
+                        document.getElementById('main-content')?.focus();
+                    }}
+                >
+                    Saltar al contenido
+                </a>
                 <EstadoConexion />
                 <NavBar user={user} />
 
-                {/* Aquí ocurre la magia: dependiendo de la URL, React inyecta una página distinta */}
-                <Routes>
-                    <Route path="/" element={<Pedidos />} />
-                    <Route path="/historial" element={<Historial />} />
-                    <Route path="/historial-cliente" element={<HistorialCliente />} />
-                    <Route path="/catalogo" element={<Catalogo />} />
-                    <Route path="/finanzas" element={<Finanzas />} />
-                    <Route path="/bi" element={<DashboardBI />} />
+                <main id="main-content" className="app-content" tabIndex={-1}>
+                    {/* Aquí ocurre la magia: dependiendo de la URL, React inyecta una página distinta */}
+                    <Routes>
+                        <Route path="/" element={<Pedidos />} />
+                        <Route path="/historial" element={<Historial />} />
+                        <Route path="/historial-cliente" element={<HistorialCliente />} />
+                        <Route path="/catalogo" element={<Catalogo />} />
+                        <Route path="/finanzas" element={<Finanzas />} />
+                        <Route path="/bi" element={<DashboardBI />} />
 
-                    {/* El asterisco (*) atrapa cualquier ruta que aún no hayamos creado */}
-                    <Route path="*" element={
-                        <Container className="mt-4">
-                            <h3 className="text-muted">Módulo en construcción... 🛠️</h3>
-                        </Container>
-                    } />
-                </Routes>
+                        {/* El asterisco (*) atrapa cualquier ruta que aún no hayamos creado */}
+                        <Route path="*" element={
+                            <Container className="mt-4">
+                                <h3 className="text-muted">Módulo en construcción... 🛠️</h3>
+                            </Container>
+                        } />
+                    </Routes>
+                </main>
 
                 <BotonSubir />
                 <ActualizacionPWA />

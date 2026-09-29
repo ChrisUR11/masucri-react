@@ -9,6 +9,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
+import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import { obtenerFechaLocal } from '../utils/fecha';
 import { formatoColones, aNumeroSeguro } from '../utils/formato';
@@ -32,7 +33,9 @@ export default function Finanzas() {
     const [filtroModo, setFiltroModo] = useState('ambos');
     const [filtroInicio, setFiltroInicio] = useState('');
     const [filtroFin, setFiltroFin] = useState('');
+    const [filtroTexto, setFiltroTexto] = useState('');
     const [filasVisibles, setFilasVisibles] = useState(FILAS_INICIALES);
+    const filtroTextoDebounced = useDebounce(filtroTexto, 250);
 
     const [showModal, setShowModal] = useState(false);
     const [editId, setEditId] = useState(null);
@@ -47,10 +50,27 @@ export default function Finanzas() {
         if (filtroInicio) lista = lista.filter((m) => m.fecha >= filtroInicio);
         if (filtroFin) lista = lista.filter((m) => m.fecha <= filtroFin);
         if (filtroModo !== 'ambos') lista = lista.filter((m) => m.tipo === (filtroModo === 'entradas' ? 'entrada' : 'salida'));
+        if (filtroTextoDebounced) {
+            const texto = filtroTextoDebounced.toLowerCase();
+            lista = lista.filter((m) =>
+                [m.descripcion, m.entidad, m.metodo_pago, m.tipo]
+                    .filter(Boolean)
+                    .some((valor) => String(valor).toLowerCase().includes(texto))
+            );
+        }
         return lista;
-    }, [movimientos, filtroInicio, filtroFin, filtroModo]);
+    }, [movimientos, filtroInicio, filtroFin, filtroModo, filtroTextoDebounced]);
 
     const filtradosVisibles = filtrados.slice(0, filasVisibles);
+    const filtrosActivos = filtroModo !== 'ambos' || Boolean(filtroInicio) || Boolean(filtroFin) || Boolean(filtroTexto);
+
+    const limpiarFiltros = () => {
+        setFiltroModo('ambos');
+        setFiltroInicio('');
+        setFiltroFin('');
+        setFiltroTexto('');
+        setFilasVisibles(FILAS_INICIALES);
+    };
 
     const { totalEntradas, totalSalidas, movimientosInvalidos } = useMemo(() => {
         let entradas = 0;
@@ -266,9 +286,9 @@ export default function Finanzas() {
 
     return (
         <Container className="mt-4 flex-grow-1">
-            <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div className="page-heading d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                 <h3 className="fw-bold m-0 text-success"><i className="fas fa-wallet"></i> Finanzas y Caja</h3>
-                <Button variant="success" className="fw-bold shadow-sm" onClick={() => handleOpen()}>
+                <Button variant="success" className="page-heading-action fw-bold shadow-sm" onClick={() => handleOpen()}>
                     <i className="fas fa-plus"></i> Registrar Movimiento
                 </Button>
             </div>
@@ -310,13 +330,26 @@ export default function Finanzas() {
                             <Card className="shadow-sm border-0 h-100">
                                 <Card.Header className="bg-white fw-bold">Filtros y Resumen</Card.Header>
                                 <Card.Body>
+                                    <Form.Control
+                                        type="search"
+                                        className="mb-3"
+                                        placeholder="Buscar concepto, cliente o método..."
+                                        value={filtroTexto}
+                                        onChange={(e) => setFiltroTexto(e.target.value)}
+                                        aria-label="Buscar en movimientos financieros"
+                                    />
                                     <Form.Select className="mb-3" value={filtroModo} onChange={(e) => setFiltroModo(e.target.value)}>
                                         <option value="ambos">Ver Todo</option>
                                         <option value="entradas">Solo Entradas</option>
                                         <option value="salidas">Solo Salidas</option>
                                     </Form.Select>
-                                    <Form.Control type="date" className="mb-3" value={filtroInicio} onChange={(e) => setFiltroInicio(e.target.value)} aria-label="Fecha inicio" />
-                                    <Form.Control type="date" className="mb-4" value={filtroFin} onChange={(e) => setFiltroFin(e.target.value)} aria-label="Fecha fin" />
+                                    <Form.Control type="date" className="mb-3" value={filtroInicio} max={filtroFin || undefined} onChange={(e) => setFiltroInicio(e.target.value)} aria-label="Fecha inicio" />
+                                    <Form.Control type="date" className="mb-3" value={filtroFin} min={filtroInicio || undefined} onChange={(e) => setFiltroFin(e.target.value)} aria-label="Fecha fin" />
+                                    {filtrosActivos && (
+                                        <Button variant="outline-secondary" className="w-100 mb-3" onClick={limpiarFiltros}>
+                                            Limpiar filtros
+                                        </Button>
+                                    )}
 
                                     <div className="d-flex justify-content-center" style={{ maxHeight: '250px' }}>
                                         {totalEntradas > 0 || totalSalidas > 0 ? (
@@ -332,8 +365,8 @@ export default function Finanzas() {
                         <Col lg={8} className="mb-4">
                             <Card className="shadow-sm border-0 h-100">
                                 <Card.Header className="bg-white fw-bold d-flex justify-content-between align-items-center">
-                                    <span>Libro Diario</span>
-                                    <div>
+                                    <span>Libro Diario <small className="text-muted fw-normal">({filtrados.length})</small></span>
+                                    <div className="finance-export-actions">
                                         <Button variant="danger" size="sm" className="me-2 px-3" onClick={exportarPDF}><i className="fas fa-file-pdf"></i> PDF</Button>
                                         <Button variant="success" size="sm" className="me-2 px-3" onClick={exportarExcel}><i className="fas fa-file-excel"></i> Excel</Button>
                                         <Button variant="dark" size="sm" className="px-3" onClick={handleRespaldoCompleto} disabled={generandoRespaldo} title="Descarga TODOS los pedidos, movimientos y catálogo (no solo lo filtrado aquí)">
@@ -341,8 +374,8 @@ export default function Finanzas() {
                                         </Button>
                                     </div>
                                 </Card.Header>
-                                <Card.Body className="p-0 table-responsive" style={{ height: '500px', overflowY: 'auto' }}>
-                                    <Table hover className="align-middle m-0 text-nowrap">
+                                <Card.Body className="p-0 mobile-card-table-wrap">
+                                    <Table hover className="mobile-card-table align-middle m-0">
                                         <thead className="table-light sticky-top shadow-sm" style={{ zIndex: 1 }}>
                                             <tr>
                                                 <th>Fecha</th>
@@ -357,15 +390,15 @@ export default function Finanzas() {
                                             ) : (
                                                 filtradosVisibles.map((m) => (
                                                     <tr key={m.id}>
-                                                        <td>{m.fecha}</td>
-                                                        <td>
+                                                        <td data-label="Fecha">{m.fecha}</td>
+                                                        <td data-label="Detalle / Método">
                                                             <strong>{m.descripcion}</strong> <Badge bg="secondary">{m.metodo_pago || 'Manual'}</Badge><br />
                                                             <small className="text-muted">{m.entidad || ''}</small>
                                                         </td>
-                                                        <td className={`fw-bold ${m.tipo === 'entrada' ? 'text-success' : 'text-danger'}`}>
+                                                        <td data-label="Monto" className={`fw-bold ${m.tipo === 'entrada' ? 'text-success' : 'text-danger'}`}>
                                                             {formatoColones(m.monto)}
                                                         </td>
-                                                        <td className="text-center">
+                                                        <td data-label="Acciones" className="text-center">
                                                             <Button variant="outline-secondary" size="sm" className="me-1" onClick={() => handleOpen(m)} aria-label="Editar movimiento">
                                                                 <i className="fas fa-pen"></i>
                                                             </Button>
