@@ -117,7 +117,7 @@ function dibujarTicket(ctx, datos, logo, pintar) {
     separador(y);
     y += 24;
     y += texto('¡Gracias por tu compra!', ANCHO / 2, y, CONTENIDO, 24, AZUL, true, 'center') + 10;
-    y += texto('WhatsApp: 8404-6513', ANCHO / 2, y, CONTENIDO, 20, GRIS, false, 'center');
+    y += texto('WhatsApp: 6274-7761', ANCHO / 2, y, CONTENIDO, 20, GRIS, false, 'center');
     return Math.ceil(y + 34);
 }
 
