@@ -57,6 +57,7 @@ export default function Pedidos() {
     const [showVenta, setShowVenta] = useState(false);
     const [showDetalle, setShowDetalle] = useState(false);
     const [pedidoActivoId, setPedidoActivoId] = useState(null);
+    const [nombreTicket, setNombreTicket] = useState(null);
     const [procesandoDetalle, setProcesandoDetalle] = useState(false);
     const [pedidoEdit, setPedidoEdit] = useState(null);
 
@@ -91,20 +92,22 @@ export default function Pedidos() {
     // --- Modal de Detalle ---
     const abrirDetalle = (ped) => {
         setPedidoActivoId(ped.id);
+        setNombreTicket(null);
         setShowDetalle(true);
     };
 
     const handleWhatsApp = () => abrirWhatsApp(pedidoActivo.telefono, mensajePedido(pedidoActivo));
 
     const handleEnviarTicket = async () => {
+        if (!pedidoActivo || procesandoDetalle) return;
         setProcesandoDetalle(true);
         try {
-            const resultado = await compartirTicket(pedidoActivo);
+            const resultado = await compartirTicket(pedidoActivo, { onNombreConfirmado: setNombreTicket });
             if (resultado === 'descargado') {
                 Swal.fire({
                     icon: 'info',
                     title: 'Ticket descargado',
-                    text: 'Este navegador no permite compartir archivos directamente. La imagen se descargó para que la adjuntes donde quieras enviarla.',
+                    text: 'La imagen se descargó. Podés adjuntarla en WhatsApp o guardarla.',
                     timer: 3000,
                     showConfirmButton: false
                 });
@@ -583,7 +586,7 @@ export default function Pedidos() {
             <VentaRapidaModal show={showVenta} onHide={() => setShowVenta(false)} />
 
             {/* PIEZA DE IMPRESIÓN (invisible en pantalla, visible al imprimir) */}
-            <TicketImpresion pedido={pedidoActivo} />
+            <TicketImpresion pedido={pedidoActivo} nombreCliente={nombreTicket} />
         </Container>
     );
 }

@@ -1,53 +1,60 @@
-import React from 'react';
+import { forwardRef } from 'react';
+import { LOGO_TICKET, formatoMontoTicket, prepararDatosTicket } from '../utils/ticketDatos';
+import './TicketImpresion.css';
 
-// Se llama forwardRef para que podamos mandarle la orden de imprimir desde afuera
-export const TicketImpresion = React.forwardRef(({ pedido }, ref) => {
+export const TicketImpresion = forwardRef(function TicketImpresion({ pedido, nombreCliente }, ref) {
     if (!pedido) return null;
+    const datos = prepararDatosTicket(pedido, nombreCliente);
 
     return (
-        <div ref={ref} className="ticket-impresion bg-white text-dark p-3" style={{ width: '300px', margin: '0 auto', fontFamily: 'monospace', fontSize: '14px' }}>
-            
-            <div className="text-center mb-3">
-                <img src="./logo-masucri.png" alt="MASUCRI" style={{ maxWidth: '120px' }} />
-                <h5 className="fw-bold mt-2 mb-0">MASUCRI</h5>
-                <p className="mb-0 small">Confecciones y Sublimaciones</p>
-                <p className="mb-0 small">WhatsApp: 8404-6513</p>
+        <article ref={ref} className="ticket-impresion ticket-recibo" style={{ width: '80mm', maxWidth: '100%', margin: '0 auto' }}>
+            <header className="ticket-recibo-cabecera">
+                <img src={LOGO_TICKET} alt="MASUCRI · Confecciones y Sublimaciones" />
+                <p>COMPROBANTE DE PEDIDO</p>
+            </header>
+            <div className="ticket-recibo-meta">
+                <span>{datos.referencia ? 'Pedido #' + datos.referencia : 'Pedido'}</span>
+                <span>{datos.fecha}</span>
             </div>
-            
-            <div className="border-bottom border-dark mb-2 pb-2" style={{ borderBottomStyle: 'dashed !important' }}>
-                <p className="mb-0"><strong>Fecha:</strong> {new Date().toLocaleDateString('es-CR')}</p>
-                <p className="mb-0"><strong>Cliente:</strong> {pedido.cliente}</p>
-                {pedido.telefono && <p className="mb-0"><strong>Tel:</strong> {pedido.telefono}</p>}
-                <p className="mb-0 mt-1"><strong>Ticket #:</strong> {pedido.id?.slice(0,6).toUpperCase()}</p>
-            </div>
-
-            <div className="border-bottom border-dark mb-2 pb-2" style={{ borderBottomStyle: 'dashed !important' }}>
-                <p className="mb-0 fw-bold text-uppercase">Detalle:</p>
-                <p className="mb-0">{pedido.producto}</p>
-            </div>
-
-            <div className="mb-3">
-                <div className="d-flex justify-content-between">
-                    <span>Subtotal:</span>
-                    <strong>₡{(pedido.precio || 0).toLocaleString('es-CR')}</strong>
-                </div>
-                <div className="d-flex justify-content-between text-muted">
-                    <span>Abonado:</span>
-                    <span>- ₡{(pedido.monto_pagado || 0).toLocaleString('es-CR')}</span>
-                </div>
-                
-                <div className="d-flex justify-content-between fs-5 fw-bold mt-2 border-top border-dark pt-1">
-                    <span>SALDO:</span>
-                    <span>₡{((pedido.precio || 0) - (pedido.monto_pagado || 0)).toLocaleString('es-CR')}</span>
-                </div>
-            </div>
-
-            <div className="text-center small mt-4">
-                <p className="mb-0 fw-bold">¡Gracias por su preferencia!</p>
-                <p className="mb-0 mt-2">Revisar mercadería al retirar.</p>
-                <p className="mb-0">No se aceptan devoluciones pasados los 8 días hábiles.</p>
-                <p className="fw-bold mt-3">*** MASUCRI ***</p>
-            </div>
-        </div>
+            <section className="ticket-recibo-cliente">
+                <h2>Cliente</h2>
+                <p>{datos.cliente}</p>
+            </section>
+            <section className="ticket-recibo-producto">
+                <h2>Producto</h2>
+                <p>{datos.producto}</p>
+            </section>
+            <dl className="ticket-recibo-totales">
+                <div><dt>Total del pedido</dt><dd>{formatoMontoTicket(datos.total)}</dd></div>
+                <div><dt>Total abonado</dt><dd>{formatoMontoTicket(datos.pagado)}</dd></div>
+            </dl>
+            <section className="ticket-recibo-abonos">
+                <h2>Abonos registrados</h2>
+                {datos.pagos.length ? (
+                    <ul>
+                        {datos.pagos.map((pago, index) => (
+                            <li key={index}>
+                                <span>{pago.fecha}<br />{pago.metodo}</span>
+                                <strong>{formatoMontoTicket(pago.monto)}</strong>
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p>{datos.pagado > 0
+                        ? 'Hay abonos registrados por ' + formatoMontoTicket(datos.pagado) + '. Sin detalle de fechas.'
+                        : 'Aún no se han registrado abonos.'}</p>
+                )}
+            </section>
+            <section className={'ticket-recibo-saldo' + (datos.saldo === 0 ? ' ticket-recibo-pagado' : '')}>
+                <h2>Saldo pendiente</h2>
+                <p>{formatoMontoTicket(datos.saldo)}</p>
+            </section>
+            <p className="ticket-recibo-estado">{datos.estadoPago}</p>
+            {datos.saldoAFavor > 0 && <p>Saldo a favor: {formatoMontoTicket(datos.saldoAFavor)}</p>}
+            <footer className="ticket-recibo-pie">
+                <strong>¡Gracias por tu compra!</strong>
+                <p>WhatsApp: 8404-6513</p>
+            </footer>
+        </article>
     );
 });

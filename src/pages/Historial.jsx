@@ -25,6 +25,7 @@ export default function Historial() {
 
     const [showModal, setShowModal] = useState(false);
     const [pedidoActivo, setPedidoActivo] = useState(null);
+    const [nombreTicket, setNombreTicket] = useState(null);
     const [procesando, setProcesando] = useState(false);
     const [editando, setEditando] = useState(false);
     const [guardandoEdicion, setGuardandoEdicion] = useState(false);
@@ -58,6 +59,7 @@ export default function Historial() {
 
     const handleVerDetalle = (ped) => {
         setPedidoActivo(ped);
+        setNombreTicket(null);
         setEditando(false);
         setShowModal(true);
     };
@@ -130,13 +132,15 @@ export default function Historial() {
     const handleWhatsApp = () => abrirWhatsApp(pedidoActivoActualizado.telefono, mensajePedido(pedidoActivoActualizado));
 
     const handleEnviarTicket = async () => {
+        if (!pedidoActivoActualizado || procesando) return;
+        setProcesando(true);
         try {
-            const resultado = await compartirTicket(pedidoActivoActualizado);
+            const resultado = await compartirTicket(pedidoActivoActualizado, { onNombreConfirmado: setNombreTicket });
             if (resultado === 'descargado') {
                 Swal.fire({
                     icon: 'info',
                     title: 'Ticket descargado',
-                    text: 'Este navegador no permite compartir archivos directamente. La imagen se descargó para que la adjuntes donde quieras enviarla.',
+                    text: 'La imagen se descargó. Podés adjuntarla en WhatsApp o guardarla.',
                     timer: 3000,
                     showConfirmButton: false
                 });
@@ -144,6 +148,8 @@ export default function Historial() {
         } catch (err) {
             console.error('Error generando el ticket:', err);
             Swal.fire('Error', 'No se pudo generar el ticket.', 'error');
+        } finally {
+            setProcesando(false);
         }
     };
 
@@ -371,7 +377,7 @@ export default function Historial() {
             </Modal>
 
             {/* TICKET DE IMPRESIÓN */}
-            <TicketImpresion pedido={pedidoActivoActualizado} />
+            <TicketImpresion pedido={pedidoActivoActualizado} nombreCliente={nombreTicket} />
         </Container>
     );
 }
