@@ -16,6 +16,9 @@ export default defineConfig({
       injectRegister: false,
       includeAssets: ['logo-masucri.png', 'icon-masucri.svg'],
       workbox: {
+        // Al aceptar una actualización, el worker nuevo debe tomar control
+        // de la pestaña abierta para que se aplique sin cerrarla manualmente.
+        clientsClaim: true,
         cleanupOutdatedCaches: true,
         // Font Awesome se sirve desde un CDN. Cuando el service worker ya
         // controla la página, conserva su CSS y fuentes para visitas offline.

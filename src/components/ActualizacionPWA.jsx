@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { ToastContainer, Toast, Button } from 'react-bootstrap';
 
@@ -13,10 +14,19 @@ const registrosConRevision = new WeakSet();
  * dejaba abierta todo el día en el mostrador).
  */
 export default function ActualizacionPWA() {
+    const [actualizando, setActualizando] = useState(false);
+    const [errorActualizacion, setErrorActualizacion] = useState('');
+    const recargaSolicitada = useRef(false);
+    const recargarUnaVez = () => {
+        if (recargaSolicitada.current) return;
+        recargaSolicitada.current = true;
+        window.location.reload();
+    };
+
     const {
-        needRefresh: [needRefresh, setNeedRefresh],
-        updateServiceWorker
+        needRefresh: [needRefresh, setNeedRefresh]
     } = useRegisterSW({
+        onNeedReload: recargarUnaVez,
         onRegisteredSW(_url, registration) {
             if (registration && !registrosConRevision.has(registration)) {
                 registrosConRevision.add(registration);
@@ -39,6 +49,60 @@ export default function ActualizacionPWA() {
         }
     });
 
+    const aplicarActualizacion = async () => {
+        if (actualizando) return;
+        setActualizando(true);
+        setErrorActualizacion('');
+
+        try {
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (!registration) throw new Error('No hay un service worker registrado');
+
+            // El aviso puede quedar abierto si otra pestaña ya activó la versión.
+            if (!registration.waiting) await registration.update();
+            const waiting = registration.waiting;
+            if (!waiting) {
+                setNeedRefresh(false);
+                recargarUnaVez();
+                return;
+            }
+
+            await new Promise((resolve, reject) => {
+                let terminado = false;
+                let temporizador;
+                const finalizar = (error) => {
+                    if (terminado) return;
+                    terminado = true;
+                    window.clearTimeout(temporizador);
+                    waiting.removeEventListener('statechange', revisarEstado);
+                    navigator.serviceWorker.removeEventListener('controllerchange', cambioDeControl);
+                    if (error) reject(error);
+                    else resolve();
+                };
+                const revisarEstado = () => {
+                    if (waiting.state === 'activated') finalizar();
+                    else if (waiting.state === 'redundant') finalizar(new Error('El worker quedó obsoleto'));
+                };
+                const cambioDeControl = () => finalizar();
+
+                waiting.addEventListener('statechange', revisarEstado);
+                navigator.serviceWorker.addEventListener('controllerchange', cambioDeControl);
+                temporizador = window.setTimeout(() => finalizar(new Error('La activación tardó demasiado')), 15000);
+                try {
+                    waiting.postMessage({ type: 'SKIP_WAITING' });
+                    revisarEstado();
+                } catch (error) {
+                    finalizar(error);
+                }
+            });
+
+            recargarUnaVez();
+        } catch {
+            setErrorActualizacion('No se pudo completar la actualización. Inténtalo de nuevo.');
+            setActualizando(false);
+        }
+    };
+
     if (!needRefresh) return null;
 
     return (
@@ -48,14 +112,15 @@ export default function ActualizacionPWA() {
                     <div className="d-flex align-items-center justify-content-between gap-3 flex-wrap">
                         <span className="small fw-bold">🔄 Hay una versión nueva de MASUCRI disponible.</span>
                         <div className="d-flex gap-2">
-                            <Button size="sm" variant="dark" onClick={() => updateServiceWorker(true)}>
-                                Actualizar ahora
+                            <Button size="sm" variant="dark" onClick={aplicarActualizacion} disabled={actualizando}>
+                                {actualizando ? 'Actualizando…' : 'Actualizar ahora'}
                             </Button>
-                            <Button size="sm" variant="outline-secondary" onClick={() => setNeedRefresh(false)} aria-label="Cerrar aviso">
+                            <Button size="sm" variant="outline-secondary" onClick={() => setNeedRefresh(false)} aria-label="Cerrar aviso" disabled={actualizando}>
                                 <span aria-hidden="true">&times;</span>
                             </Button>
                         </div>
                     </div>
+                    {errorActualizacion && <div className="small text-danger mt-2" role="alert">{errorActualizacion}</div>}
                 </Toast.Body>
             </Toast>
         </ToastContainer>
