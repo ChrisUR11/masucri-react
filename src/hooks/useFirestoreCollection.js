@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { onSnapshot } from 'firebase/firestore';
+import { actualizarConsultaFirestore, eliminarConsultaFirestore } from '../utils/estadoFirestore';
 
 /**
  * Se suscribe en tiempo real a una query/colección de Firestore.
@@ -17,35 +18,48 @@ export function useFirestoreCollection(construirQuery, deps = []) {
     const [error, setError] = useState(null);
 
     useEffect(() => {
-        setCargando(true);
-        setError(null);
-
         let query;
         try {
             query = construirQuery();
         } catch (err) {
             console.error('Error construyendo query de Firestore:', err);
+            // No existe una suscripción que pueda avisar de este error después.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setError(err);
             setCargando(false);
             return;
         }
 
+        const consultaId = Symbol('consultaFirestore');
+        let primeraRespuesta = true;
         const unsubscribe = onSnapshot(
             query,
+            { includeMetadataChanges: true },
             (snapshot) => {
-                const items = [];
-                snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() }));
-                setDatos(items);
+                actualizarConsultaFirestore(consultaId, snapshot.metadata);
+                setError(null);
+                // Una actualización solo de metadatos no necesita reconstruir
+                // toda la lista ni volver a renderizar las páginas extensas.
+                if (primeraRespuesta || snapshot.docChanges().length > 0) {
+                    const items = [];
+                    snapshot.forEach((doc) => items.push({ id: doc.id, ...doc.data() }));
+                    setDatos(items);
+                }
+                primeraRespuesta = false;
                 setCargando(false);
             },
             (err) => {
+                eliminarConsultaFirestore(consultaId);
                 console.error('Error de Firestore:', err);
                 setError(err);
                 setCargando(false);
             }
         );
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            eliminarConsultaFirestore(consultaId);
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, deps);
 

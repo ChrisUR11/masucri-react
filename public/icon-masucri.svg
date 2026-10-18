@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">MASUCRI</title>
+  <rect width="512" height="512" fill="#fffaf0"/>
+  <path fill="#05314d" d="M108 356V158c0-9 7-16 16-16h30l102 103 102-103h30c9 0 16 7 16 16v198h-51V219l-97 96-97-96v137z"/>
+  <path fill="#e22d22" d="M108 356V158c0-9 7-16 16-16h30l102 103v70l-97-96v137z"/>
+</svg>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect } from 'react';
 import { auth, googleProvider } from './config/firebase';
 import { signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { Button, Card, Container, Spinner } from 'react-bootstrap';
@@ -7,15 +7,15 @@ import NavBar from './components/NavBar';
 import ActualizacionPWA from './components/ActualizacionPWA';
 import BotonSubir from './components/BotonSubir';
 import EstadoConexion from './components/EstadoConexion';
-import { HashRouter, Routes, Route } from "react-router-dom";
+import EstadoCarga from './components/EstadoCarga';
+import { HashRouter, Link, Routes, Route } from 'react-router-dom';
 
-// Importamos nuestras páginas
-import Pedidos from './pages/Pedidos';
-import Catalogo from './pages/Catalogo';
-import Finanzas from './pages/Finanzas';
-import Historial from './pages/Historial';
-import DashboardBI from './pages/DashboardBI';
-import HistorialCliente from './pages/HistorialCliente';
+const Pedidos = lazy(() => import('./pages/Pedidos'));
+const Catalogo = lazy(() => import('./pages/Catalogo'));
+const Finanzas = lazy(() => import('./pages/Finanzas'));
+const Historial = lazy(() => import('./pages/Historial'));
+const DashboardBI = lazy(() => import('./pages/DashboardBI'));
+const HistorialCliente = lazy(() => import('./pages/HistorialCliente'));
 
 const CORREOS_PERMITIDOS = ["ulloarodriguezchris@gmail.com", "anisrmj5@gmail.com"];
 
@@ -50,7 +50,10 @@ export default function App() {
     if (loading) {
         return (
             <>
-                <div className="vh-100 d-flex justify-content-center align-items-center"><Spinner animation="border" variant="primary" /></div>
+                <div className="vh-100 d-flex justify-content-center align-items-center" role="status" aria-live="polite">
+                    <Spinner animation="border" variant="primary" aria-hidden="true" />
+                    <span className="visually-hidden">Verificando sesión...</span>
+                </div>
                 <ActualizacionPWA />
             </>
         );
@@ -59,9 +62,10 @@ export default function App() {
     if (!user) {
         return (
             <>
-                <div className="vh-100 d-flex align-items-center justify-content-center bg-light">
+                <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light p-3">
                     <Card className="shadow p-4 text-center border-0" style={{ maxWidth: '400px', width: '100%' }}>
-                        <img src="/logo-masucri.png" alt="MASUCRI Logo" className="mx-auto mb-3" style={{ maxHeight: '80px', width: 'auto' }} />
+                        <img src={`${import.meta.env.BASE_URL}logo-masucri.png`} alt="" className="mx-auto mb-3" style={{ maxHeight: '80px', width: 'auto' }} />
+                        <h1 className="h4 fw-bold">MASUCRI</h1>
                         <p className="text-muted">Acceso exclusivo para administradores</p>
                         <Button variant="dark" size="lg" className="w-100 mt-3 shadow-sm" onClick={handleLogin}>
                             Iniciar sesión con Google
@@ -90,22 +94,24 @@ export default function App() {
                 <NavBar user={user} />
 
                 <main id="main-content" className="app-content" tabIndex={-1}>
-                    {/* Aquí ocurre la magia: dependiendo de la URL, React inyecta una página distinta */}
-                    <Routes>
-                        <Route path="/" element={<Pedidos />} />
-                        <Route path="/historial" element={<Historial />} />
-                        <Route path="/historial-cliente" element={<HistorialCliente />} />
-                        <Route path="/catalogo" element={<Catalogo />} />
-                        <Route path="/finanzas" element={<Finanzas />} />
-                        <Route path="/bi" element={<DashboardBI />} />
+                    <Suspense fallback={<EstadoCarga texto="Cargando sección..." />}>
+                        <Routes>
+                            <Route path="/" element={<Pedidos />} />
+                            <Route path="/historial" element={<Historial />} />
+                            <Route path="/historial-cliente" element={<HistorialCliente />} />
+                            <Route path="/catalogo" element={<Catalogo />} />
+                            <Route path="/finanzas" element={<Finanzas />} />
+                            <Route path="/bi" element={<DashboardBI />} />
 
-                        {/* El asterisco (*) atrapa cualquier ruta que aún no hayamos creado */}
-                        <Route path="*" element={
-                            <Container className="mt-4">
-                                <h3 className="text-muted">Módulo en construcción... 🛠️</h3>
-                            </Container>
-                        } />
-                    </Routes>
+                            <Route path="*" element={
+                                <Container className="py-5 text-center">
+                                    <h1 className="h3 fw-bold">Página no encontrada</h1>
+                                    <p className="text-muted">La sección solicitada no existe.</p>
+                                    <Button as={Link} to="/" variant="primary">Volver a Pedidos</Button>
+                                </Container>
+                            } />
+                        </Routes>
+                    </Suspense>
                 </main>
 
                 <BotonSubir />

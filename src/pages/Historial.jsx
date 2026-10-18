@@ -191,7 +191,7 @@ export default function Historial() {
                 });
             } catch (err) {
                 console.error(err);
-                Swal.fire('Error', 'No se pudo borrar el registro.', 'error');
+                Swal.fire('Error', err.code === 'requiere-conexion' ? err.message : 'No se pudo borrar el registro.', 'error');
             } finally {
                 setProcesando(false);
             }

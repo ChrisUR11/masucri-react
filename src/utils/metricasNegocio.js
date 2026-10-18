@@ -165,7 +165,6 @@ export function calcularMetricas(pedidos, movimientos, rango = {}) {
     const ingresosPorMes = {};
     const pedidosPorMes = {};
     let anuladosHist = 0;
-    let entregadosHist = 0;
     let pagados100 = 0;
     let conDeuda = 0;
     const deudores = [];
@@ -190,7 +189,6 @@ export function calcularMetricas(pedidos, movimientos, rango = {}) {
 
         const deuda = (p.precio || 0) - (p.monto_pagado || 0);
         if (p.estado === 'Entregado') {
-            entregadosHist++;
             if (deuda > 0) {
                 conDeuda++;
                 deudores.push({ cliente: p.cliente, debe: deuda });

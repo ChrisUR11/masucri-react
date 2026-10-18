@@ -47,7 +47,7 @@ export default function HistorialCliente() {
 
             <Row className="mb-4">
                 <Col md={6}>
-                    <Form.Group>
+                    <Form.Group controlId="historial-cliente-selector">
                         <Form.Label className="fw-bold">Seleccionar Cliente</Form.Label>
                         <Form.Select value={clienteSeleccionado} onChange={(e) => { setClienteSeleccionado(e.target.value); setFiltroPedidosEstado(''); }} size="sm">
                             <option value="">-- Elige un cliente --</option>
@@ -122,7 +122,7 @@ export default function HistorialCliente() {
 
                     {/* FILTRO DE PEDIDOS */}
                     <div className="mb-3">
-                        <Form.Group>
+                        <Form.Group controlId="historial-cliente-filtro-estado">
                             <Form.Label className="fw-bold small">Filtrar por estado</Form.Label>
                             <Form.Select value={filtroPedidosEstado} onChange={(e) => setFiltroPedidosEstado(e.target.value)} size="sm" style={{ maxWidth: '200px' }}>
                                 <option value="">Todos</option>

@@ -1,20 +1,33 @@
 import { useEffect, useState } from 'react';
 import { useOfflineSync } from '../hooks/useOfflineSync';
+import { useEstadoFirestore } from '../hooks/useEstadoFirestore';
 
 export default function EstadoConexion() {
-    const { offline, stats } = useOfflineSync();
-    const [visible, setVisible] = useState(offline);
+    const { offline } = useOfflineSync();
+    const { desdeCache, cambiosPendientes, revisionCache } = useEstadoFirestore();
+    const [revisionVisible, setRevisionVisible] = useState(-1);
 
     useEffect(() => {
-        setVisible(offline);
-    }, [offline]);
+        if (!desdeCache || offline) return undefined;
+        const timer = setTimeout(() => setRevisionVisible(revisionCache), 1500);
+        return () => clearTimeout(timer);
+    }, [desdeCache, offline, revisionCache]);
 
-    if (!visible) return null;
+    const cacheVisible = desdeCache && (offline || revisionVisible === revisionCache);
+    if (!offline && !cacheVisible && !cambiosPendientes) return null;
+
+    const mensaje = offline
+        ? 'Sin conexión a internet. Podés consultar los datos que ya se cargaron en este dispositivo.'
+        : cacheVisible
+            ? 'Mostrando datos guardados en este dispositivo mientras se verifica la conexión con Firestore.'
+            : 'Hay cambios de esta vista pendientes de confirmar en Firestore.';
 
     return (
         <div
+            role="status"
+            aria-live="polite"
             style={{
-                backgroundColor: '#dc3545',
+                backgroundColor: offline ? '#dc3545' : '#6c757d',
                 color: 'white',
                 padding: '12px 16px',
                 textAlign: 'center',
@@ -23,12 +36,10 @@ export default function EstadoConexion() {
                 zIndex: 1040
             }}
         >
-            <i className="fas fa-wifi-slash me-2"></i>
-            Sin conexión a internet
-            {stats.pendingSync > 0 && (
-                <span style={{ marginLeft: '10px' }}>
-                    • {stats.pendingSync} cambio(s) pendiente(s) de sincronizar
-                </span>
+            <i className={`fas ${offline ? 'fa-wifi-slash' : 'fa-database'} me-2`} aria-hidden="true"></i>
+            {mensaje}
+            {cambiosPendientes && (offline || cacheVisible) && (
+                <span className="ms-2">Hay cambios de esta vista pendientes de confirmar.</span>
             )}
         </div>
     );

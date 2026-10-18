@@ -14,39 +14,37 @@ export default defineConfig({
       // Registramos el Service Worker nosotros mismos desde React
       // (ver src/components/ActualizacionPWA.jsx) para poder mostrar el toast.
       injectRegister: false,
-      includeAssets: ['logo-masucri.png'],
+      includeAssets: ['logo-masucri.png', 'icon-masucri.svg'],
+      workbox: {
+        cleanupOutdatedCaches: true,
+        // Font Awesome se sirve desde un CDN. Cuando el service worker ya
+        // controla la página, conserva su CSS y fuentes para visitas offline.
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/font-awesome\/6\.4\.0\/(css|webfonts)\//,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'font-awesome-6-4-0',
+              cacheableResponse: { statuses: [0, 200] },
+              expiration: { maxEntries: 12, maxAgeSeconds: 30 * 24 * 60 * 60 }
+            }
+          }
+        ]
+      },
       manifest: {
         name: 'MASUCRI Sistema',
         short_name: 'MASUCRI',
         description: 'Gestión y Producción MASUCRI',
+        lang: 'es',
         theme_color: '#212529',
-        background_color: '#ffffff',
+        background_color: '#fffaf0',
         display: 'standalone', // Esto oculta la barra del navegador para que parezca app nativa
-        icons: [
-          {
-            src: 'logo-masucri.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: 'logo-masucri.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            // Variante "maskable": Android recorta el ícono en un círculo/redondeado
-            // usando esta versión. Si logo-masucri.png tiene el logo pegado a los
-            // bordes, se verá cortado en la pantalla de inicio del celular — revisa
-            // que tenga un margen de "zona segura" (~10% alrededor) o sube una
-            // versión aparte pensada para esto.
-            src: 'logo-masucri.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
-          }
-        ]
+        icons: [{
+          src: 'icon-masucri.svg',
+          sizes: 'any',
+          type: 'image/svg+xml',
+          purpose: 'any maskable'
+        }]
       }
     })
   ]

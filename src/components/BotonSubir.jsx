@@ -22,11 +22,14 @@ export default function BotonSubir() {
     return (
         <Button
             variant="dark"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            onClick={() => window.scrollTo({
+                top: 0,
+                behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+            })}
             className="boton-subir shadow rounded-circle d-print-none d-flex align-items-center justify-content-center"
             aria-label="Subir al inicio de la página"
         >
-            <i className="fas fa-arrow-up"></i>
+            <i className="fas fa-arrow-up" aria-hidden="true"></i>
         </Button>
     );
 }

@@ -27,7 +27,7 @@ export async function seleccionarContacto() {
         const nombre = contacto.name?.length > 0 ? contacto.name[0] : undefined;
 
         return { telefono, nombre };
-    } catch (ex) {
+    } catch {
         console.log('Selección de contacto cancelada.');
         return null;
     }

@@ -1,13 +1,10 @@
 import { useState, useMemo } from 'react';
 import { Container, Card, Table, Button, Modal, Form, Row, Col, Badge } from 'react-bootstrap';
-import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, doc, getDocsFromServer } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import Swal from 'sweetalert2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
@@ -104,6 +101,10 @@ export default function Finanzas() {
 
     const handleOpen = (m = null) => {
         if (m) {
+            if (m.pedido_id) {
+                Swal.fire('Movimiento vinculado', 'Los pagos de pedidos se gestionan desde el pedido para conservar su historial y saldo.', 'info');
+                return;
+            }
             setEditId(m.id);
             setForm({
                 tipo: m.tipo,
@@ -121,6 +122,12 @@ export default function Finanzas() {
 
     const handleSave = async (e) => {
         e.preventDefault();
+        if (editId) {
+            const movimientoActual = movimientos.find((m) => m.id === editId);
+            if (!movimientoActual || movimientoActual.pedido_id) {
+                return Swal.fire('Movimiento vinculado', 'Este movimiento ya no se puede editar desde Caja. Revisa el pedido asociado.', 'info');
+            }
+        }
         const monto = aNumeroSeguro(form.monto);
         if (monto <= 0) return Swal.fire('Monto inválido', 'Ingresa un monto mayor a cero.', 'warning');
         if (!form.descripcion.trim()) return Swal.fire('Falta el concepto', 'Describe brevemente el movimiento.', 'warning');
@@ -149,7 +156,10 @@ export default function Finanzas() {
         }
     };
 
-    const handleDelete = async (id) => {
+    const handleDelete = async (movimiento) => {
+        if (movimiento.pedido_id) {
+            return Swal.fire('Movimiento vinculado', 'Los pagos de pedidos se gestionan desde el pedido para conservar su historial y saldo.', 'info');
+        }
         const result = await Swal.fire({
             title: '¿Eliminar movimiento?',
             text: 'Esto alterará tu balance.',
@@ -159,7 +169,12 @@ export default function Finanzas() {
         });
         if (result.isConfirmed) {
             try {
-                await deleteDoc(doc(db, 'movimientos', id));
+                const movimientoActual = movimientos.find((m) => m.id === movimiento.id);
+                if (!movimientoActual || movimientoActual.pedido_id) {
+                    await Swal.fire('Movimiento vinculado', 'Este movimiento ya no se puede eliminar desde Caja. Revisa el pedido asociado.', 'info');
+                    return;
+                }
+                await deleteDoc(doc(db, 'movimientos', movimiento.id));
             } catch (err) {
                 console.error(err);
                 Swal.fire('Error', 'No se pudo eliminar el movimiento.', 'error');
@@ -174,12 +189,16 @@ export default function Finanzas() {
      * manual: si algo se borra por error, queda esta copia.
      */
     const handleRespaldoCompleto = async () => {
+        if (!navigator.onLine) {
+            return Swal.fire('Sin conexión', 'Conéctate a internet para descargar un respaldo completo.', 'warning');
+        }
         setGenerandoRespaldo(true);
         try {
-            const [pedidosSnap, productosSnap, movimientosSnap] = await Promise.all([
-                getDocs(collection(db, 'pedidos')),
-                getDocs(collection(db, 'productos')),
-                getDocs(collection(db, 'movimientos'))
+            const [XLSX, pedidosSnap, productosSnap, movimientosSnap] = await Promise.all([
+                import('xlsx'),
+                getDocsFromServer(collection(db, 'pedidos')),
+                getDocsFromServer(collection(db, 'productos')),
+                getDocsFromServer(collection(db, 'movimientos'))
             ]);
 
             const pedidos = pedidosSnap.docs.map((d) => d.data());
@@ -246,9 +265,13 @@ export default function Finanzas() {
         }
     };
 
-    const exportarPDF = () => {
+    const exportarPDF = async () => {
         if (filtrados.length === 0) return Swal.fire('Aviso', 'No hay datos para exportar.', 'warning');
         try {
+            const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+                import('jspdf'),
+                import('jspdf-autotable')
+            ]);
             const docPDF = new jsPDF();
             docPDF.text('Reporte Contable - MASUCRI', 14, 15);
             autoTable(docPDF, {
@@ -263,9 +286,10 @@ export default function Finanzas() {
         }
     };
 
-    const exportarExcel = () => {
+    const exportarExcel = async () => {
         if (filtrados.length === 0) return Swal.fire('Aviso', 'No hay datos para exportar.', 'warning');
         try {
+            const XLSX = await import('xlsx');
             const ws = XLSX.utils.json_to_sheet(
                 filtrados.map((m) => ({
                     Fecha: m.fecha,
@@ -399,12 +423,20 @@ export default function Finanzas() {
                                                             {formatoColones(m.monto)}
                                                         </td>
                                                         <td data-label="Acciones" className="text-center">
-                                                            <Button variant="outline-secondary" size="sm" className="me-1" onClick={() => handleOpen(m)} aria-label="Editar movimiento">
-                                                                <i className="fas fa-pen"></i>
-                                                            </Button>
-                                                            <Button variant="outline-danger" size="sm" onClick={() => handleDelete(m.id)} aria-label="Eliminar movimiento">
-                                                                <i className="fas fa-trash"></i>
-                                                            </Button>
+                                                            {m.pedido_id ? (
+                                                                <Badge bg="light" text="secondary" title="Gestiona este pago desde el pedido asociado">
+                                                                    Pago de pedido
+                                                                </Badge>
+                                                            ) : (
+                                                                <>
+                                                                    <Button variant="outline-secondary" size="sm" className="me-1" onClick={() => handleOpen(m)} aria-label="Editar movimiento">
+                                                                        <i className="fas fa-pen"></i>
+                                                                    </Button>
+                                                                    <Button variant="outline-danger" size="sm" onClick={() => handleDelete(m)} aria-label="Eliminar movimiento">
+                                                                        <i className="fas fa-trash"></i>
+                                                                    </Button>
+                                                                </>
+                                                            )}
                                                         </td>
                                                     </tr>
                                                 ))

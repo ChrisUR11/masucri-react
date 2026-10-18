@@ -2,6 +2,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 import { ToastContainer, Toast, Button } from 'react-bootstrap';
 
 const UNA_HORA_MS = 60 * 60 * 1000;
+const registrosConRevision = new WeakSet();
 
 /**
  * Registra el Service Worker de la PWA y avisa con un toast cuando hay una
@@ -19,8 +20,11 @@ export default function ActualizacionPWA() {
         onRegisteredSW(_url, registration) {
             // Revisa cada hora si hay una versión nueva. Útil porque esta PWA
             // se suele dejar abierta todo el día en una tablet/celular del negocio.
-            if (registration) {
-                setInterval(() => registration.update(), UNA_HORA_MS);
+            if (registration && !registrosConRevision.has(registration)) {
+                registrosConRevision.add(registration);
+                setInterval(() => {
+                    if (navigator.onLine) registration.update().catch(() => {});
+                }, UNA_HORA_MS);
             }
         }
     });
@@ -40,7 +44,7 @@ export default function ActualizacionPWA() {
                         <span className="small fw-bold">
                             {needRefresh
                                 ? '🔄 Hay una versión nueva de MASUCRI disponible.'
-                                : '✓ MASUCRI ya puede usarse sin conexión.'}
+                                : '✓ La aplicación ya puede abrirse sin conexión. Los datos disponibles son los guardados en este dispositivo.'}
                         </span>
                         <div className="d-flex gap-2">
                             {needRefresh && (

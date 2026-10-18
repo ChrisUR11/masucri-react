@@ -97,7 +97,6 @@ export function calcularMetricasContables(pedidos, movimientos, rango = {}) {
         .sort((a, b) => a.mes.localeCompare(b.mes));
 
     const ratioGastoIngreso = ingresos > 0 ? (gastos / ingresos) * 100 : 0;
-    const diaVentaPromedio = pedidosEntregados.length > 0 ? (movsPeriodo.length / pedidosEntregados.length) : 0;
 
     // Clientes morosos de TODO el negocio (no filtrado por rango)
     const morosos = clientesMorosos(pedidos);

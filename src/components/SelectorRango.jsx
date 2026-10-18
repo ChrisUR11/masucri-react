@@ -10,11 +10,12 @@ import { PRESETS } from '../utils/rangoFechas';
 export default function SelectorRango({ preset, setPreset, rango, setRango }) {
     return (
         <div className="d-flex flex-wrap gap-2 align-items-center justify-content-center">
-            <ButtonGroup size="sm" className="period-preset-buttons">
+            <ButtonGroup size="sm" className="period-preset-buttons" aria-label="Período del informe">
                 {PRESETS.map((p) => (
                     <Button
                         key={p.id}
                         variant={preset === p.id ? 'dark' : 'outline-dark'}
+                        aria-pressed={preset === p.id}
                         onClick={() => setPreset(p.id)}
                     >
                         {p.label}

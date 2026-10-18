@@ -81,7 +81,7 @@ export function clientesMorosos(pedidos) {
     // Calcular días de deuda y filtrar solo los que deben
     const ahora = new Date();
     const morosos = Object.entries(clientes)
-        .filter(([_, data]) => data.deuda > 0)
+        .filter(([, data]) => data.deuda > 0)
         .map(([nombre, data]) => {
             const diasDeuda = data.ultimaFecha
                 ? Math.round((ahora - new Date(data.ultimaFecha)) / (1000 * 60 * 60 * 24))

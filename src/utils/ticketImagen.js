@@ -7,16 +7,18 @@ const CONTENIDO = ANCHO - MARGEN * 2;
 const AZUL = '#073449';
 const GRIS = '#52636d';
 const NARANJA = '#e74925';
+const MAX_PIXELES = 8_000_000;
+const MAX_LADO = 16_000;
 let logoPendiente;
 
 function cargarLogo() {
     if (!logoPendiente) {
-        logoPendiente = new Promise((resolve, reject) => {
+        logoPendiente = new Promise((resolve) => {
             const imagen = new Image();
-            imagen.onload = () => resolve(imagen);
+            imagen.onload = () => resolve(imagen.naturalWidth && imagen.naturalHeight ? imagen : null);
             imagen.onerror = () => {
                 logoPendiente = null;
-                reject(new Error('No se pudo cargar el logo de MASUCRI.'));
+                resolve(null);
             };
             imagen.src = LOGO_TICKET;
         });
@@ -26,14 +28,14 @@ function cargarLogo() {
 
 // Se mide primero y luego se dibuja: la altura depende del producto y de los abonos.
 function dibujarTicket(ctx, datos, logo, pintar) {
-    const texto = (valor, x, y, ancho, tam = 24, color = AZUL, negrita = false, alineacion = 'left') => {
+    const texto = (valor, x, y, ancho, tam = 24, color = AZUL, negrita = false, alineacion = 'left', mostrar = true) => {
         ctx.font = (negrita ? 'bold ' : '') + tam + 'px Arial, sans-serif';
         ctx.textAlign = alineacion;
         ctx.textBaseline = 'top';
         ctx.fillStyle = color;
         const lineas = lineasTicket(ctx, valor, ancho);
         const altoLinea = Math.ceil(tam * 1.4);
-        if (pintar) lineas.forEach((linea, i) => ctx.fillText(linea, x, y + i * altoLinea));
+        if (pintar && mostrar) lineas.forEach((linea, i) => ctx.fillText(linea, x, y + i * altoLinea));
         return lineas.length * altoLinea;
     };
     const rectangulo = (x, y, ancho, alto, color) => {
@@ -51,8 +53,11 @@ function dibujarTicket(ctx, datos, logo, pintar) {
     rectangulo(0, 0, ANCHO, 8, NARANJA);
     let y = 34;
     const logoAncho = 440;
-    const logoAlto = logoAncho * logo.naturalHeight / logo.naturalWidth;
-    if (pintar) ctx.drawImage(logo, (ANCHO - logoAncho) / 2, y, logoAncho, logoAlto);
+    const logoAlto = logo ? logoAncho * logo.naturalHeight / logo.naturalWidth : 90;
+    if (pintar) {
+        if (logo) ctx.drawImage(logo, (ANCHO - logoAncho) / 2, y, logoAncho, logoAlto);
+        else texto('MASUCRI', ANCHO / 2, y + 10, CONTENIDO, 48, AZUL, true, 'center');
+    }
     y += logoAlto + 26;
     y += texto('COMPROBANTE DE PEDIDO', ANCHO / 2, y, CONTENIDO, 20, AZUL, true, 'center') + 22;
     separador(y);
@@ -67,9 +72,9 @@ function dibujarTicket(ctx, datos, logo, pintar) {
 
     const yProducto = y;
     y += 22;
-    const altoEtiqueta = texto('PRODUCTO', MARGEN + 22, y, CONTENIDO - 44, 18, GRIS, true);
+    const altoEtiqueta = texto('PRODUCTO', MARGEN + 22, y, CONTENIDO - 44, 18, GRIS, true, 'left', false);
     const yNombreProducto = y + altoEtiqueta + 8;
-    const altoProducto = texto(datos.producto, MARGEN + 22, yNombreProducto, CONTENIDO - 44, 28, AZUL, true);
+    const altoProducto = texto(datos.producto, MARGEN + 22, yNombreProducto, CONTENIDO - 44, 28, AZUL, true, 'left', false);
     y = yNombreProducto + altoProducto + 22;
     rectangulo(MARGEN, yProducto, CONTENIDO, y - yProducto, '#f1f5f7');
     // El fondo se coloca detrás de los textos, usando las mismas medidas.
@@ -128,7 +133,8 @@ export async function generarTicketImagenBlob(pedido, nombreCliente) {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Este navegador no pudo preparar el ticket.');
     const alto = dibujarTicket(ctx, datos, logo, false);
-    const escala = Math.min(2, 16000 / alto);
+    // Limitar píxeles y longitud evita que un historial extenso agote la memoria del móvil.
+    const escala = Math.min(2, MAX_LADO / alto, Math.sqrt(MAX_PIXELES / (ANCHO * alto)));
     canvas.width = Math.ceil(ANCHO * escala);
     canvas.height = Math.ceil(alto * escala);
     ctx.scale(escala, escala);

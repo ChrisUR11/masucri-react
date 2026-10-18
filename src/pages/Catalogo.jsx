@@ -261,7 +261,7 @@ export default function Catalogo() {
                     <Card.Body id="catalog-filter-options">
                         <Row className="g-3">
                             <Col md={3}>
-                                <Form.Group>
+                                <Form.Group controlId="catalogo-filtro-categoria">
                                     <Form.Label className="small fw-bold">Categoría</Form.Label>
                                     <Form.Select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} size="sm">
                                         <option value="">Todas</option>
@@ -272,13 +272,13 @@ export default function Catalogo() {
                                 </Form.Group>
                             </Col>
                             <Col md={3}>
-                                <Form.Group>
+                                <Form.Group controlId="catalogo-filtro-precio-minimo">
                                     <Form.Label className="small fw-bold">Precio mínimo</Form.Label>
                                     <Form.Control type="number" placeholder="0" value={filtroPrecioMin} onChange={(e) => setFiltroPrecioMin(e.target.value)} size="sm" />
                                 </Form.Group>
                             </Col>
                             <Col md={3}>
-                                <Form.Group>
+                                <Form.Group controlId="catalogo-filtro-precio-maximo">
                                     <Form.Label className="small fw-bold">Precio máximo</Form.Label>
                                     <Form.Control type="number" placeholder="999999" value={filtroPrecioMax} onChange={(e) => setFiltroPrecioMax(e.target.value)} size="sm" />
                                 </Form.Group>
@@ -338,23 +338,23 @@ export default function Catalogo() {
                 </Modal.Header>
                 <Form onSubmit={handleGuardar}>
                     <Modal.Body>
-                        <Form.Group className="mb-3">
+                        <Form.Group controlId="catalogo-producto-nombre" className="mb-3">
                             <Form.Label className="fw-bold">Nombre *</Form.Label>
-                            <Form.Control value={form.nombre} onChange={actualizar('nombre')} placeholder="Ej: Pijama talla 6" />
+                            <Form.Control required value={form.nombre} onChange={actualizar('nombre')} placeholder="Ej: Pijama talla 6" />
                         </Form.Group>
-                        <Form.Group className="mb-3">
+                        <Form.Group controlId="catalogo-producto-descripcion" className="mb-3">
                             <Form.Label className="fw-bold">Descripción</Form.Label>
                             <Form.Control as="textarea" rows={2} value={form.descripcion} onChange={actualizar('descripcion')} placeholder="Detalles opcionales" />
                         </Form.Group>
                         <Row>
                             <Col md={6}>
-                                <Form.Group className="mb-3">
+                                <Form.Group controlId="catalogo-producto-codigo" className="mb-3">
                                     <Form.Label className="fw-bold">Código (SKU)</Form.Label>
                                     <Form.Control value={form.codigo} onChange={actualizar('codigo')} placeholder="Ej: UBR-001" />
                                 </Form.Group>
                             </Col>
                             <Col md={6}>
-                                <Form.Group className="mb-3">
+                                <Form.Group controlId="catalogo-producto-categoria" className="mb-3">
                                     <Form.Label className="fw-bold">Categoría</Form.Label>
                                     <Form.Control value={form.categoria} onChange={actualizar('categoria')} placeholder="Ej: Pijamas, Ropa" />
                                 </Form.Group>
@@ -362,19 +362,19 @@ export default function Catalogo() {
                         </Row>
                         <Row>
                             <Col md={6}>
-                                <Form.Group className="mb-3">
+                                <Form.Group controlId="catalogo-producto-costo" className="mb-3">
                                     <Form.Label className="fw-bold">Precio Costo</Form.Label>
                                     <Form.Control type="number" value={form.precio_costo} onChange={actualizar('precio_costo')} placeholder="0" />
                                 </Form.Group>
                             </Col>
                             <Col md={6}>
-                                <Form.Group className="mb-3">
+                                <Form.Group controlId="catalogo-producto-venta" className="mb-3">
                                     <Form.Label className="fw-bold">Precio Venta</Form.Label>
                                     <Form.Control type="number" value={form.precio_venta} onChange={actualizar('precio_venta')} placeholder="0" />
                                 </Form.Group>
                             </Col>
                         </Row>
-                        <Form.Group className="mb-3">
+                        <Form.Group controlId="catalogo-producto-proveedor" className="mb-3">
                             <Form.Label className="fw-bold">Proveedor</Form.Label>
                             <Form.Control value={form.proveedor} onChange={actualizar('proveedor')} placeholder="Ej: Ubora" />
                         </Form.Group>
@@ -402,7 +402,7 @@ export default function Catalogo() {
                                 Sube un archivo CSV con los productos de un proveedor. El archivo debe tener las columnas:
                                 <code className="d-block mt-2">nombre, precio_costo, descripcion, categoria, proveedor, codigo</code>
                             </p>
-                            <Form.Group className="mb-3">
+                            <Form.Group controlId="catalogo-importar-archivo" className="mb-3">
                                 <Form.Label className="fw-bold">Seleccionar archivo CSV</Form.Label>
                                 <Form.Control type="file" accept=".csv" onChange={handleSeleccionarArchivo} />
                             </Form.Group>
@@ -472,7 +472,7 @@ export default function Catalogo() {
                             </p>
                             <div style={{ maxHeight: '300px', overflow: 'auto' }}>
                                 {comparacion.nuevos.map((p, i) => (
-                                    <Form.Group key={i} className="mb-2">
+                                    <Form.Group key={i} controlId={`catalogo-precio-importacion-${i}`} className="mb-2">
                                         <Form.Label className="small fw-bold">{p.nombre}</Form.Label>
                                         <div className="input-group input-group-sm">
                                             <span className="input-group-text">₡</span>

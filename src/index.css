@@ -45,6 +45,7 @@ canvas {
 .app-content {
   min-width: 0;
   flex: 1 0 auto;
+  scroll-margin-top: 4.5rem;
 }
 
 .card {
@@ -69,9 +70,18 @@ canvas {
 .btn:focus-visible,
 .form-control:focus-visible,
 .form-select:focus-visible,
+.form-check-input:focus-visible,
+button:focus-visible,
 a:focus-visible {
-  outline: 3px solid rgba(13, 110, 253, 0.38);
+  outline: 3px solid #0b5ed7;
   outline-offset: 2px;
+}
+
+.app-navbar .navbar-brand:focus-visible,
+.app-navbar .nav-link:focus-visible,
+.app-navbar .navbar-toggler:focus-visible,
+.app-navbar .btn:focus-visible {
+  outline-color: #ffc107;
 }
 
 .text-truncate,

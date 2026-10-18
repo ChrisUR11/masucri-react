@@ -307,18 +307,32 @@ export default function Pedidos() {
                         <Badge bg={deuda > 0 ? 'warning' : ped.precio ? 'success' : 'secondary'} className="text-dark">
                             {deuda > 0 ? `Debe ${formatoColones(deuda)}` : ped.precio ? 'Pagado' : 'Sin precio'}
                         </Badge>
-                        <Button
-                            variant="light"
-                            size="sm"
-                            className="border shadow-sm"
-                            aria-label={`Editar pedido de ${ped.cliente}`}
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                abrirEditar(ped);
-                            }}
-                        >
-                            <i className="fas fa-pen text-secondary"></i>
-                        </Button>
+                        <div className="d-flex gap-1">
+                            <Button
+                                variant="light"
+                                size="sm"
+                                className="border shadow-sm"
+                                aria-label={`Ver detalle del pedido de ${ped.cliente}`}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    abrirDetalle(ped);
+                                }}
+                            >
+                                <i className="fas fa-eye text-primary" aria-hidden="true"></i>
+                            </Button>
+                            <Button
+                                variant="light"
+                                size="sm"
+                                className="border shadow-sm"
+                                aria-label={`Editar pedido de ${ped.cliente}`}
+                                onClick={(event) => {
+                                    event.stopPropagation();
+                                    abrirEditar(ped);
+                                }}
+                            >
+                                <i className="fas fa-pen text-secondary" aria-hidden="true"></i>
+                            </Button>
+                        </div>
                     </div>
                 </Card.Body>
             </Card>
@@ -429,10 +443,10 @@ export default function Pedidos() {
                         >
                             <ListGroup.Item className="text-center py-3 bg-light">
                                 <small className="fw-bold text-dark d-block mb-2">Mover ficha a:</small>
-                                <ButtonGroup className="pedido-state-actions shadow-sm w-100">
-                                    <Button variant={pedidoActivo.estado === 'Pendiente' ? 'secondary' : 'outline-secondary'} onClick={() => handleMoverFicha('Pendiente')}>Pendiente</Button>
-                                    <Button variant={pedidoActivo.estado === 'En producción' ? 'info text-white' : 'outline-info'} onClick={() => handleMoverFicha('En producción')}>Produciendo</Button>
-                                    <Button variant={pedidoActivo.estado === 'Por Retirar' ? 'warning text-dark' : 'outline-warning'} onClick={() => handleMoverFicha('Por Retirar')}>Por Retirar</Button>
+                                <ButtonGroup className="pedido-state-actions shadow-sm w-100" aria-label="Estado del pedido">
+                                    <Button variant={pedidoActivo.estado === 'Pendiente' ? 'secondary' : 'outline-secondary'} aria-pressed={pedidoActivo.estado === 'Pendiente'} onClick={() => handleMoverFicha('Pendiente')}>Pendiente</Button>
+                                    <Button variant={pedidoActivo.estado === 'En producción' ? 'info text-white' : 'outline-info'} aria-pressed={pedidoActivo.estado === 'En producción'} onClick={() => handleMoverFicha('En producción')}>Produciendo</Button>
+                                    <Button variant={pedidoActivo.estado === 'Por Retirar' ? 'warning text-dark' : 'outline-warning'} aria-pressed={pedidoActivo.estado === 'Por Retirar'} onClick={() => handleMoverFicha('Por Retirar')}>Por Retirar</Button>
                                 </ButtonGroup>
                             </ListGroup.Item>
                         </FichaPedidoDetalle>
@@ -458,16 +472,16 @@ export default function Pedidos() {
                     <Form onSubmit={handleGuardarPedido}>
                         <Row className="mb-3">
                             <Col xs={6}>
-                                <Form.Label className="small text-muted mb-1"><i className="fas fa-calendar-day me-1"></i> Solicitud</Form.Label>
-                                <Form.Control type="date" value={formPedido.fSolicitud} readOnly className="bg-light" />
+                                <Form.Label htmlFor="pedido-fecha-solicitud" className="small text-muted mb-1"><i className="fas fa-calendar-day me-1"></i> Solicitud</Form.Label>
+                                <Form.Control id="pedido-fecha-solicitud" type="date" value={formPedido.fSolicitud} readOnly className="bg-light" />
                             </Col>
                             <Col xs={6}>
-                                <Form.Label className="small text-primary fw-bold mb-1"><i className="fas fa-truck me-1"></i> Entrega</Form.Label>
-                                <Form.Control type="date" className="border-primary" value={formPedido.fEntrega} onChange={actualizarForm('fEntrega')} />
+                                <Form.Label htmlFor="pedido-fecha-entrega" className="small text-primary fw-bold mb-1"><i className="fas fa-truck me-1"></i> Entrega</Form.Label>
+                                <Form.Control id="pedido-fecha-entrega" type="date" className="border-primary" value={formPedido.fEntrega} onChange={actualizarForm('fEntrega')} />
                             </Col>
                         </Row>
 
-                        <Form.Group className="mb-3">
+                        <Form.Group controlId="pedido-cliente" className="mb-3">
                             <Form.Label className="small fw-bold text-secondary mb-1">Cliente</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light"><i className="fas fa-user text-muted"></i></InputGroup.Text>
@@ -475,7 +489,7 @@ export default function Pedidos() {
                             </InputGroup>
                         </Form.Group>
 
-                        <Form.Group className="mb-3">
+                        <Form.Group controlId="pedido-telefono" className="mb-3">
                             <Form.Label className="small fw-bold text-secondary mb-1">Teléfono</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light"><i className="fab fa-whatsapp text-muted"></i></InputGroup.Text>
@@ -492,7 +506,7 @@ export default function Pedidos() {
                             </InputGroup>
                         </Form.Group>
 
-                        <Form.Group className="mb-3">
+                        <Form.Group controlId="pedido-producto" className="mb-3">
                             <Form.Label className="small fw-bold text-secondary mb-1">Producto</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light"><i className="fas fa-box-open text-muted"></i></InputGroup.Text>
@@ -524,7 +538,7 @@ export default function Pedidos() {
                             <Form.Text className="text-muted">Si el nombre coincide con el catálogo, el precio se autocompleta.</Form.Text>
                         </Form.Group>
 
-                        <Form.Group className="mb-3">
+                        <Form.Group controlId="pedido-notas" className="mb-3">
                             <Form.Label className="small fw-bold text-secondary mb-1">Notas (opcional)</Form.Label>
                             <Form.Control
                                 as="textarea"
@@ -535,7 +549,7 @@ export default function Pedidos() {
                             />
                         </Form.Group>
 
-                        <Form.Group className="mb-3">
+                        <Form.Group controlId="pedido-precio" className="mb-3">
                             <Form.Label className="small fw-bold text-secondary mb-1">Precio Total</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light fw-bold">₡</InputGroup.Text>
@@ -555,15 +569,15 @@ export default function Pedidos() {
                                 {formPedido.dejoAdelanto ? (
                                     <Row className="mt-3">
                                         <Col xs={6}>
-                                            <Form.Label className="small">Monto del adelanto</Form.Label>
+                                            <Form.Label htmlFor="pedido-adelanto" className="small">Monto del adelanto</Form.Label>
                                             <InputGroup size="sm">
                                                 <InputGroup.Text>₡</InputGroup.Text>
-                                                <Form.Control type="number" step="0.01" min="0" placeholder="0" value={formPedido.adelanto} onChange={actualizarForm('adelanto')} />
+                                                <Form.Control id="pedido-adelanto" type="number" step="0.01" min="0" placeholder="0" value={formPedido.adelanto} onChange={actualizarForm('adelanto')} />
                                             </InputGroup>
                                         </Col>
                                         <Col xs={6}>
-                                            <Form.Label className="small">Método</Form.Label>
-                                            <Form.Select size="sm" value={formPedido.metodoAdelanto} onChange={actualizarForm('metodoAdelanto')}>
+                                            <Form.Label htmlFor="pedido-metodo-adelanto" className="small">Método</Form.Label>
+                                            <Form.Select id="pedido-metodo-adelanto" size="sm" value={formPedido.metodoAdelanto} onChange={actualizarForm('metodoAdelanto')}>
                                                 <option>Sinpe Móvil</option>
                                                 <option>Efectivo</option>
                                             </Form.Select>
