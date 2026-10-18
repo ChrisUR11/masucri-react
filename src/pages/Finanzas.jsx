@@ -416,8 +416,10 @@ export default function Finanzas() {
                                                     <tr key={m.id}>
                                                         <td data-label="Fecha">{m.fecha}</td>
                                                         <td data-label="Detalle / Método">
-                                                            <strong>{m.descripcion}</strong> <Badge bg="secondary">{m.metodo_pago || 'Manual'}</Badge><br />
-                                                            <small className="text-muted">{m.entidad || ''}</small>
+                                                            <div className="mobile-table-value">
+                                                                <strong>{m.descripcion}</strong> <Badge bg="secondary">{m.metodo_pago || 'Manual'}</Badge><br />
+                                                                <small className="text-muted">{m.entidad || ''}</small>
+                                                            </div>
                                                         </td>
                                                         <td data-label="Monto" className={`fw-bold ${m.tipo === 'entrada' ? 'text-success' : 'text-danger'}`}>
                                                             {formatoColones(m.monto)}

@@ -22,7 +22,7 @@ function ListaProgreso({ dataObj, total, colorCls }) {
         const pct = total > 0 ? ((monto / total) * 100).toFixed(1) : 0;
         return (
             <div key={idx} className="mb-3 px-3">
-                <div className="d-flex justify-content-between small fw-bold mb-1">
+                <div className="bi-list-entry d-flex justify-content-between small fw-bold mb-1">
                     <span><i className="fas fa-money-check"></i> {nombre}</span>
                     <span>{formatoColones(monto)}</span>
                 </div>
@@ -117,7 +117,7 @@ export default function DashboardBI() {
                         ) : (
                             <ListGroup variant="flush">
                                 {m.topClientes.map(([id, c], i) => (
-                                    <ListGroup.Item key={id} className="d-flex justify-content-between align-items-center">
+                                    <ListGroup.Item key={id} className="bi-list-entry d-flex justify-content-between align-items-center">
                                         <div>
                                             <div className="fw-bold small">
                                                 {i + 1}. {c.nombre} {c.telefono && <span className="text-muted fw-normal">- <i className="fas fa-phone"></i> {c.telefono}</span>}
@@ -214,8 +214,8 @@ export default function DashboardBI() {
                         ) : (
                             <ListGroup variant="flush">
                                 {m.topGastos.map(([lugar, monto], i) => (
-                                    <ListGroup.Item key={lugar} className="d-flex justify-content-between align-items-center py-3">
-                                        <div className="fw-bold text-truncate"><span className="fs-5 me-2">{['🥇', '🥈', '🥉'][i]}</span> {lugar}</div>
+                                    <ListGroup.Item key={lugar} className="bi-list-entry d-flex justify-content-between align-items-center py-3">
+                                        <div className="bi-entry-title fw-bold"><span className="fs-5 me-2">{['🥇', '🥈', '🥉'][i]}</span> {lugar}</div>
                                         <Badge bg="danger" pill className="fs-6 shadow-sm">{formatoColones(monto)}</Badge>
                                     </ListGroup.Item>
                                 ))}
@@ -231,8 +231,8 @@ export default function DashboardBI() {
                         ) : (
                             <ListGroup variant="flush">
                                 {m.topProd.map(([nombre, cantidad], i) => (
-                                    <ListGroup.Item key={nombre} className="d-flex justify-content-between align-items-center py-2">
-                                        <div className="fw-bold small text-truncate text-uppercase">{i + 1}. {nombre}</div>
+                                    <ListGroup.Item key={nombre} className="bi-list-entry d-flex justify-content-between align-items-center py-2">
+                                        <div className="bi-entry-title fw-bold small text-uppercase">{i + 1}. {nombre}</div>
                                         <Badge bg="primary" pill className="shadow-sm">{cantidad} pedidos</Badge>
                                     </ListGroup.Item>
                                 ))}
@@ -284,7 +284,7 @@ export default function DashboardBI() {
                                 <span><i className="fas fa-circle text-warning small"></i> Con Saldo:</span> <strong>{m.conDeuda}</strong>
                             </div>
                             {m.mayorDeudor ? (
-                                <div className="alert alert-warning py-2 mb-0 d-flex justify-content-between align-items-center border-warning">
+                                <div className="bi-list-entry alert alert-warning py-2 mb-0 d-flex justify-content-between align-items-center border-warning">
                                     <span><i className="fas fa-exclamation-triangle"></i> <strong>Mayor Deuda:</strong> {m.mayorDeudor.cliente}</span>
                                     <span className="fs-5 fw-bold text-danger">{formatoColones(m.mayorDeudor.debe)}</span>
                                 </div>
@@ -356,7 +356,7 @@ export default function DashboardBI() {
                                     ) : (
                                         <ul className="small mb-0 list-unstyled">
                                             {mc.topClientesPorValor.map((c, i) => (
-                                                <li key={i} className="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                                                <li key={i} className="bi-list-entry d-flex justify-content-between mb-2 pb-2 border-bottom">
                                                     <span><strong>#{i + 1}</strong> {c.nombre} ({c.pedidos} pedidos)</span>
                                                     <span className="fw-bold">{formatoColones(c.valor)}</span>
                                                 </li>
@@ -375,7 +375,7 @@ export default function DashboardBI() {
                                     ) : (
                                         <ul className="small mb-0 list-unstyled">
                                             {mc.topMargen.map((p, i) => (
-                                                <li key={i} className="d-flex justify-content-between mb-2 pb-2 border-bottom">
+                                                <li key={i} className="bi-list-entry d-flex justify-content-between mb-2 pb-2 border-bottom">
                                                     <span><strong>#{i + 1}</strong> {p.nombre}</span>
                                                     <span className={`fw-bold ${p.margen >= 40 ? 'text-success' : p.margen >= 20 ? 'text-warning' : 'text-danger'}`}>
                                                         {p.margen.toFixed(1)}%

@@ -104,6 +104,51 @@ a:focus-visible {
 
 .mobile-card-table-wrap {
   min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.mobile-card-table {
+  min-width: 40rem;
+}
+
+.bi-list-entry > :first-child {
+  min-width: 0;
+}
+
+.bi-list-entry > .badge,
+.bi-list-entry > :last-child {
+  max-width: 100%;
+}
+
+.bi-list-entry .bi-entry-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.catalog-product-title {
+  min-width: 0;
+}
+
+.catalog-product-code {
+  max-width: 55%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: end;
+}
+
+.historial-producto {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.modal-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .finance-export-actions {
@@ -142,11 +187,7 @@ a:focus-visible {
   display: none;
 }
 
-@media (max-width: 767.98px) {
-  .container {
-    --bs-gutter-x: 1.25rem;
-  }
-
+@media (max-width: 991.98px) {
   .app-navbar .navbar-collapse {
     padding-block: 0.75rem 0.25rem;
   }
@@ -168,6 +209,30 @@ a:focus-visible {
 
   .navbar-logout {
     min-width: 4rem;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .container {
+    --bs-gutter-x: 1.25rem;
+  }
+
+  .bi-list-entry {
+    flex-wrap: wrap;
+    gap: 0.35rem 0.75rem;
+  }
+
+  .bi-list-entry > .badge,
+  .bi-list-entry > :last-child {
+    margin-inline-start: auto;
+    white-space: normal;
+    text-align: end;
+  }
+
+  .bi-list-entry .bi-entry-title {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
   }
 
   .form-control,
@@ -320,6 +385,7 @@ a:focus-visible {
 
   .mobile-card-table {
     width: 100%;
+    min-width: 0;
     margin: 0;
     border-collapse: separate;
     border-spacing: 0;
@@ -374,6 +440,17 @@ a:focus-visible {
     color: #647180;
     font-weight: 600;
     text-align: left;
+  }
+
+  .mobile-card-table > tbody > tr > td > .mobile-table-value {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .mobile-card-table > tbody > tr > td.historial-producto {
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   .mobile-card-table > tbody > tr > td:last-child {

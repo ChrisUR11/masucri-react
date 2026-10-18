@@ -90,14 +90,14 @@ export default function VentaRapidaModal({ show, onHide }) {
                     </Form.Group>
 
                     <Row className="mb-2">
-                        <Col xs={6}>
+                        <Col xs={12} sm={6} className="mb-3 mb-sm-0">
                             <Form.Label className="small fw-bold text-secondary mb-1">Precio Total</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light fw-bold">₡</InputGroup.Text>
                                 <Form.Control required type="number" step="0.01" min="0.01" placeholder="0" value={form.precio} onChange={actualizar('precio')} />
                             </InputGroup>
                         </Col>
-                        <Col xs={6}>
+                        <Col xs={12} sm={6}>
                             <Form.Label className="small fw-bold text-success mb-1">Pagado ahora</Form.Label>
                             <InputGroup>
                                 <InputGroup.Text className="bg-light fw-bold text-success">₡</InputGroup.Text>

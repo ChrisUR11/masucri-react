@@ -257,7 +257,7 @@ export default function Historial() {
                                             <tr key={ped.id}>
                                                 <td data-label="Estado"><Badge bg={bColor}>{txtEst}</Badge></td>
                                                 <td data-label="Cliente" className="fw-bold">{ped.cliente}</td>
-                                                <td data-label="Producto" className="text-truncate" style={{ maxWidth: '180px' }}>{ped.producto}</td>
+                                                <td data-label="Producto" className="historial-producto">{ped.producto}</td>
                                                 <td data-label="Acción" className="text-center">
                                                     <Button variant="primary" size="sm" className="rounded-pill px-3 shadow-sm fw-bold" onClick={() => handleVerDetalle(ped)}>
                                                         <i className="fas fa-search"></i> Ver

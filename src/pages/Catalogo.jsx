@@ -304,8 +304,8 @@ export default function Catalogo() {
                                 <Card className="shadow-sm border-0 h-100 d-flex flex-column">
                                     <Card.Body className="flex-grow-1">
                                         <div className="d-flex justify-content-between align-items-start mb-2">
-                                            <Card.Title className="fw-bold small m-0">{p.nombre}</Card.Title>
-                                            {p.codigo && <Badge bg="secondary" className="ms-2 text-nowrap" style={{ fontSize: '10px' }}>{p.codigo}</Badge>}
+                                            <Card.Title className="catalog-product-title fw-bold small m-0">{p.nombre}</Card.Title>
+                                            {p.codigo && <Badge bg="secondary" className="catalog-product-code ms-2" style={{ fontSize: '10px' }}>{p.codigo}</Badge>}
                                         </div>
                                         {p.categoria && <Badge className="mb-2" bg="info">{p.categoria}</Badge>}
                                         {p.descripcion && <p className="small text-muted mb-2">{p.descripcion}</p>}
@@ -410,7 +410,7 @@ export default function Catalogo() {
                                 <i className="fas fa-download me-2"></i> Descargar Plantilla
                             </Button>
                             {archivoSeleccionado && (
-                                <Alert variant="info" className="small mb-0">
+                                <Alert variant="info" className="small mb-0 text-break">
                                     <i className="fas fa-check me-2"></i> {archivoSeleccionado.name} ({(archivoSeleccionado.size / 1024).toFixed(1)} KB)
                                 </Alert>
                             )}

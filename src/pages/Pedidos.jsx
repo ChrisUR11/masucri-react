@@ -471,11 +471,11 @@ export default function Pedidos() {
                 <Modal.Body className="pt-4">
                     <Form onSubmit={handleGuardarPedido}>
                         <Row className="mb-3">
-                            <Col xs={6}>
+                            <Col xs={12} sm={6} className="mb-3 mb-sm-0">
                                 <Form.Label htmlFor="pedido-fecha-solicitud" className="small text-muted mb-1"><i className="fas fa-calendar-day me-1"></i> Solicitud</Form.Label>
                                 <Form.Control id="pedido-fecha-solicitud" type="date" value={formPedido.fSolicitud} readOnly className="bg-light" />
                             </Col>
-                            <Col xs={6}>
+                            <Col xs={12} sm={6}>
                                 <Form.Label htmlFor="pedido-fecha-entrega" className="small text-primary fw-bold mb-1"><i className="fas fa-truck me-1"></i> Entrega</Form.Label>
                                 <Form.Control id="pedido-fecha-entrega" type="date" className="border-primary" value={formPedido.fEntrega} onChange={actualizarForm('fEntrega')} />
                             </Col>
@@ -568,14 +568,14 @@ export default function Pedidos() {
                                 />
                                 {formPedido.dejoAdelanto ? (
                                     <Row className="mt-3">
-                                        <Col xs={6}>
+                                        <Col xs={12} sm={6} className="mb-3 mb-sm-0">
                                             <Form.Label htmlFor="pedido-adelanto" className="small">Monto del adelanto</Form.Label>
                                             <InputGroup size="sm">
                                                 <InputGroup.Text>₡</InputGroup.Text>
                                                 <Form.Control id="pedido-adelanto" type="number" step="0.01" min="0" placeholder="0" value={formPedido.adelanto} onChange={actualizarForm('adelanto')} />
                                             </InputGroup>
                                         </Col>
-                                        <Col xs={6}>
+                                        <Col xs={12} sm={6}>
                                             <Form.Label htmlFor="pedido-metodo-adelanto" className="small">Método</Form.Label>
                                             <Form.Select id="pedido-metodo-adelanto" size="sm" value={formPedido.metodoAdelanto} onChange={actualizarForm('metodoAdelanto')}>
                                                 <option>Sinpe Móvil</option>

@@ -14,7 +14,6 @@ const registrosConRevision = new WeakSet();
  */
 export default function ActualizacionPWA() {
     const {
-        offlineReady: [offlineReady, setOfflineReady],
         needRefresh: [needRefresh, setNeedRefresh],
         updateServiceWorker
     } = useRegisterSW({
@@ -40,31 +39,20 @@ export default function ActualizacionPWA() {
         }
     });
 
-    const cerrar = () => {
-        setOfflineReady(false);
-        setNeedRefresh(false);
-    };
-
-    if (!offlineReady && !needRefresh) return null;
+    if (!needRefresh) return null;
 
     return (
         <ToastContainer position="bottom-center" className="p-3 d-print-none" style={{ zIndex: 2000 }}>
-            <Toast show onClose={cerrar} bg={needRefresh ? 'warning' : 'success'}>
-                <Toast.Body className={needRefresh ? 'text-dark' : 'text-white'}>
+            <Toast show onClose={() => setNeedRefresh(false)} bg="warning">
+                <Toast.Body className="text-dark">
                     <div className="d-flex align-items-center justify-content-between gap-3 flex-wrap">
-                        <span className="small fw-bold">
-                            {needRefresh
-                                ? '🔄 Hay una versión nueva de MASUCRI disponible.'
-                                : '✓ La aplicación ya puede abrirse sin conexión. Los datos disponibles son los guardados en este dispositivo.'}
-                        </span>
+                        <span className="small fw-bold">🔄 Hay una versión nueva de MASUCRI disponible.</span>
                         <div className="d-flex gap-2">
-                            {needRefresh && (
-                                <Button size="sm" variant="dark" onClick={() => updateServiceWorker(true)}>
-                                    Actualizar ahora
-                                </Button>
-                            )}
-                            <Button size="sm" variant="outline-secondary" onClick={cerrar} aria-label="Cerrar aviso">
-                                <i className="fas fa-times"></i>
+                            <Button size="sm" variant="dark" onClick={() => updateServiceWorker(true)}>
+                                Actualizar ahora
+                            </Button>
+                            <Button size="sm" variant="outline-secondary" onClick={() => setNeedRefresh(false)} aria-label="Cerrar aviso">
+                                <span aria-hidden="true">&times;</span>
                             </Button>
                         </div>
                     </div>

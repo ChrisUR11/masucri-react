@@ -72,9 +72,9 @@ export default function FichaPedidoDetalle({ pedido, badgeEstado, onWhatsApp, mo
                     <ListGroup.Item className="bg-light py-3">
                         <small className="fw-bold d-block mb-2 text-primary"><i className="fas fa-history"></i> Pagos Registrados</small>
                         {pagos.map((p, idx) => (
-                            <div key={idx} className="d-flex justify-content-between small border-bottom pb-1 mb-1">
-                                <span>{p.fecha} <Badge bg="secondary" className="ms-1">{p.metodo}</Badge></span>
-                                <span className="text-success fw-bold">{formatoColones(p.monto)}</span>
+                            <div key={idx} className="d-flex flex-wrap justify-content-between gap-2 small border-bottom pb-1 mb-1">
+                                <span className="text-break">{p.fecha} <Badge bg="secondary" className="ms-1">{p.metodo}</Badge></span>
+                                <span className="text-success fw-bold ms-auto">{formatoColones(p.monto)}</span>
                             </div>
                         ))}
                     </ListGroup.Item>
