@@ -1,7 +1,8 @@
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { ToastContainer, Toast, Button } from 'react-bootstrap';
 
-const UNA_HORA_MS = 60 * 60 * 1000;
+const QUINCE_MINUTOS_MS = 15 * 60 * 1000;
+const UN_MINUTO_MS = 60 * 1000;
 const registrosConRevision = new WeakSet();
 
 /**
@@ -18,13 +19,23 @@ export default function ActualizacionPWA() {
         updateServiceWorker
     } = useRegisterSW({
         onRegisteredSW(_url, registration) {
-            // Revisa cada hora si hay una versión nueva. Útil porque esta PWA
-            // se suele dejar abierta todo el día en una tablet/celular del negocio.
             if (registration && !registrosConRevision.has(registration)) {
                 registrosConRevision.add(registration);
-                setInterval(() => {
-                    if (navigator.onLine) registration.update().catch(() => {});
-                }, UNA_HORA_MS);
+                let ultimaRevision = 0;
+                const revisar = () => {
+                    // Un worker puede quedar en espera aunque se haya cerrado el aviso.
+                    if (registration.waiting && navigator.serviceWorker.controller) setNeedRefresh(true);
+                    if (document.hidden || Date.now() - ultimaRevision < UN_MINUTO_MS) return;
+                    ultimaRevision = Date.now();
+                    registration.update().catch(() => {});
+                };
+
+                // Detecta una versión nueva al abrir o volver a la aplicación.
+                revisar();
+                window.addEventListener('focus', revisar);
+                window.addEventListener('online', revisar);
+                document.addEventListener('visibilitychange', revisar);
+                setInterval(revisar, QUINCE_MINUTOS_MS);
             }
         }
     });

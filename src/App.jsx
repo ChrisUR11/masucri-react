@@ -4,7 +4,6 @@ import { signInWithPopup, onAuthStateChanged } from 'firebase/auth';
 import { Button, Card, Container, Spinner } from 'react-bootstrap';
 import Swal from 'sweetalert2';
 import NavBar from './components/NavBar';
-import ActualizacionPWA from './components/ActualizacionPWA';
 import BotonSubir from './components/BotonSubir';
 import EstadoConexion from './components/EstadoConexion';
 import EstadoCarga from './components/EstadoCarga';
@@ -54,7 +53,6 @@ export default function App() {
                     <Spinner animation="border" variant="primary" aria-hidden="true" />
                     <span className="visually-hidden">Verificando sesión...</span>
                 </div>
-                <ActualizacionPWA />
             </>
         );
     }
@@ -72,7 +70,6 @@ export default function App() {
                         </Button>
                     </Card>
                 </div>
-                <ActualizacionPWA />
             </>
         );
     }
@@ -115,7 +112,6 @@ export default function App() {
                 </main>
 
                 <BotonSubir />
-                <ActualizacionPWA />
             </div>
         </HashRouter>
     );
