@@ -131,7 +131,10 @@
 
 .pedido-detail-modal .pedido-detail-modal__footer {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.3rem;
+  justify-content: stretch;
+  align-items: stretch;
   padding: 0.65rem 1rem max(0.65rem, env(safe-area-inset-bottom));
   border-top: 1px solid #e8edf2;
 }
@@ -157,7 +160,7 @@
 }
 
 .pedido-detail-modal .pedido-detail-anular {
-  justify-self: end;
+  justify-self: center;
   min-height: 2.75rem;
   margin: 0;
   padding-inline: 0.75rem;

@@ -219,7 +219,7 @@ export default function Catalogo() {
     if (cargando) return <EstadoCarga texto="Cargando catálogo..." />;
 
     return (
-        <Container className="catalog-page pb-5">
+        <Container className="catalog-page mt-4 pb-5">
             <div className="app-page-heading page-heading mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h3 className="fw-bold m-0">Catálogo ({filtrados.length})</h3>
                 <div className="page-action-buttons d-flex gap-2">

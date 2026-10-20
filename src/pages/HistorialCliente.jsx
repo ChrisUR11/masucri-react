@@ -42,8 +42,10 @@ export default function HistorialCliente() {
     if (cargando) return <EstadoCarga texto="Cargando pedidos..." />;
 
     return (
-        <Container className="pb-5">
-            <h3 className="fw-bold mb-4">Historial de Clientes</h3>
+        <Container className="history-client-page mt-4 pb-5">
+            <div className="app-page-heading page-heading mb-4">
+                <h3 className="fw-bold m-0"><i className="fas fa-users" aria-hidden="true"></i> Historial de Clientes</h3>
+            </div>
 
             <Row className="mb-4">
                 <Col md={6}>

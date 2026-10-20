@@ -538,6 +538,8 @@ a:focus-visible {
 
 /* Acabado visual de las vistas principales, sin recursos externos. */
 .orders-page { --page-accent: #155fc0; --page-tint: #eef5ff; }
+.history-page,
+.history-client-page { --page-accent: #365e82; --page-tint: #f2f7fc; }
 .catalog-page { --page-accent: #147d60; --page-tint: #effaf5; }
 .finance-page { --page-accent: #13835b; --page-tint: #effaf5; }
 .bi-page { --page-accent: #4f5aa5; --page-tint: #f2f3ff; }
