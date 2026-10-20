@@ -124,6 +124,11 @@
   border-color: #13839b;
 }
 
+.pedido-detail-modal .pedido-state-actions .btn-outline-warning {
+  color: #805900;
+  border-color: #bd8500;
+}
+
 .pedido-detail-modal .pedido-detail-modal__footer {
   display: grid;
   gap: 0.3rem;
