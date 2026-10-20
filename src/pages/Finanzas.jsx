@@ -309,8 +309,8 @@ export default function Finanzas() {
     };
 
     return (
-        <Container className="mt-4 flex-grow-1">
-            <div className="page-heading d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <Container className="finance-page mt-4 flex-grow-1">
+            <div className="app-page-heading page-heading d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
                 <h3 className="fw-bold m-0 text-success"><i className="fas fa-wallet"></i> Finanzas y Caja</h3>
                 <Button variant="success" className="page-heading-action fw-bold shadow-sm" onClick={() => handleOpen()}>
                     <i className="fas fa-plus"></i> Registrar Movimiento
@@ -325,17 +325,17 @@ export default function Finanzas() {
                 <>
                     <Row className="mb-4">
                         <Col md={4} className="mb-3">
-                            <Card className="text-bg-success shadow-sm text-center h-100 border-0">
+                            <Card className="finance-kpi-card text-bg-success shadow-sm text-center h-100 border-0">
                                 <Card.Body><h6>Entradas</h6><h3>{formatoColones(totalEntradas)}</h3></Card.Body>
                             </Card>
                         </Col>
                         <Col md={4} className="mb-3">
-                            <Card className="text-bg-danger shadow-sm text-center h-100 border-0">
+                            <Card className="finance-kpi-card text-bg-danger shadow-sm text-center h-100 border-0">
                                 <Card.Body><h6>Salidas</h6><h3>{formatoColones(totalSalidas)}</h3></Card.Body>
                             </Card>
                         </Col>
                         <Col md={4} className="mb-3">
-                            <Card className="text-bg-info text-white shadow-sm text-center h-100 border-0">
+                            <Card className="finance-kpi-card text-bg-info shadow-sm text-center h-100 border-0">
                                 <Card.Body><h6>Balance Neto</h6><h3>{formatoColones(totalEntradas - totalSalidas)}</h3></Card.Body>
                             </Card>
                         </Col>
@@ -351,7 +351,7 @@ export default function Finanzas() {
 
                     <Row>
                         <Col lg={4} className="mb-4">
-                            <Card className="shadow-sm border-0 h-100">
+                            <Card className="finance-panel shadow-sm border-0 h-100">
                                 <Card.Header className="bg-white fw-bold">Filtros y Resumen</Card.Header>
                                 <Card.Body>
                                     <Form.Control
@@ -387,7 +387,7 @@ export default function Finanzas() {
                         </Col>
 
                         <Col lg={8} className="mb-4">
-                            <Card className="shadow-sm border-0 h-100">
+                            <Card className="finance-panel shadow-sm border-0 h-100">
                                 <Card.Header className="bg-white fw-bold d-flex justify-content-between align-items-center">
                                     <span>Libro Diario <small className="text-muted fw-normal">({filtrados.length})</small></span>
                                     <div className="finance-export-actions">

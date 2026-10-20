@@ -535,3 +535,177 @@ a:focus-visible {
     padding: 0;
   }
 }
+
+/* Acabado visual de las vistas principales, sin recursos externos. */
+.orders-page { --page-accent: #155fc0; --page-tint: #eef5ff; }
+.catalog-page { --page-accent: #147d60; --page-tint: #effaf5; }
+.finance-page { --page-accent: #13835b; --page-tint: #effaf5; }
+.bi-page { --page-accent: #4f5aa5; --page-tint: #f2f3ff; }
+
+.app-page-heading {
+  min-width: 0;
+  padding: clamp(0.85rem, 2vw, 1.15rem);
+  border: 1px solid #e4ebf3;
+  border-inline-start: 4px solid var(--page-accent, #155fc0);
+  border-radius: 0.9rem;
+  background: linear-gradient(110deg, #fff 45%, var(--page-tint, #eef5ff));
+  box-shadow: 0 0.25rem 1rem rgba(22, 34, 51, 0.045);
+}
+
+.app-page-heading h3 {
+  color: var(--page-accent, #155fc0);
+  font-size: clamp(1.2rem, 1.05rem + 0.6vw, 1.55rem);
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+}
+
+.app-page-heading .btn {
+  border-radius: 0.65rem;
+}
+
+.orders-page .app-page-search,
+.catalog-page .catalog-search .form-control,
+.catalog-page .catalog-search-icon {
+  border-color: #ccd9e8;
+}
+
+.orders-page .app-page-search {
+  border-radius: 0.7rem;
+  padding: 0.7rem 0.9rem;
+}
+
+.orders-page .order-legend,
+.orders-page .production-column,
+.catalog-page .catalog-filter-card,
+.catalog-page .catalog-product-card,
+.finance-page .finance-panel,
+.bi-page .card {
+  border-radius: 0.9rem;
+}
+
+.orders-page .order-legend {
+  border-color: #e4ebf3 !important;
+}
+
+.orders-page .production-column {
+  background: #f3f6fa !important;
+}
+
+.orders-page .production-column .card-header {
+  min-height: 3rem;
+}
+
+.orders-page .production-order-card {
+  border-radius: 0.7rem;
+  box-shadow: 0 0.15rem 0.55rem rgba(26, 41, 61, 0.09) !important;
+}
+
+.orders-page .production-order-card.order-soon {
+  border-left-color: #e77d13 !important;
+}
+
+.catalog-page .catalog-search {
+  border-radius: 0.7rem;
+}
+
+.catalog-page .catalog-search-icon {
+  background: #eaf2ff;
+  color: #155fc0;
+  border-radius: 0.7rem 0 0 0.7rem;
+}
+
+.catalog-page .catalog-search .form-control {
+  border-radius: 0 0.7rem 0.7rem 0;
+}
+
+.catalog-page .catalog-filter-card {
+  border: 1px solid #e5ebf2 !important;
+}
+
+.catalog-page .catalog-filter-card .card-header {
+  border-radius: 0.9rem 0.9rem 0 0;
+  background: #f8fafc !important;
+}
+
+.catalog-page .catalog-filter-card .filter-toggle:hover {
+  color: #155fc0 !important;
+}
+
+.catalog-page .catalog-product-card {
+  border: 1px solid #e5ebf2 !important;
+  box-shadow: 0 0.2rem 0.8rem rgba(26, 41, 61, 0.055) !important;
+}
+
+.catalog-page .catalog-product-title {
+  font-size: 1rem;
+  line-height: 1.35;
+  color: #223b50;
+}
+
+.catalog-page .catalog-product-prices {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #eef2f6;
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-page .finance-kpi-card {
+  border-radius: 0.9rem;
+  background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.15), transparent 70%);
+}
+
+.finance-page .finance-kpi-card h6 {
+  opacity: 0.9;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.finance-page .finance-kpi-card h3 {
+  margin-bottom: 0;
+  font-size: clamp(1.3rem, 1.05rem + 1.2vw, 1.8rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-page .finance-panel,
+.bi-page .card {
+  border-color: #e5ebf2;
+  box-shadow: 0 0.2rem 0.8rem rgba(26, 41, 61, 0.055) !important;
+}
+
+.finance-page .finance-panel .card-header,
+.bi-page .card-header {
+  padding-block: 0.8rem;
+}
+
+.bi-page .bi-profit-card {
+  background: linear-gradient(155deg, #fff, #f8fbff);
+}
+
+.bi-page .bi-profit-card h1 {
+  font-size: clamp(1.8rem, 1.25rem + 2.4vw, 2.8rem);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .orders-page .production-order-card,
+  .catalog-page .catalog-product-card {
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+
+  .orders-page .production-order-card:hover,
+  .catalog-page .catalog-product-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.45rem 1rem rgba(26, 41, 61, 0.13) !important;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .app-page-heading {
+    animation: page-heading-in 260ms ease-out both;
+  }
+}
+
+@keyframes page-heading-in {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}

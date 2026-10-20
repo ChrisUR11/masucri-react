@@ -219,8 +219,8 @@ export default function Catalogo() {
     if (cargando) return <EstadoCarga texto="Cargando catálogo..." />;
 
     return (
-        <Container className="pb-5">
-            <div className="page-heading mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <Container className="catalog-page pb-5">
+            <div className="app-page-heading page-heading mb-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h3 className="fw-bold m-0">Catálogo ({filtrados.length})</h3>
                 <div className="page-action-buttons d-flex gap-2">
                     <Button variant="info" size="sm" onClick={() => setShowImportar(true)}>
@@ -232,8 +232,8 @@ export default function Catalogo() {
                 </div>
             </div>
 
-            <InputGroup className="mb-3 border-primary shadow-sm">
-                <InputGroup.Text className="bg-primary text-white"><i className="fas fa-search"></i></InputGroup.Text>
+            <InputGroup className="catalog-search mb-3 shadow-sm">
+                <InputGroup.Text className="catalog-search-icon"><i className="fas fa-search"></i></InputGroup.Text>
                     <Form.Control
                     type="search"
                     placeholder="Buscar por nombre, descripción, proveedor..."
@@ -243,7 +243,7 @@ export default function Catalogo() {
                 />
             </InputGroup>
 
-            <Card className="border-0 shadow-sm mb-3">
+            <Card className="catalog-filter-card border-0 shadow-sm mb-3">
                 <Card.Header className="bg-light p-0">
                     <Button
                         variant="link"
@@ -301,7 +301,7 @@ export default function Catalogo() {
                         const margen = p.precio_venta && p.precio_costo ? (((p.precio_venta - p.precio_costo) / p.precio_venta) * 100).toFixed(0) : 0;
                         return (
                             <Col key={p.id} xs={12} sm={6} md={4} lg={3}>
-                                <Card className="shadow-sm border-0 h-100 d-flex flex-column">
+                                <Card className="catalog-product-card shadow-sm border-0 h-100 d-flex flex-column">
                                     <Card.Body className="flex-grow-1">
                                         <div className="d-flex justify-content-between align-items-start mb-2">
                                             <Card.Title className="catalog-product-title fw-bold small m-0">{p.nombre}</Card.Title>
@@ -309,7 +309,7 @@ export default function Catalogo() {
                                         </div>
                                         {p.categoria && <Badge className="mb-2" bg="info">{p.categoria}</Badge>}
                                         {p.descripcion && <p className="small text-muted mb-2">{p.descripcion}</p>}
-                                        <div className="small">
+                                        <div className="catalog-product-prices small">
                                             {p.precio_costo && <p className="mb-1"><strong>C:</strong> {formatoColones(p.precio_costo)}</p>}
                                             {p.precio_venta && <p className="mb-1"><strong>V:</strong> <span className="text-success fw-bold">{formatoColones(p.precio_venta)}</span></p>}
                                             {p.precio_venta && p.precio_costo && <p className="mb-2 text-info"><strong>Margen:</strong> {margen}%</p>}

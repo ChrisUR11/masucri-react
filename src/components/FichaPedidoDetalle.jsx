@@ -15,37 +15,41 @@ export default function FichaPedidoDetalle({ pedido, badgeEstado, onWhatsApp, mo
 
     return (
         <>
-            <div className="text-center pb-3 pt-2 bg-light border-bottom">
+            <div className="pedido-ficha__status text-center pb-3 pt-2 bg-light border-bottom">
                 {badgeEstado}
                 <p className="text-muted small mb-0">
                     Entrega pautada: <strong>{pedido.fecha_entrega || 'Sin fecha'}</strong>
                 </p>
             </div>
 
-            <ListGroup variant="flush">
-                <ListGroup.Item className="py-3">
-                    <small className="text-muted d-block mb-1">Cliente</small>
-                    <h5 className="fw-bold mb-1">{pedido.cliente}</h5>
-                    {pedido.telefono && (
-                        <Button
-                            variant="success"
-                            size="sm"
-                            className="fw-bold rounded shadow-sm mt-1"
-                            onClick={onWhatsApp}
-                            aria-label={`Escribir por WhatsApp a ${pedido.cliente}`}
-                        >
-                            <i className="fab fa-whatsapp fs-6"></i> {pedido.telefono}
-                        </Button>
-                    )}
+            <ListGroup variant="flush" className="pedido-ficha__lista">
+                <ListGroup.Item className="pedido-ficha__cliente py-3">
+                    <div className="pedido-ficha__cliente-linea">
+                        <div className="pedido-ficha__cliente-nombre">
+                            <small className="text-muted d-block mb-1">Cliente</small>
+                            <h5 className="fw-bold mb-1">{pedido.cliente}</h5>
+                        </div>
+                        {pedido.telefono && (
+                            <Button
+                                variant="success"
+                                size="sm"
+                                className="pedido-ficha__whatsapp fw-bold rounded shadow-sm mt-1"
+                                onClick={onWhatsApp}
+                                aria-label={`Escribir por WhatsApp a ${pedido.cliente}`}
+                            >
+                                <i className="fab fa-whatsapp fs-6"></i> {pedido.telefono}
+                            </Button>
+                        )}
+                    </div>
                 </ListGroup.Item>
 
-                <ListGroup.Item className="py-3">
+                <ListGroup.Item className="pedido-ficha__producto py-3">
                     <small className="text-muted d-block mb-1">Producto</small>
                     <h6 className="fw-bold mb-1">{pedido.producto}</h6>
                     {pedido.descripcion && <p className="small text-muted mb-0 mt-1">{pedido.descripcion}</p>}
                 </ListGroup.Item>
 
-                <ListGroup.Item className="py-3">
+                <ListGroup.Item className="pedido-ficha__resumen py-3">
                     <Row className="text-center">
                         <Col xs={6} className="border-end">
                             <small className="text-muted d-block">Precio Total</small>
@@ -59,11 +63,11 @@ export default function FichaPedidoDetalle({ pedido, badgeEstado, onWhatsApp, mo
                 </ListGroup.Item>
 
                 {deuda > 0 ? (
-                    <ListGroup.Item className="text-center bg-warning text-dark py-2">
+                    <ListGroup.Item className="pedido-ficha__saldo text-center bg-warning text-dark py-2">
                         <h5 className="fw-bold m-0">Debe: {formatoColones(deuda)}</h5>
                     </ListGroup.Item>
                 ) : (
-                    <ListGroup.Item className="text-center bg-success text-white py-2">
+                    <ListGroup.Item className="pedido-ficha__saldo text-center bg-success text-white py-2">
                         <h5 className="fw-bold m-0"><i className="fas fa-check"></i> Pagado</h5>
                     </ListGroup.Item>
                 )}

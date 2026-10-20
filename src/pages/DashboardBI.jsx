@@ -76,9 +76,9 @@ export default function DashboardBI() {
     }
 
     return (
-        <Container className="mt-4 pb-5">
+        <Container className="bi-page mt-4 pb-5">
             {/* ENCABEZADO */}
-            <div className="page-heading mb-4 d-flex justify-content-between align-items-start">
+            <div className="app-page-heading page-heading mb-4 d-flex justify-content-between align-items-start">
                 <div>
                     <h3 className="fw-bold m-0"><i className="fas fa-chart-line text-secondary"></i> Inteligencia de Negocios (BI)</h3>
                     <small className="text-muted">
@@ -91,14 +91,14 @@ export default function DashboardBI() {
             </div>
 
             {/* SELECTOR DE PERÍODO */}
-            <Card className="border-0 shadow-sm mb-3">
+            <Card className="bi-range-card border-0 shadow-sm mb-3">
                 <Card.Body className="py-3">
                     <SelectorRango preset={preset} setPreset={cambiarPreset} rango={rango} setRango={setRango} />
                 </Card.Body>
             </Card>
 
             {/* UTILIDAD NETA */}
-            <Card className={`border-${m.utilidad >= 0 ? 'success' : 'danger'} mb-4 shadow-sm text-center`}>
+            <Card className={`bi-profit-card border-${m.utilidad >= 0 ? 'success' : 'danger'} mb-4 shadow-sm text-center`}>
                 <Card.Body>
                     <h6 className={`text-${m.utilidad >= 0 ? 'success' : 'danger'} fw-bold`}>Utilidad Neta</h6>
                     <h1 className={`fw-bold text-${m.utilidad >= 0 ? 'success' : 'danger'}`}>{formatoColones(m.utilidad)}</h1>

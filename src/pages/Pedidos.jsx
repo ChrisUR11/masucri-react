@@ -8,6 +8,7 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import FichaPedidoDetalle from '../components/FichaPedidoDetalle';
+import '../components/FichaPedidoDetalle.css';
 import VentaRapidaModal from '../components/VentaRapidaModal';
 import { registrarAbono } from '../utils/abonoPedido';
 import { entregarPedido } from '../utils/entregaPedido';
@@ -24,7 +25,7 @@ const ESTADOS_ACTIVOS = ['Pendiente', 'En producción', 'Por Retirar'];
 // solo agregar un elemento aquí.
 const COLUMNAS = [
     { estado: 'Pendiente', label: 'Pendiente', icon: 'fa-inbox', bg: '#6c757d', text: 'text-white' },
-    { estado: 'En producción', label: 'En Producción', icon: 'fa-hammer', bg: '#0dcaf0', text: 'text-white' },
+    { estado: 'En producción', label: 'En Producción', icon: 'fa-hammer', bg: '#0dcaf0', text: 'text-dark' },
     { estado: 'Por Retirar', label: 'Por Retirar', icon: 'fa-box-open', bg: '#ffc107', text: 'text-dark' }
 ];
 
@@ -276,7 +277,7 @@ export default function Pedidos() {
                 colorAlerta = 'border-danger bg-danger-subtle';
             } else if (diff <= 2) {
                 // 1-2 días: naranja/warning
-                colorAlerta = 'border-warning bg-warning-subtle';
+                colorAlerta = 'order-soon bg-warning-subtle';
             } else if (diff <= 5) {
                 // 3-5 días: info/azul (requiere atención pero no urgente)
                 colorAlerta = 'border-info bg-info-subtle';
@@ -340,8 +341,8 @@ export default function Pedidos() {
     };
 
     return (
-            <Container className="mt-4 flex-grow-1 d-flex flex-column">
-            <div className="page-heading d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 d-print-none">
+            <Container className="orders-page mt-4 flex-grow-1 d-flex flex-column">
+            <div className="app-page-heading page-heading d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 d-print-none">
                 <h3 className="fw-bold m-0 text-primary"><i className="fas fa-tasks"></i> Tablero de Producción</h3>
                 <div className="page-action-buttons d-flex gap-2">
                     <Button variant="warning" className="fw-bold shadow-sm text-dark" onClick={() => setShowVenta(true)}>
@@ -355,14 +356,14 @@ export default function Pedidos() {
             <Form.Control
                 type="search"
                 placeholder="Buscar cliente o producto..."
-                className="mb-3 border-primary shadow-sm d-print-none"
+                className="app-page-search mb-3 shadow-sm d-print-none"
                 value={filtroTexto}
                 onChange={(e) => setFiltroTexto(e.target.value)}
                 aria-label="Buscar pedido"
             />
 
             {/* LEYENDA DE COLORES */}
-            <div className="mb-3 p-3 bg-white rounded border shadow-sm d-print-none">
+            <div className="order-legend mb-3 p-3 bg-white rounded border shadow-sm d-print-none">
                 <small className="fw-bold d-block mb-2">Código de colores por fecha de entrega:</small>
                 <div className="d-flex flex-wrap gap-3">
                     <div className="d-flex align-items-center gap-2">
@@ -423,8 +424,8 @@ export default function Pedidos() {
             <datalist id="listaCatalogo">{productosCatalogo.map((p) => <option key={p.id} value={p.nombre} />)}</datalist>
 
             {/* MODAL: DETALLE DEL PEDIDO */}
-            <Modal show={showDetalle} onHide={() => setShowDetalle(false)} centered enforceFocus={false} className="d-print-none">
-                <Modal.Header closeButton className="bg-light border-bottom-0 pb-0">
+            <Modal show={showDetalle} onHide={() => setShowDetalle(false)} centered scrollable enforceFocus={false} className="pedido-detail-modal d-print-none">
+                <Modal.Header closeButton className="pedido-detail-modal__header">
                     <Modal.Title className="fw-bold fs-5"><i className="fas fa-file-invoice text-dark"></i> Detalle del Pedido</Modal.Title>
                 </Modal.Header>
                 {pedidoActivo && (
@@ -434,32 +435,32 @@ export default function Pedidos() {
                             onWhatsApp={handleWhatsApp}
                             badgeEstado={
                                 <Badge
-                                    bg={pedidoActivo.estado === 'Por Retirar' ? 'warning text-dark' : pedidoActivo.estado === 'En producción' ? 'info text-white' : 'secondary'}
+                                    bg={pedidoActivo.estado === 'Por Retirar' ? 'warning text-dark' : pedidoActivo.estado === 'En producción' ? 'info text-dark' : 'secondary'}
                                     className="fs-6 px-4 py-2 shadow-sm border mb-2"
                                 >
                                     {pedidoActivo.estado === 'En producción' ? 'Produciendo' : pedidoActivo.estado}
                                 </Badge>
                             }
                         >
-                            <ListGroup.Item className="text-center py-3 bg-light">
-                                <small className="fw-bold text-dark d-block mb-2">Mover ficha a:</small>
+                            <ListGroup.Item className="pedido-ficha__estado text-center py-3 bg-light">
+                                <small className="pedido-ficha__estado-etiqueta fw-bold text-dark d-block mb-2">Mover ficha a:</small>
                                 <ButtonGroup className="pedido-state-actions shadow-sm w-100" aria-label="Estado del pedido">
                                     <Button variant={pedidoActivo.estado === 'Pendiente' ? 'secondary' : 'outline-secondary'} aria-pressed={pedidoActivo.estado === 'Pendiente'} onClick={() => handleMoverFicha('Pendiente')}>Pendiente</Button>
-                                    <Button variant={pedidoActivo.estado === 'En producción' ? 'info text-white' : 'outline-info'} aria-pressed={pedidoActivo.estado === 'En producción'} onClick={() => handleMoverFicha('En producción')}>Produciendo</Button>
+                                    <Button variant={pedidoActivo.estado === 'En producción' ? 'info text-dark' : 'outline-info'} aria-pressed={pedidoActivo.estado === 'En producción'} onClick={() => handleMoverFicha('En producción')}>Produciendo</Button>
                                     <Button variant={pedidoActivo.estado === 'Por Retirar' ? 'warning text-dark' : 'outline-warning'} aria-pressed={pedidoActivo.estado === 'Por Retirar'} onClick={() => handleMoverFicha('Por Retirar')}>Por Retirar</Button>
                                 </ButtonGroup>
                             </ListGroup.Item>
                         </FichaPedidoDetalle>
                     </Modal.Body>
                 )}
-                <Modal.Footer className="justify-content-center bg-white border-top-0 pt-0 flex-wrap gap-2">
-                    <div className="pedido-detail-actions d-flex w-100 gap-2 mb-2 justify-content-center">
-                        <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleEnviarTicket} disabled={procesandoDetalle}><i className="fas fa-share-nodes"></i> Enviar Ticket</Button>
-                        <Button variant="success" className="fw-bold flex-grow-1" onClick={handleEntregar} disabled={procesandoDetalle}><i className="fas fa-check"></i> Entregar</Button>
-                        <Button variant="outline-primary" className="fw-bold flex-grow-1" onClick={handleAbonar} disabled={procesandoDetalle}><i className="fas fa-coins"></i> Abonar</Button>
-                        <Button variant="outline-secondary" className="flex-grow-1" onClick={() => abrirEditar(pedidoActivo)} disabled={procesandoDetalle}><i className="fas fa-pen"></i> Editar</Button>
+                <Modal.Footer className="pedido-detail-modal__footer bg-white">
+                    <div className="pedido-detail-actions d-flex w-100 gap-2 justify-content-center">
+                        <Button variant="outline-primary" className="pedido-detail-action fw-bold flex-grow-1" onClick={handleEnviarTicket} disabled={procesandoDetalle}><i className="fas fa-share-nodes"></i> Enviar Ticket</Button>
+                        <Button variant="success" className="pedido-detail-action fw-bold flex-grow-1" onClick={handleEntregar} disabled={procesandoDetalle}><i className="fas fa-check"></i> Entregar</Button>
+                        <Button variant="outline-primary" className="pedido-detail-action fw-bold flex-grow-1" onClick={handleAbonar} disabled={procesandoDetalle}><i className="fas fa-coins"></i> Abonar</Button>
+                        <Button variant="outline-secondary" className="pedido-detail-action flex-grow-1" onClick={() => abrirEditar(pedidoActivo)} disabled={procesandoDetalle}><i className="fas fa-pen"></i> Editar</Button>
                     </div>
-                    <Button variant="outline-danger" size="sm" className="px-4 bg-white" onClick={handleAnular} disabled={procesandoDetalle}><i className="fas fa-times"></i> Anular</Button>
+                    <Button variant="outline-danger" size="sm" className="pedido-detail-anular" onClick={handleAnular} disabled={procesandoDetalle}><i className="fas fa-times"></i> Anular</Button>
                 </Modal.Footer>
             </Modal>
 
