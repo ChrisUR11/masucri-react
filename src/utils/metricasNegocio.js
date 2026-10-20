@@ -1,4 +1,4 @@
-import { obtenerMesDeFecha } from './fecha';
+import { obtenerMesDeFecha } from './fecha.js';
 
 const GASTOS_AGRUPADOS_BASE = {
     'Telas y Costura': 0,
@@ -48,7 +48,7 @@ function categorizarGasto(descripcion, entidad) {
     return 'Gastos Generales';
 }
 
-/** Clasifica un producto en una categoría para el gráfico de "Productos más vendidos". */
+/** Clasifica un producto en una categoría para el gráfico de productos solicitados. */
 function categorizarProducto(nombreProducto) {
     const n = nombreProducto.toLowerCase();
     if (n.includes('pijama') || n.includes('camis') || n.includes('talla')) return 'Ropa y Textiles';
@@ -67,36 +67,53 @@ function estadisticasBasicas(valores) {
     return { media, desviacion };
 }
 
+/** Un monto vacío, negativo o no finito no debe alterar la caja. */
+function numeroFinito(valor) {
+    if (typeof valor !== 'number' && typeof valor !== 'string') return null;
+    if (typeof valor === 'string' && !valor.trim()) return null;
+    const numero = Number(valor);
+    return Number.isFinite(numero) && numero >= 0 ? numero : null;
+}
+
 /** true si la fecha (YYYY-MM-DD) cae dentro del rango [inicio, fin], ambos inclusive. */
 function dentroDeRango(fecha, rango) {
+    // Sin fecha no es posible ubicar el registro ni siquiera en el histórico.
     if (!fecha) return false;
     if (rango.inicio && fecha < rango.inicio) return false;
     if (rango.fin && fecha > rango.fin) return false;
     return true;
 }
 
+/** Los pedidos anteriores al registro de fecha_cierre usan fecha_solicitud. */
+function fechaCierrePedido(pedido) {
+    return pedido.fecha_cierre || pedido.fecha_solicitud;
+}
+
 /**
  * Calcula todas las métricas del Dashboard BI a partir de pedidos y movimientos.
  *
- * Hay dos tipos de métricas:
- * - "Del período": responden a "¿cómo me fue en [rango elegido]?" (utilidad,
- *   gastos, productos más vendidos, métodos de pago). Se recalculan según
- *   el `rango` que se les pase.
- * - "Históricas": tienen sentido solo mirando todo el negocio de una vez
- *   (mejores clientes de siempre, qué tan estables son los ingresos mes a
- *   mes, quién debe más dinero ahora mismo). Estas siempre usan todos los
- *   datos, sin importar el rango seleccionado — filtrarlas le quitaría el
- *   sentido (ej. "mejor cliente histórico" solo del mes pasado no dice mucho).
+ * Todas las métricas respetan el rango elegido. Los pedidos solicitados se
+ * agrupan por fecha_solicitud; los entregados y cancelados, por fecha_cierre
+ * (o fecha_solicitud si el pedido antiguo no tiene fecha_cierre). Los saldos
+ * de los entregados representan el saldo actual de esa cohorte de cierres.
+ * Un rango sin límites muestra todos los registros fechados del histórico.
  *
  * @param {object} rango - { inicio: 'YYYY-MM-DD'|null, fin: 'YYYY-MM-DD'|null }
  */
 export function calcularMetricas(pedidos, movimientos, rango = {}) {
-    const todasLasFechas = [...pedidos.map((p) => p.fecha_solicitud), ...movimientos.map((m) => m.fecha)].filter(Boolean).sort();
+    const todasLasFechas = [
+        ...pedidos.flatMap((p) => [p.fecha_solicitud, p.fecha_cierre]),
+        ...movimientos.map((m) => m.fecha)
+    ].filter(Boolean).sort();
     const minFecha = todasLasFechas[0] || 'N/A';
     const maxFecha = todasLasFechas[todasLasFechas.length - 1] || 'N/A';
 
     const movimientosPeriodo = movimientos.filter((m) => dentroDeRango(m.fecha, rango));
-    const pedidosPeriodo = pedidos.filter((p) => dentroDeRango(p.fecha_solicitud, rango));
+    const pedidosCreadosPeriodo = pedidos.filter((p) => dentroDeRango(p.fecha_solicitud, rango));
+    const pedidosCerradosPeriodo = pedidos.filter(
+        (p) => (p.estado === 'Entregado' || p.estado === 'Cancelado') &&
+            dentroDeRango(fechaCierrePedido(p), rango)
+    );
 
     // ========== MÉTRICAS DEL PERÍODO SELECCIONADO ==========
     let ingresosPeriodo = 0;
@@ -109,7 +126,8 @@ export function calcularMetricas(pedidos, movimientos, rango = {}) {
     const gastosAgrupados = { ...GASTOS_AGRUPADOS_BASE };
 
     movimientosPeriodo.forEach((m) => {
-        const monto = m.monto || 0;
+        const monto = numeroFinito(m.monto);
+        if (monto === null) return;
         const metodo = m.metodo_pago || 'Desconocido';
 
         if (m.tipo === 'entrada') {
@@ -143,92 +161,86 @@ export function calcularMetricas(pedidos, movimientos, rango = {}) {
 
     const prodMapPeriodo = {};
     const catProductos = {};
-    let entregadosPeriodo = 0;
-    let anuladosPeriodo = 0;
-
-    pedidosPeriodo.forEach((p) => {
-        if (p.estado === 'Cancelado') {
-            anuladosPeriodo++;
-            return;
-        }
-        if (p.estado === 'Entregado') entregadosPeriodo++;
-
+    pedidosCreadosPeriodo.forEach((p) => {
+        // Los productos anulados no cuentan como pedidos vigentes o entregados.
+        if (p.estado === 'Cancelado') return;
         if (p.producto) {
-            const nombre = p.producto.trim().toUpperCase();
+            const nombre = String(p.producto).trim().toUpperCase();
+            if (!nombre) return;
             prodMapPeriodo[nombre] = (prodMapPeriodo[nombre] || 0) + 1;
             catProductos[categorizarProducto(nombre)] = (catProductos[categorizarProducto(nombre)] || 0) + 1;
         }
     });
 
-    // ========== MÉTRICAS HISTÓRICAS (todo el tiempo, ignoran el rango) ==========
+    const entregadosPeriodo = pedidosCerradosPeriodo.filter((p) => p.estado === 'Entregado').length;
+    const anuladosPeriodo = pedidosCerradosPeriodo.length - entregadosPeriodo;
+
+    // ========== MÉTRICAS DE CLIENTES Y EVOLUCIÓN DEL PERÍODO ==========
     const crmMap = {};
     const ingresosPorMes = {};
     const pedidosPorMes = {};
-    let anuladosHist = 0;
     let pagados100 = 0;
     let conDeuda = 0;
     const deudores = [];
-    let totalTrabajosHist = 0;
 
-    movimientos.forEach((m) => {
+    movimientosPeriodo.forEach((m) => {
         if (m.tipo === 'entrada') {
+            const monto = numeroFinito(m.monto);
+            if (monto === null) return;
             const mesMov = obtenerMesDeFecha(m.fecha);
-            if (mesMov) ingresosPorMes[mesMov] = (ingresosPorMes[mesMov] || 0) + (m.monto || 0);
+            if (mesMov) ingresosPorMes[mesMov] = (ingresosPorMes[mesMov] || 0) + monto;
         }
     });
 
-    pedidos.forEach((p) => {
-        if (p.estado === 'Cancelado') {
-            anuladosHist++;
-            return;
-        }
-
-        totalTrabajosHist++;
+    pedidosCreadosPeriodo.forEach((p) => {
+        if (p.estado === 'Cancelado') return;
         const mesPed = obtenerMesDeFecha(p.fecha_solicitud);
         if (mesPed) pedidosPorMes[mesPed] = (pedidosPorMes[mesPed] || 0) + 1;
-
-        const deuda = (p.precio || 0) - (p.monto_pagado || 0);
-        if (p.estado === 'Entregado') {
-            if (deuda > 0) {
-                conDeuda++;
-                deudores.push({ cliente: p.cliente, debe: deuda });
-            } else {
-                pagados100++;
-            }
-        }
 
         if (p.cliente) {
             const idUnico = p.telefono ? p.telefono.replace(/[\s-]/g, '') : p.cliente.trim().toUpperCase();
             if (!crmMap[idUnico]) {
-                crmMap[idUnico] = { nombre: p.cliente.trim(), telefono: p.telefono || '', compras: 0, monto: 0, ultima: '2000-01-01' };
+                crmMap[idUnico] = { nombre: p.cliente.trim(), telefono: p.telefono || '', compras: 0, monto: 0, ultima: '' };
             }
             crmMap[idUnico].compras += 1;
-            crmMap[idUnico].monto += p.precio || 0;
+            crmMap[idUnico].monto += (numeroFinito(p.precio) ?? 0);
             if (p.fecha_solicitud > crmMap[idUnico].ultima) crmMap[idUnico].ultima = p.fecha_solicitud;
         }
     });
 
-    // --- Volatilidad de ingresos (necesita historial completo para comparar meses) ---
+    pedidosCerradosPeriodo.forEach((p) => {
+        if (p.estado !== 'Entregado') return;
+        const precio = numeroFinito(p.precio);
+        if (precio === null) return;
+        const deuda = precio - (numeroFinito(p.monto_pagado) ?? 0);
+        if (deuda > 0) {
+            conDeuda++;
+            deudores.push({ cliente: p.cliente, debe: deuda });
+        } else {
+            pagados100++;
+        }
+    });
+
+    // --- Volatilidad de ingresos del período seleccionado ---
     const valsIngresos = Object.values(ingresosPorMes);
     const { media: volMedia, desviacion: volDesv } = estadisticasBasicas(valsIngresos);
     const hasVol = valsIngresos.length >= 2;
-    // Guarda: si el promedio es 0 (meses sin ingresos), el coeficiente de
-    // variación no está definido — evitamos NaN/Infinity tratándolo como alta volatilidad.
-    const volCoef = hasVol && volMedia > 0 ? volDesv / volMedia : hasVol ? Infinity : 0;
+    const volCoef = hasVol && volMedia > 0 ? volDesv / volMedia : 0;
 
     let volStatus = 'Requiere 2 meses';
     let volColor = 'secondary';
     let volMsg = '';
     if (hasVol) {
-        if (volCoef > 0.4) { volStatus = 'Alta Volatilidad'; volColor = 'danger'; volMsg = 'Requiere fondo de emergencia.'; }
-        else if (volCoef > 0.15) { volStatus = 'Moderada'; volColor = 'warning text-dark'; volMsg = 'Flujo de caja normal.'; }
-        else { volStatus = 'Ingresos Estables'; volColor = 'success'; volMsg = 'Ventas predecibles.'; }
+        if (volMedia <= 0) { volStatus = 'Sin entradas'; volColor = 'secondary'; volMsg = 'No hay entradas positivas para comparar.'; }
+        else if (volCoef > 0.4) { volStatus = 'Variación alta'; volColor = 'danger'; volMsg = 'Las entradas cambian mucho entre meses.'; }
+        else if (volCoef > 0.15) { volStatus = 'Variación moderada'; volColor = 'warning text-dark'; volMsg = 'Las entradas muestran cambios moderados.'; }
+        else { volStatus = 'Variación baja'; volColor = 'success'; volMsg = 'Las entradas muestran poca variación.'; }
     }
 
     const valsPedidos = Object.values(pedidosPorMes);
     const { media: pedMedia, desviacion: pedDesv } = estadisticasBasicas(valsPedidos);
-    const totalConsiderado = totalTrabajosHist + anuladosHist;
-    const tasaCanc = totalConsiderado > 0 ? ((anuladosHist / totalConsiderado) * 100).toFixed(1) : '0.0';
+    const totalCerrados = entregadosPeriodo + anuladosPeriodo;
+    const tasaCanc = totalCerrados > 0 ? ((anuladosPeriodo / totalCerrados) * 100).toFixed(1) : '0.0';
 
     deudores.sort((a, b) => b.debe - a.debe);
 
@@ -243,7 +255,7 @@ export function calcularMetricas(pedidos, movimientos, rango = {}) {
         catProductos, gastosAgrupados,
         entregadosPeriodo, anuladosPeriodo,
 
-        // --- históricas (todo el negocio, sin filtrar) ---
+        // --- clientes, evolución y saldos de la cohorte del período ---
         topClientes: Object.entries(crmMap).sort((a, b) => b[1].monto - a[1].monto).slice(0, 5),
         volMedia, volDesv, volStatus, volColor, volMsg, hasVol,
         pagados100, conDeuda, pedMedia, pedDesv, tasaCanc,

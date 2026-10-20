@@ -2,10 +2,8 @@ import { ButtonGroup, Button, Form } from 'react-bootstrap';
 import { PRESETS } from '../utils/rangoFechas';
 
 /**
- * Botones de período rápido + rango de fechas personalizado. Por defecto
- * (al montar el Dashboard) siempre queda en "Mes actual" — el mismo
- * comportamiento de siempre — pero desde aquí se puede mirar cualquier
- * otro mes o rango sin tener que esperar a que llegue esa fecha.
+ * Botones de período rápido, todo el histórico y rango personalizado.
+ * El Dashboard elige el preset inicial y conserva el rango personalizado.
  */
 export default function SelectorRango({ preset, setPreset, rango, setRango }) {
     return (
@@ -27,8 +25,8 @@ export default function SelectorRango({ preset, setPreset, rango, setRango }) {
                     <Form.Control
                         size="sm"
                         type="date"
-                        value={rango.inicio}
-                        max={rango.fin}
+                        value={rango.inicio || ''}
+                        max={rango.fin || undefined}
                         onChange={(e) => setRango((r) => ({ ...r, inicio: e.target.value }))}
                         style={{ width: '150px' }}
                         aria-label="Fecha de inicio"
@@ -37,13 +35,16 @@ export default function SelectorRango({ preset, setPreset, rango, setRango }) {
                     <Form.Control
                         size="sm"
                         type="date"
-                        value={rango.fin}
-                        min={rango.inicio}
+                        value={rango.fin || ''}
+                        min={rango.inicio || undefined}
                         onChange={(e) => setRango((r) => ({ ...r, fin: e.target.value }))}
                         style={{ width: '150px' }}
                         aria-label="Fecha de fin"
                     />
                 </div>
+            )}
+            {preset === 'personalizado' && !rango.inicio && !rango.fin && (
+                <small className="text-muted w-100 text-center">Sin fechas se muestra todo el histórico.</small>
             )}
         </div>
     );

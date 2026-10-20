@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Container, Row, Col, Card, ProgressBar, Badge, ListGroup, Button } from 'react-bootstrap';
+import { Container, Row, Col, Card, ProgressBar, Badge, ListGroup } from 'react-bootstrap';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
@@ -7,9 +7,11 @@ import { Doughnut, Bar, Pie } from 'react-chartjs-2';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import SelectorRango from '../components/SelectorRango';
+import ContabilidadBI from '../components/ContabilidadBI';
 import { calcularRangoPreset } from '../utils/rangoFechas';
 import { calcularMetricas } from '../utils/metricasNegocio';
 import { calcularMetricasContables } from '../utils/metricasContables';
+import { calcularPedidosActivos } from '../utils/metricasPedidosActivos';
 import { formatoColones, formatoNumero } from '../utils/formato';
 import { formatoFechaLegible } from '../utils/fecha';
 
@@ -18,15 +20,15 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarEle
 function ListaProgreso({ dataObj, total, colorCls }) {
     const arr = Object.entries(dataObj).sort((a, b) => b[1] - a[1]);
     if (arr.length === 0) return <div className="p-3 text-muted">Sin datos.</div>;
-    return arr.map(([nombre, monto], idx) => {
+    return arr.map(([nombre, monto]) => {
         const pct = total > 0 ? ((monto / total) * 100).toFixed(1) : 0;
         return (
-            <div key={idx} className="mb-3 px-3">
+            <div key={nombre} className="mb-3 px-3">
                 <div className="bi-list-entry d-flex justify-content-between small fw-bold mb-1">
                     <span><i className="fas fa-money-check"></i> {nombre}</span>
                     <span>{formatoColones(monto)}</span>
                 </div>
-                <ProgressBar variant={colorCls} now={pct} style={{ height: '8px' }} />
+                <ProgressBar variant={colorCls} now={pct} aria-label={`${nombre}: ${pct}% del total`} style={{ height: '8px' }} />
                 <div className="text-end small text-muted mt-1">{pct}% del total</div>
             </div>
         );
@@ -46,10 +48,9 @@ export default function DashboardBI() {
     const cargando = cargandoPedidos || cargandoMovs;
     const error = errorPedidos || errorMovs;
 
-    // Por defecto, al entrar, se ve "Mes actual" — el mismo comportamiento de siempre.
+    // El informe abre en el mes actual; el selector también permite ver todo el histórico.
     const [preset, setPreset] = useState('mes_actual');
     const [rango, setRango] = useState(() => calcularRangoPreset('mes_actual'));
-    const [mostrarContabilidad, setMostrarContabilidad] = useState(false);
 
     const cambiarPreset = (nuevoPreset) => {
         setPreset(nuevoPreset);
@@ -58,6 +59,13 @@ export default function DashboardBI() {
 
     const m = useMemo(() => calcularMetricas(pedidos, movimientos, rango), [pedidos, movimientos, rango]);
     const mc = useMemo(() => calcularMetricasContables(pedidos, movimientos, rango), [pedidos, movimientos, rango]);
+    const activos = useMemo(() => calcularPedidosActivos(pedidos), [pedidos]);
+    const esHistorico = preset === 'historico';
+    const alcance = esHistorico ? 'histórico' : 'período';
+    const alcanceEnFrase = esHistorico ? 'todo el histórico' : 'el período';
+    const periodoTexto = esHistorico
+        ? 'Todo el histórico'
+        : `${formatoFechaLegible(rango.inicio) || 'Sin fecha inicial'} — ${formatoFechaLegible(rango.fin) || 'Sin fecha final'}`;
 
     if (error) {
         return (
@@ -78,16 +86,15 @@ export default function DashboardBI() {
     return (
         <Container className="bi-page mt-4 pb-5">
             {/* ENCABEZADO */}
-            <div className="app-page-heading page-heading mb-4 d-flex justify-content-between align-items-start">
+            <div className="app-page-heading page-heading mb-4">
                 <div>
                     <h3 className="fw-bold m-0"><i className="fas fa-chart-line text-secondary"></i> Inteligencia de Negocios (BI)</h3>
                     <small className="text-muted">
-                        <i className="fas fa-calendar-alt"></i> Analizando datos del historial: desde <strong>{m.minFecha}</strong> hasta <strong>{m.maxFecha}</strong>
+                        <i className="fas fa-calendar-alt"></i> {m.minFecha === 'N/A'
+                            ? 'Aún no hay pedidos ni movimientos registrados.'
+                            : <>Datos disponibles: <strong>{m.minFecha}</strong> a <strong>{m.maxFecha}</strong></>}
                     </small>
                 </div>
-                <Button variant={mostrarContabilidad ? 'success' : 'outline-success'} size="sm" onClick={() => setMostrarContabilidad(!mostrarContabilidad)}>
-                    <i className="fas fa-book-open me-1"></i> {mostrarContabilidad ? 'Ocultar' : 'Ver'} Contabilidad
-                </Button>
             </div>
 
             {/* SELECTOR DE PERÍODO */}
@@ -97,21 +104,64 @@ export default function DashboardBI() {
                 </Card.Body>
             </Card>
 
-            {/* UTILIDAD NETA */}
+            <p className="bi-period-note small text-muted mb-4">
+                <strong>{periodoTexto}.</strong> Los pedidos solicitados se agrupan por fecha de solicitud, los finalizados por cierre y la caja por fecha del movimiento. Estados y saldos reflejan lo actual.
+            </p>
+
+            {/* CAJA DEL PERÍODO O DEL HISTÓRICO */}
             <Card className={`bi-profit-card border-${m.utilidad >= 0 ? 'success' : 'danger'} mb-4 shadow-sm text-center`}>
                 <Card.Body>
-                    <h6 className={`text-${m.utilidad >= 0 ? 'success' : 'danger'} fw-bold`}>Utilidad Neta</h6>
+                    <h6 className={`text-${m.utilidad >= 0 ? 'success' : 'danger'} fw-bold`}>Flujo neto de caja · {alcance}</h6>
                     <h1 className={`fw-bold text-${m.utilidad >= 0 ? 'success' : 'danger'}`}>{formatoColones(m.utilidad)}</h1>
-                    <small className="text-muted d-block">Ingresos: {formatoColones(m.ingresosPeriodo)} | Gastos: {formatoColones(m.gastosPeriodo)}</small>
-                    <small className="text-muted">{formatoFechaLegible(rango.inicio)} — {formatoFechaLegible(rango.fin)}</small>
+                    <small className="text-muted d-block">Entradas registradas: {formatoColones(m.ingresosPeriodo)} · Salidas registradas: {formatoColones(m.gastosPeriodo)}</small>
+                    <small className="text-muted">{periodoTexto}</small>
                 </Card.Body>
             </Card>
+
+            <section aria-labelledby="bi-pedidos-activos" className="mb-4">
+                <div className="bi-section-heading d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+                    <div>
+                        <h4 id="bi-pedidos-activos" className="fw-bold mb-1">Pedidos activos ahora</h4>
+                        <p className="small text-muted mb-0">Incluye todos los pedidos abiertos, aunque se hayan creado antes del período elegido.</p>
+                    </div>
+                    <Badge bg="primary" pill>{activos.totales.cantidad} pedidos</Badge>
+                </div>
+                <Row className="g-3">
+                    {activos.estados.map((grupo, index) => (
+                        <Col key={grupo.estado} xs={12} md={4}>
+                            <Card className={`bi-active-card bi-active-card--${index} border-0 shadow-sm h-100`}>
+                                <Card.Body>
+                                    <div className="d-flex justify-content-between align-items-start gap-2 mb-3">
+                                        <h5 className="fw-bold mb-0">{grupo.estado}</h5>
+                                        <span className="bi-active-count">{grupo.cantidad}</span>
+                                    </div>
+                                    <div className="bi-active-amount fw-bold">{formatoColones(grupo.valorTotal)}</div>
+                                    <small className="text-muted">Valor total de pedidos</small>
+                                    <div className="bi-active-breakdown mt-3 pt-2 border-top small">
+                                        <div><span>Abonado</span><strong className="text-success">{formatoColones(grupo.abonado)}</strong></div>
+                                        <div><span>Por cobrar</span><strong>{formatoColones(grupo.saldoPorCobrar)}</strong></div>
+                                    </div>
+                                    {grupo.atrasados > 0 && <div className="small text-danger fw-semibold mt-2">{grupo.atrasados} con entrega atrasada</div>}
+                                </Card.Body>
+                            </Card>
+                        </Col>
+                    ))}
+                </Row>
+                <div className="bi-active-total small mt-3">
+                    <strong>Total activo: {formatoColones(activos.totales.valorTotal)}</strong>
+                    <span>Abonado: {formatoColones(activos.totales.abonado)}</span>
+                    <span>Por cobrar: {formatoColones(activos.totales.saldoPorCobrar)}</span>
+                    {activos.totales.atrasados > 0 && <span className="text-danger fw-semibold">Entregas atrasadas: {activos.totales.atrasados}</span>}
+                </div>
+            </section>
+
+            <ContabilidadBI metricas={mc} alcance={alcance} periodoTexto={periodoTexto} />
 
             {/* FILA 1: CLIENTES Y VOLATILIDAD */}
             <Row className="mb-4">
                 <Col md={6} className="mb-3 mb-md-0">
                     <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-white fw-bold">Top 5 Clientes <small className="text-muted fw-normal">(histórico)</small></Card.Header>
+                        <Card.Header className="bg-white fw-bold">Top 5 clientes por valor de pedidos <small className="text-muted fw-normal">({alcance})</small></Card.Header>
                         {m.topClientes.length === 0 ? (
                             <Card.Body className="text-muted small">Aún no hay clientes registrados.</Card.Body>
                         ) : (
@@ -122,7 +172,7 @@ export default function DashboardBI() {
                                             <div className="fw-bold small">
                                                 {i + 1}. {c.nombre} {c.telefono && <span className="text-muted fw-normal">- <i className="fas fa-phone"></i> {c.telefono}</span>}
                                             </div>
-                                            <div style={{ fontSize: '0.75rem' }} className="text-muted">Última compra: {c.ultima} ({c.compras} pedidos)</div>
+                                            <div style={{ fontSize: '0.75rem' }} className="text-muted">Último pedido: {c.ultima} ({c.compras} pedidos)</div>
                                         </div>
                                         <Badge bg="success" pill>{formatoColones(c.monto)}</Badge>
                                     </ListGroup.Item>
@@ -133,13 +183,13 @@ export default function DashboardBI() {
                 </Col>
                 <Col md={6}>
                     <Card className="shadow-sm border-0 h-100 text-center">
-                        <Card.Header className="bg-white fw-bold">Análisis de Riesgo y Volatilidad <small className="text-muted fw-normal">(histórico)</small></Card.Header>
+                        <Card.Header className="bg-white fw-bold">Variación entre meses con entradas <small className="text-muted fw-normal">({alcance})</small></Card.Header>
                         <Card.Body className="d-flex flex-column justify-content-center align-items-center">
                             <Badge bg={m.volColor} className="w-100 py-2 fs-6 mb-3 border shadow-sm">{m.volStatus}</Badge>
                             {m.hasVol ? (
                                 <>
                                     <Row className="w-100 mb-3 text-muted small">
-                                        <Col xs={6}>Promedio Mensual<br /><strong className="text-dark fs-6">{formatoColones(m.volMedia)}</strong></Col>
+                                        <Col xs={6}>Promedio por mes con entradas<br /><strong className="text-dark fs-6">{formatoColones(m.volMedia)}</strong></Col>
                                         <Col xs={6}>Desviación (Riesgo)<br /><strong className="text-dark fs-6">{formatoColones(m.volDesv)}</strong></Col>
                                     </Row>
                                     <small className="text-muted">{m.volMsg}</small>
@@ -156,28 +206,34 @@ export default function DashboardBI() {
             <Row className="mb-4">
                 <Col lg={4} className="mb-3 mb-lg-0">
                     <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-white fw-bold text-center border-0">Retención vs Cancelación <small className="text-muted fw-normal">(período)</small></Card.Header>
+                        <Card.Header className="bg-white fw-bold text-center border-0">Pedidos entregados y cancelados <small className="text-muted fw-normal">({alcance}, por cierre)</small></Card.Header>
                         <Card.Body style={{ height: '200px' }} className="d-flex justify-content-center">
                             {m.entregadosPeriodo + m.anuladosPeriodo > 0 ? (
-                                <Pie
-                                    data={{ labels: ['Éxito (Entregados)', 'Anulados'], datasets: [{ data: [m.entregadosPeriodo, m.anuladosPeriodo], backgroundColor: ['#198754', '#dc3545'] }] }}
-                                    options={{ maintainAspectRatio: false }}
-                                />
+                                <>
+                                    <p className="visually-hidden">Pedidos cerrados: {m.entregadosPeriodo} entregados y {m.anuladosPeriodo} cancelados.</p>
+                                    <Pie
+                                        data={{ labels: ['Entregados', 'Cancelados'], datasets: [{ data: [m.entregadosPeriodo, m.anuladosPeriodo], backgroundColor: ['#198754', '#dc3545'] }] }}
+                                        options={{ maintainAspectRatio: false }}
+                                    />
+                                </>
                             ) : (
-                                <p className="text-muted align-self-center">Sin datos en este período.</p>
+                                <p className="text-muted align-self-center">Sin cierres en este alcance.</p>
                             )}
                         </Card.Body>
                     </Card>
                 </Col>
                 <Col lg={4} className="mb-3 mb-lg-0">
                     <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-white fw-bold text-center border-0">Productos más vendidos <small className="text-muted fw-normal">(período)</small></Card.Header>
+                        <Card.Header className="bg-white fw-bold text-center border-0">Pedidos no cancelados por tipo de producto <small className="text-muted fw-normal">({alcance}, por solicitud)</small></Card.Header>
                         <Card.Body style={{ height: '200px' }}>
                             {Object.keys(m.catProductos).length > 0 ? (
-                                <Bar
-                                    data={{ labels: Object.keys(m.catProductos), datasets: [{ label: 'Trabajos Realizados', data: Object.values(m.catProductos), backgroundColor: '#0d6efd' }] }}
-                                    options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }}
-                                />
+                                <>
+                                    <p className="visually-hidden">Pedidos por tipo: {Object.entries(m.catProductos).map(([categoria, cantidad]) => `${categoria}: ${cantidad}`).join('; ')}.</p>
+                                    <Bar
+                                        data={{ labels: Object.keys(m.catProductos), datasets: [{ label: 'Pedidos', data: Object.values(m.catProductos), backgroundColor: '#0d6efd' }] }}
+                                        options={{ maintainAspectRatio: false, plugins: { legend: { display: false } } }}
+                                    />
+                                </>
                             ) : (
                                 <p className="text-muted text-center mt-4">Sin datos suficientes.</p>
                             )}
@@ -186,16 +242,19 @@ export default function DashboardBI() {
                 </Col>
                 <Col lg={4}>
                     <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-white fw-bold text-center border-0">Fuga de Capital (Gastos) <small className="text-muted fw-normal">(período)</small></Card.Header>
+                        <Card.Header className="bg-white fw-bold text-center border-0">Gastos por categoría <small className="text-muted fw-normal">({alcance})</small></Card.Header>
                         <Card.Body style={{ height: '200px' }} className="d-flex justify-content-center">
                             {Object.keys(m.gastosAgrupados).length > 0 ? (
-                                <Doughnut
-                                    data={{
-                                        labels: Object.keys(m.gastosAgrupados),
-                                        datasets: [{ data: Object.values(m.gastosAgrupados), backgroundColor: ['#e83e8c', '#0dcaf0', '#fd7e14', '#20c997', '#6c757d', '#0d6efd'] }]
-                                    }}
-                                    options={{ maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } } }}
-                                />
+                                <>
+                                    <p className="visually-hidden">Gastos por categoría: {Object.entries(m.gastosAgrupados).map(([categoria, monto]) => `${categoria}: ${formatoColones(monto)}`).join('; ')}.</p>
+                                    <Doughnut
+                                        data={{
+                                            labels: Object.keys(m.gastosAgrupados),
+                                            datasets: [{ data: Object.values(m.gastosAgrupados), backgroundColor: ['#e83e8c', '#0dcaf0', '#fd7e14', '#20c997', '#6c757d', '#0d6efd'] }]
+                                        }}
+                                        options={{ maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } } }}
+                                    />
+                                </>
                             ) : (
                                 <p className="text-muted align-self-center">Sin gastos registrados.</p>
                             )}
@@ -208,7 +267,7 @@ export default function DashboardBI() {
             <Row className="mb-4">
                 <Col md={6} className="mb-3 mb-md-0">
                     <Card className="shadow-sm border-0">
-                        <Card.Header className="bg-danger text-white fw-bold"><i className="fas fa-fire"></i> Top 3 Fugas de Capital (Lugares, período)</Card.Header>
+                        <Card.Header className="bg-danger text-white fw-bold"><i className="fas fa-arrow-up"></i> Mayores gastos por entidad ({alcance})</Card.Header>
                         {m.topGastos.length === 0 ? (
                             <Card.Body className="text-muted small">Sin gastos registrados aún.</Card.Body>
                         ) : (
@@ -225,7 +284,7 @@ export default function DashboardBI() {
                 </Col>
                 <Col md={6}>
                     <Card className="shadow-sm border-0">
-                        <Card.Header className="bg-primary text-white fw-bold"><i className="fas fa-star"></i> Top 5 Productos Más Pedidos (período)</Card.Header>
+                        <Card.Header className="bg-primary text-white fw-bold"><i className="fas fa-star"></i> Productos más pedidos, sin cancelados ({alcance})</Card.Header>
                         {m.topProd.length === 0 ? (
                             <Card.Body className="text-muted small">Sin pedidos registrados aún.</Card.Body>
                         ) : (
@@ -246,13 +305,13 @@ export default function DashboardBI() {
             <Row className="mb-4">
                 <Col md={6} className="mb-3 mb-md-0">
                     <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-success text-white fw-bold"><i className="fas fa-arrow-down"></i> Ingresos por Método de Pago (período)</Card.Header>
+                        <Card.Header className="bg-success text-white fw-bold"><i className="fas fa-arrow-down"></i> Entradas por método de pago ({alcance})</Card.Header>
                         <div className="pt-3"><ListaProgreso dataObj={m.entradasPorMetodo} total={m.totalEntradas} colorCls="success" /></div>
                     </Card>
                 </Col>
                 <Col md={6}>
                     <Card className="shadow-sm border-0 h-100">
-                        <Card.Header className="bg-danger text-white fw-bold"><i className="fas fa-arrow-up"></i> Gastos por Método de Pago (período)</Card.Header>
+                        <Card.Header className="bg-danger text-white fw-bold"><i className="fas fa-arrow-up"></i> Gastos por método de pago ({alcance})</Card.Header>
                         <div className="pt-3"><ListaProgreso dataObj={m.salidasPorMetodo} total={m.totalSalidas} colorCls="danger" /></div>
                     </Card>
                 </Col>
@@ -260,23 +319,23 @@ export default function DashboardBI() {
 
             {/* FILA 5: RADIOGRAFÍA */}
             <Card className="shadow-sm border-0 mb-4">
-                <Card.Header className="bg-dark text-white fw-bold"><i className="fas fa-microscope"></i> Radiografía del Negocio <small className="text-white-50 fw-normal">(histórico)</small></Card.Header>
+                <Card.Header className="bg-dark text-white fw-bold"><i className="fas fa-microscope"></i> Radiografía del negocio <small className="text-white-50 fw-normal">({alcance})</small></Card.Header>
                 <Card.Body>
                     <Row>
                         <Col md={6} className="border-end mb-3 mb-md-0">
                             <h6 className="fw-bold"><i className="fas fa-chart-bar"></i> Volumen de Trabajo</h6>
                             <div className="d-flex justify-content-between border-bottom pb-2 mb-2 small">
-                                <span className="text-muted">Promedio (Mes):</span><strong className="text-primary">{formatoNumero(m.pedMedia, 1)} pedidos</strong>
+                                <span className="text-muted">Promedio por mes con pedidos:</span><strong className="text-primary">{formatoNumero(m.pedMedia, 1)} pedidos</strong>
                             </div>
                             <div className="d-flex justify-content-between border-bottom pb-2 mb-2 small">
                                 <span className="text-muted">Variabilidad:</span><strong className="text-secondary">± {formatoNumero(m.pedDesv, 1)} pedidos</strong>
                             </div>
                             <div className="d-flex justify-content-between small">
-                                <span className="text-muted">Tasa Cancelación:</span><strong className="text-danger">{m.tasaCanc}%</strong>
+                                <span className="text-muted">Cancelados entre cerrados:</span><strong className="text-danger">{m.entregadosPeriodo + m.anuladosPeriodo > 0 ? `${m.tasaCanc}%` : 'Sin cierres'}</strong>
                             </div>
                         </Col>
                         <Col md={6}>
-                            <h6 className="fw-bold"><i className="fas fa-hand-holding-usd"></i> Cobros (Entregados)</h6>
+                            <h6 className="fw-bold"><i className="fas fa-hand-holding-usd"></i> Saldo actual de entregados cerrados en {alcanceEnFrase}</h6>
                             <div className="d-flex justify-content-between mb-2 small">
                                 <span><i className="fas fa-circle text-success small"></i> Pagados 100%:</span> <strong>{m.pagados100}</strong>
                             </div>
@@ -285,160 +344,17 @@ export default function DashboardBI() {
                             </div>
                             {m.mayorDeudor ? (
                                 <div className="bi-list-entry alert alert-warning py-2 mb-0 d-flex justify-content-between align-items-center border-warning">
-                                    <span><i className="fas fa-exclamation-triangle"></i> <strong>Mayor Deuda:</strong> {m.mayorDeudor.cliente}</span>
+                                    <span><i className="fas fa-exclamation-triangle"></i> <strong>Mayor saldo individual:</strong> {m.mayorDeudor.cliente}</span>
                                     <span className="fs-5 fw-bold text-danger">{formatoColones(m.mayorDeudor.debe)}</span>
                                 </div>
                             ) : (
-                                <div className="alert alert-success py-2 mb-0 text-center border-success"><i className="fas fa-check-circle"></i> No hay deudas pendientes.</div>
+                                <div className="alert alert-success py-2 mb-0 text-center border-success"><i className="fas fa-check-circle"></i> No hay saldos pendientes en este alcance.</div>
                             )}
                         </Col>
                     </Row>
                 </Card.Body>
             </Card>
 
-            {/* MÓDULO DE CONTABILIDAD (oculto por defecto) */}
-            {mostrarContabilidad && (
-                <div className="mt-5 pt-4 border-top">
-                    <h4 className="fw-bold mb-4"><i className="fas fa-book-open text-success me-2"></i>Análisis Contable y Financiero</h4>
-
-                    <Row className="mb-4">
-                        <Col lg={3} md={6} className="mb-3">
-                            <Card className="border-0 shadow-sm text-center bg-light">
-                                <Card.Body>
-                                    <small className="text-muted fw-bold">Ganancia Neta</small>
-                                    <h2 className={`fw-bold ${mc.gananciaTotal >= 0 ? 'text-success' : 'text-danger'}`}>
-                                        {formatoColones(mc.gananciaTotal)}
-                                    </h2>
-                                    <small className="text-muted">Ingresos - Gastos</small>
-                                </Card.Body>
-                            </Card>
-                        </Col>
-                        <Col lg={3} md={6} className="mb-3">
-                            <Card className="border-0 shadow-sm text-center bg-light">
-                                <Card.Body>
-                                    <small className="text-muted fw-bold">Margen Promedio</small>
-                                    <h2 className="fw-bold text-info">{mc.margenPromedio.toFixed(1)}%</h2>
-                                    <small className="text-muted">% de ganancia sobre venta</small>
-                                </Card.Body>
-                            </Card>
-                        </Col>
-                        <Col lg={3} md={6} className="mb-3">
-                            <Card className="border-0 shadow-sm text-center bg-light">
-                                <Card.Body>
-                                    <small className="text-muted fw-bold">Rentabilidad</small>
-                                    <h2 className={`fw-bold ${mc.rentabilidad >= 0 ? 'text-success' : 'text-warning'}`}>
-                                        {mc.rentabilidad.toFixed(1)}%
-                                    </h2>
-                                    <small className="text-muted">Flujo / Ingresos</small>
-                                </Card.Body>
-                            </Card>
-                        </Col>
-                        <Col lg={3} md={6} className="mb-3">
-                            <Card className="border-0 shadow-sm text-center bg-light">
-                                <Card.Body>
-                                    <small className="text-muted fw-bold">Ratio Gasto/Ingreso</small>
-                                    <h2 className={`fw-bold ${mc.ratioGastoIngreso <= 70 ? 'text-success' : 'text-warning'}`}>
-                                        {mc.ratioGastoIngreso.toFixed(1)}%
-                                    </h2>
-                                    <small className="text-muted">Ideal: &lt; 70%</small>
-                                </Card.Body>
-                            </Card>
-                        </Col>
-                    </Row>
-
-                    <Row className="mb-4">
-                        <Col lg={6} className="mb-3">
-                            <Card className="border-0 shadow-sm">
-                                <Card.Header className="bg-primary text-white fw-bold">Top 5 Clientes por Valor</Card.Header>
-                                <Card.Body>
-                                    {mc.topClientesPorValor.length === 0 ? (
-                                        <p className="text-muted small mb-0">Sin datos.</p>
-                                    ) : (
-                                        <ul className="small mb-0 list-unstyled">
-                                            {mc.topClientesPorValor.map((c, i) => (
-                                                <li key={i} className="bi-list-entry d-flex justify-content-between mb-2 pb-2 border-bottom">
-                                                    <span><strong>#{i + 1}</strong> {c.nombre} ({c.pedidos} pedidos)</span>
-                                                    <span className="fw-bold">{formatoColones(c.valor)}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </Card.Body>
-                            </Card>
-                        </Col>
-                        <Col lg={6} className="mb-3">
-                            <Card className="border-0 shadow-sm">
-                                <Card.Header className="bg-danger text-white fw-bold">Top 5 Productos por Margen</Card.Header>
-                                <Card.Body>
-                                    {mc.topMargen.length === 0 ? (
-                                        <p className="text-muted small mb-0">Sin datos (requiere costo unitario registrado).</p>
-                                    ) : (
-                                        <ul className="small mb-0 list-unstyled">
-                                            {mc.topMargen.map((p, i) => (
-                                                <li key={i} className="bi-list-entry d-flex justify-content-between mb-2 pb-2 border-bottom">
-                                                    <span><strong>#{i + 1}</strong> {p.nombre}</span>
-                                                    <span className={`fw-bold ${p.margen >= 40 ? 'text-success' : p.margen >= 20 ? 'text-warning' : 'text-danger'}`}>
-                                                        {p.margen.toFixed(1)}%
-                                                    </span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    )}
-                                </Card.Body>
-                            </Card>
-                        </Col>
-                    </Row>
-
-                    {mc.morosos.length > 0 && (
-                        <Card className="border-0 shadow-sm mb-3 border-start border-5 border-danger">
-                            <Card.Header className="bg-danger text-white fw-bold">⚠️ Clientes Morosos ({mc.morosos.length})</Card.Header>
-                            <Card.Body className="small">
-                                <div className="table-responsive mobile-card-table-wrap">
-                                    <table className="table table-sm table-striped mobile-card-table mb-0">
-                                        <thead className="table-light">
-                                            <tr>
-                                                <th>Cliente</th>
-                                                <th>Deuda</th>
-                                                <th>Días Sin Pagar</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {mc.morosos.map((m, i) => (
-                                                <tr key={i} className={m.diasDeuda > 30 ? 'table-danger' : m.diasDeuda > 14 ? 'table-warning' : ''}>
-                                                    <td data-label="Cliente" className="fw-bold">{m.cliente}</td>
-                                                    <td data-label="Deuda" className="fw-bold text-danger">{formatoColones(m.deuda)}</td>
-                                                    <td data-label="Días sin pagar">
-                                                        <span className={`badge ${m.diasDeuda > 30 ? 'bg-danger' : m.diasDeuda > 14 ? 'bg-warning text-dark' : 'bg-info'}`}>
-                                                            {m.diasDeuda} días
-                                                        </span>
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </Card.Body>
-                        </Card>
-                    )}
-                    <Card className="border-0 shadow-sm">
-                        <Card.Header className="bg-info text-white fw-bold">Resumen Financiero del Período</Card.Header>
-                        <Card.Body className="small">
-                            <Row>
-                                <Col md={6}>
-                                    <p className="mb-2"><strong>Total Ingresos:</strong> {formatoColones(mc.ingresos)}</p>
-                                    <p className="mb-2"><strong>Total Gastos:</strong> {formatoColones(mc.gastos)}</p>
-                                    <p className="mb-0"><strong>Flujo de Caja:</strong> <span className={mc.flujoCaja >= 0 ? 'text-success' : 'text-danger'}>{formatoColones(mc.flujoCaja)}</span></p>
-                                </Col>
-                                <Col md={6}>
-                                    <p className="mb-2"><strong>Pedidos Entregados:</strong> {mc.pedidosEntregadosEnPeriodo}</p>
-                                    <p className="mb-2"><strong>Costo Estimado:</strong> {formatoColones(mc.precioTotalVenta * (1 - mc.margenPromedio / 100))}</p>
-                                    <p className="mb-0"><strong>Precio Total Venta:</strong> {formatoColones(mc.precioTotalVenta)}</p>
-                                </Col>
-                            </Row>
-                        </Card.Body>
-                    </Card>
-                </div>
-            )}
         </Container>
     );
 }

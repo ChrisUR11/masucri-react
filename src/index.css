@@ -688,6 +688,90 @@ a:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.bi-page .bi-period-note {
+  padding: 0.7rem 0.9rem;
+  border-inline-start: 3px solid #4f5aa5;
+  border-radius: 0.55rem;
+  background: #f2f3ff;
+}
+
+.bi-page .bi-section-heading h4 {
+  color: #34487e;
+  font-size: clamp(1.15rem, 1rem + 0.7vw, 1.45rem);
+}
+
+.bi-page .bi-active-card {
+  border-top: 4px solid #6c757d !important;
+  overflow: hidden;
+}
+
+.bi-page .bi-active-card--1 { border-top-color: #0b8da8 !important; }
+.bi-page .bi-active-card--2 { border-top-color: #bc8100 !important; }
+
+.bi-page .bi-active-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  padding-inline: 0.45rem;
+  border-radius: 0.7rem;
+  background: #eff2f5;
+  font-weight: 700;
+}
+
+.bi-page .bi-active-card--1 .bi-active-count { background: #e2f8fc; color: #075b6b; }
+.bi-page .bi-active-card--2 .bi-active-count { background: #fff2ca; color: #6d4b00; }
+
+.bi-page .bi-active-amount,
+.bi-page .bi-accounting-value {
+  overflow-wrap: anywhere;
+  font-size: clamp(1.2rem, 1rem + 0.95vw, 1.65rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.bi-page .bi-active-breakdown > div,
+.bi-page .bi-accounting-line {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.8rem;
+  margin-bottom: 0.4rem;
+}
+
+.bi-page .bi-active-total {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.4rem 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.7rem;
+  background: #eaf0fb;
+  font-variant-numeric: tabular-nums;
+}
+
+.bi-page .bi-accounting-kpi {
+  border-top: 3px solid #158459 !important;
+}
+
+.bi-page .bi-accounting-ranking li {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid #e8edf2;
+}
+
+.bi-page .bi-accounting-ranking li:last-child {
+  border-bottom: 0;
+}
+
+@media (max-width: 767.98px) {
+  .bi-page .mobile-card-table > tbody > tr > td::before {
+    flex: 0 0 5.2rem;
+  }
+}
+
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
   .orders-page .production-order-card,
   .catalog-page .catalog-product-card {

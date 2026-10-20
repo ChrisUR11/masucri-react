@@ -18,8 +18,13 @@ export default function HistorialCliente() {
 
     // Lista de clientes únicos
     const clientes = useMemo(() => {
-        const clientesSet = new Set(pedidos.map((p) => p.cliente).filter(Boolean));
-        return Array.from(clientesSet).sort();
+        const clientesUnicos = new Map();
+        pedidos.forEach((pedido) => {
+            const cliente = String(pedido.cliente || 'Anónimo').trim().replace(/\s+/g, ' ') || 'Anónimo';
+            const clave = cliente.toLocaleLowerCase('es-CR');
+            if (!clientesUnicos.has(clave)) clientesUnicos.set(clave, cliente);
+        });
+        return [...clientesUnicos.values()].sort((a, b) => a.localeCompare(b, 'es-CR'));
     }, [pedidos]);
 
     // Obtener historial del cliente seleccionado
@@ -68,7 +73,7 @@ export default function HistorialCliente() {
                         <Col md={3}>
                             <Card className="border-0 shadow-sm bg-light">
                                 <Card.Body className="text-center">
-                                    <small className="text-muted d-block fw-bold">Total Gastado</small>
+                                    <small className="text-muted d-block fw-bold">Valor de pedidos no cancelados</small>
                                     <h5 className="fw-bold text-success">{formatoColones(historial.totalGastado)}</h5>
                                 </Card.Body>
                             </Card>
@@ -76,7 +81,7 @@ export default function HistorialCliente() {
                         <Col md={3}>
                             <Card className="border-0 shadow-sm bg-light">
                                 <Card.Body className="text-center">
-                                    <small className="text-muted d-block fw-bold">Total Pagado</small>
+                                    <small className="text-muted d-block fw-bold">Abonado en pedidos no cancelados</small>
                                     <h5 className="fw-bold text-info">{formatoColones(historial.totalPagado)}</h5>
                                 </Card.Body>
                             </Card>
@@ -84,7 +89,7 @@ export default function HistorialCliente() {
                         <Col md={3}>
                             <Card className={`border-0 shadow-sm ${historial.deudaActual > 0 ? 'bg-danger-subtle' : 'bg-light'}`}>
                                 <Card.Body className="text-center">
-                                    <small className="text-muted d-block fw-bold">Deuda Actual</small>
+                                    <small className="text-muted d-block fw-bold">Por cobrar de entregados</small>
                                     <h5 className={`fw-bold ${historial.deudaActual > 0 ? 'text-danger' : 'text-success'}`}>
                                         {formatoColones(historial.deudaActual)}
                                     </h5>
@@ -94,8 +99,8 @@ export default function HistorialCliente() {
                         <Col md={3}>
                             <Card className="border-0 shadow-sm bg-light">
                                 <Card.Body className="text-center">
-                                    <small className="text-muted d-block fw-bold">Total Pedidos</small>
-                                    <h5 className="fw-bold text-primary">{historial.totalPedidos}</h5>
+                                    <small className="text-muted d-block fw-bold">Saldo de pedidos activos</small>
+                                    <h5 className="fw-bold text-primary">{formatoColones(historial.saldoActivo)}</h5>
                                 </Card.Body>
                             </Card>
                         </Col>
@@ -107,14 +112,17 @@ export default function HistorialCliente() {
                             <Row>
                                 <Col md={6}>
                                     <p className="mb-2"><strong>Primer pedido:</strong> {historial.primerPedido?.fecha_solicitud || '-'}</p>
+                                    <p className="mb-2"><strong>Pedidos registrados:</strong> {historial.totalPedidos}</p>
                                     <p className="mb-0"><strong>Promedio entre pedidos:</strong> {historial.promedioDias} días</p>
                                 </Col>
                                 <Col md={6}>
                                     <p className="mb-2"><strong>Último pedido:</strong> {historial.ultimaPedido?.fecha_solicitud || '-'}</p>
-                                    {historial.deudaActual > 0 && (
+                                    {historial.saldoEntregado > 0 && (
                                         <p className="mb-0 text-danger fw-bold">
                                             <i className="fas fa-exclamation-circle me-1"></i>
-                                            Lleva {historial.diasDeuda} días sin pagar
+                                            {historial.diasDeuda == null
+                                                ? 'Antigüedad del saldo: falta fecha de cierre.'
+                                                : `Antigüedad del saldo: ${historial.diasDeuda} días desde la entrega.`}
                                         </p>
                                     )}
                                 </Col>
@@ -158,22 +166,22 @@ export default function HistorialCliente() {
                                         </thead>
                                         <tbody>
                                             {pedidosFiltrados.map((p) => {
-                                                const saldo = (p.precio || 0) - (p.monto_pagado || 0);
+                                                const saldo = Math.max(0, (Number(p.precio) || 0) - (Number(p.monto_pagado) || 0));
                                                 return (
                                                     <tr key={p.id}>
                                                         <td data-label="Fecha" className="small">{p.fecha_solicitud}</td>
                                                         <td data-label="Producto" className="small fw-bold">{p.producto}</td>
                                                         <td data-label="Precio" className="small">{formatoColones(p.precio)}</td>
                                                         <td data-label="Pagado" className="small text-success">{formatoColones(p.monto_pagado)}</td>
-                                                        <td data-label="Saldo" className={`small fw-bold ${saldo > 0 ? 'text-danger' : 'text-success'}`}>
-                                                            {formatoColones(saldo)}
+                                                        <td data-label="Saldo" className={`small fw-bold ${p.estado === 'Cancelado' ? 'text-muted' : saldo > 0 ? 'text-danger' : 'text-success'}`}>
+                                                            {p.estado === 'Cancelado' ? 'No aplica (cancelado)' : formatoColones(saldo)}
                                                         </td>
                                                         <td data-label="Estado" className="small">
                                                             <Badge
                                                                 bg={
                                                                     p.estado === 'Entregado' ? 'success' :
                                                                     p.estado === 'Cancelado' ? 'secondary' :
-                                                                    p.estado === 'Listo para Retirar' ? 'warning' :
+                                                                    p.estado === 'Por Retirar' ? 'warning' :
                                                                     'info'
                                                                 }
                                                             >

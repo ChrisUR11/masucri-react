@@ -1,120 +1,132 @@
-import { obtenerMesDeFecha } from './fecha';
-import { clientesMorosos } from './historialClientes';
+import { obtenerMesDeFecha } from './fecha.js';
+import { clientesMorosos } from './historialClientes.js';
+
+const montoValido = (valor) => {
+    if (typeof valor !== 'number' && typeof valor !== 'string') return null;
+    if (typeof valor === 'string' && !valor.trim()) return null;
+    const numero = Number(valor);
+    return Number.isFinite(numero) && numero >= 0 ? numero : null;
+};
+
+const dentroDeRango = (fecha, rango) => Boolean(fecha) &&
+    (!rango.inicio || fecha >= rango.inicio) &&
+    (!rango.fin || fecha <= rango.fin);
 
 export function calcularMetricasContables(pedidos, movimientos, rango = {}) {
-    const pedidosEntregados = pedidos.filter(
-        (p) =>
-            p.estado === 'Entregado' &&
-            (!rango.inicio || p.fecha_solicitud >= rango.inicio) &&
-            (!rango.fin || p.fecha_solicitud <= rango.fin)
+    // La fecha de cierre identifica cuándo se entregó el pedido. Los registros
+    // antiguos sin cierre conservan como referencia su fecha de solicitud.
+    const pedidosEntregados = pedidos.filter((p) =>
+        p.estado === 'Entregado' && dentroDeRango(p.fecha_cierre || p.fecha_solicitud, rango)
     );
+    const movsPeriodo = movimientos.filter((m) => dentroDeRango(m.fecha, rango));
 
     let costoTotal = 0;
     let precioTotalVenta = 0;
+    let ventasConCosto = 0;
+    let pedidosConCosto = 0;
     const porProducto = {};
+    const clientePorValor = new Map();
 
     pedidosEntregados.forEach((p) => {
-        const prod = p.producto || 'Desconocido';
-        const costo = p.costo_unitario ? p.costo_unitario * (p.cantidad || 1) : 0;
-        const precio = p.precio || 0;
+        const precio = montoValido(p.precio);
+        const costoUnitario = montoValido(p.costo_unitario);
+        const cantidad = p.cantidad == null || p.cantidad === '' ? 1 : montoValido(p.cantidad);
+        const costoCalculado = costoUnitario !== null && cantidad !== null ? costoUnitario * cantidad : null;
+        const tieneCosto = precio !== null && cantidad > 0 &&
+            costoCalculado !== null && Number.isFinite(costoCalculado);
+        const costo = tieneCosto ? costoCalculado : null;
+        const producto = p.producto?.trim() || 'Desconocido';
+        const cliente = String(p.cliente ?? '').trim().replace(/\s+/g, ' ') || 'Anónimo';
+        const claveCliente = cliente.toLocaleLowerCase('es-CR');
 
-        costoTotal += costo;
-        precioTotalVenta += precio;
+        if (precio !== null) precioTotalVenta += precio;
 
-        if (!porProducto[prod]) {
-            porProducto[prod] = { costo: 0, venta: 0, cantidad: 0, margen: 0 };
+        if (!clientePorValor.has(claveCliente)) {
+            clientePorValor.set(claveCliente, { nombre: cliente, valor: 0, pedidos: 0, ventaConCosto: 0, costo: 0 });
         }
-        porProducto[prod].costo += costo;
-        porProducto[prod].venta += precio;
-        porProducto[prod].cantidad += (p.cantidad || 1);
+        const resumenCliente = clientePorValor.get(claveCliente);
+        resumenCliente.valor += precio ?? 0;
+        resumenCliente.pedidos += 1;
+
+        // El margen solo existe cuando se conocen tanto la venta como el costo.
+        // Un costo ausente nunca equivale a cero; un costo cero explícito sí vale.
+        if (!tieneCosto) return;
+        pedidosConCosto += 1;
+        ventasConCosto += precio;
+        costoTotal += costo;
+        resumenCliente.ventaConCosto += precio;
+        resumenCliente.costo += costo;
+
+        if (!porProducto[producto]) porProducto[producto] = { costo: 0, venta: 0, cantidad: 0 };
+        porProducto[producto].costo += costo;
+        porProducto[producto].venta += precio;
+        porProducto[producto].cantidad += cantidad;
     });
 
-    Object.keys(porProducto).forEach((prod) => {
-        const item = porProducto[prod];
-        const venta = item.venta || 0;
-        const costo = item.costo || 0;
-        item.margen = venta > 0 ? ((venta - costo) / venta) * 100 : 0;
-    });
-
-    const gananciaTotal = precioTotalVenta - costoTotal;
-    const margenPromedio = precioTotalVenta > 0 ? (gananciaTotal / precioTotalVenta) * 100 : 0;
-
-    const movsPeriodo = movimientos.filter(
-        (m) =>
-            (!rango.inicio || m.fecha >= rango.inicio) &&
-            (!rango.fin || m.fecha <= rango.fin)
-    );
-
-    let ingresos = 0;
-    let gastos = 0;
-    movsPeriodo.forEach((m) => {
-        if (m.tipo === 'entrada') ingresos += m.monto || 0;
-        else if (m.tipo === 'salida') gastos += m.monto || 0;
-    });
-
-    const flujoCaja = ingresos - gastos;
-    const rentabilidad = ingresos > 0 ? (flujoCaja / ingresos) * 100 : 0;
-
+    const gananciaTotal = ventasConCosto - costoTotal;
+    const margenPromedio = ventasConCosto > 0 ? (gananciaTotal / ventasConCosto) * 100 : null;
     const topMargen = Object.entries(porProducto)
-        .map(([nombre, datos]) => ({ nombre, ...datos }))
+        .filter(([, datos]) => datos.venta > 0)
+        .map(([nombre, datos]) => ({
+            nombre,
+            ...datos,
+            margen: ((datos.venta - datos.costo) / datos.venta) * 100
+        }))
         .sort((a, b) => b.margen - a.margen)
         .slice(0, 5);
 
-    const clientePorValor = {};
-    pedidosEntregados.forEach((p) => {
-        const cliente = p.cliente || 'Anónimo';
-        if (!clientePorValor[cliente]) {
-            clientePorValor[cliente] = { valor: 0, pedidos: 0, margenPromedio: 0 };
-        }
-        clientePorValor[cliente].valor += p.precio || 0;
-        clientePorValor[cliente].pedidos += 1;
-        const costoEste = p.costo_unitario ? p.costo_unitario * (p.cantidad || 1) : 0;
-        const margenEste = (p.precio || 0) > 0 ? (((p.precio || 0) - costoEste) / (p.precio || 0)) * 100 : 0;
-        clientePorValor[cliente].margenPromedio += margenEste;
-    });
-
-    Object.keys(clientePorValor).forEach((c) => {
-        const cliente = clientePorValor[c];
-        cliente.margenPromedio /= cliente.pedidos || 1;
-    });
-
-    const topClientesPorValor = Object.entries(clientePorValor)
-        .map(([nombre, datos]) => ({ nombre, ...datos }))
+    const topClientesPorValor = [...clientePorValor.values()]
+        .map((datos) => ({
+            nombre: datos.nombre,
+            valor: datos.valor,
+            pedidos: datos.pedidos,
+            margenPromedio: datos.ventaConCosto > 0
+                ? ((datos.ventaConCosto - datos.costo) / datos.ventaConCosto) * 100
+                : null
+        }))
         .sort((a, b) => b.valor - a.valor)
         .slice(0, 5);
 
+    let ingresos = 0;
+    let gastos = 0;
     const flujoPorMes = {};
-    movimientos.forEach((m) => {
+    movsPeriodo.forEach((m) => {
+        if (m.tipo !== 'entrada' && m.tipo !== 'salida') return;
+        const monto = montoValido(m.monto);
+        if (monto === null) return;
         const mes = obtenerMesDeFecha(m.fecha);
-        if (!mes) return;
         if (!flujoPorMes[mes]) flujoPorMes[mes] = { ingresos: 0, gastos: 0 };
-        if (m.tipo === 'entrada') flujoPorMes[mes].ingresos += m.monto || 0;
-        else if (m.tipo === 'salida') flujoPorMes[mes].gastos += m.monto || 0;
+
+        if (m.tipo === 'entrada') {
+            ingresos += monto;
+            flujoPorMes[mes].ingresos += monto;
+        } else {
+            gastos += monto;
+            flujoPorMes[mes].gastos += monto;
+        }
     });
 
+    const flujoCaja = ingresos - gastos;
     const flujoCajaPorMes = Object.entries(flujoPorMes)
         .map(([mes, datos]) => ({ mes, flujo: datos.ingresos - datos.gastos, ...datos }))
         .sort((a, b) => a.mes.localeCompare(b.mes));
 
-    const ratioGastoIngreso = ingresos > 0 ? (gastos / ingresos) * 100 : 0;
-
-    // Clientes morosos de TODO el negocio (no filtrado por rango)
-    const morosos = clientesMorosos(pedidos);
-
     return {
         costoTotal,
         precioTotalVenta,
+        ventasConCosto,
+        pedidosConCosto,
         gananciaTotal,
         margenPromedio,
         ingresos,
         gastos,
         flujoCaja,
-        rentabilidad,
-        ratioGastoIngreso,
+        rentabilidad: ingresos > 0 ? (flujoCaja / ingresos) * 100 : 0,
+        ratioGastoIngreso: ingresos > 0 ? (gastos / ingresos) * 100 : 0,
         topMargen,
         topClientesPorValor,
         flujoCajaPorMes,
         pedidosEntregadosEnPeriodo: pedidosEntregados.length,
-        morosos
+        morosos: clientesMorosos(pedidos, rango)
     };
 }
