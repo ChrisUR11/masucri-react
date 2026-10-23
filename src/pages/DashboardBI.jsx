@@ -238,6 +238,7 @@ export default function DashboardBI() {
                                 <p className="text-muted text-center mt-4">Sin datos suficientes.</p>
                             )}
                         </Card.Body>
+                        <Card.Footer className="bg-white border-0 small text-muted">Un pedido con varias categorías cuenta en cada una.</Card.Footer>
                     </Card>
                 </Col>
                 <Col lg={4}>

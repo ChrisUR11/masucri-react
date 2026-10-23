@@ -1,4 +1,5 @@
 import { obtenerMesDeFecha } from './fecha.js';
+import { obtenerProductosPedido } from './productosPedido.js';
 
 const GASTOS_AGRUPADOS_BASE = {
     'Telas y Costura': 0,
@@ -164,12 +165,19 @@ export function calcularMetricas(pedidos, movimientos, rango = {}) {
     pedidosCreadosPeriodo.forEach((p) => {
         // Los productos anulados no cuentan como pedidos vigentes o entregados.
         if (p.estado === 'Cancelado') return;
-        if (p.producto) {
-            const nombre = String(p.producto).trim().toUpperCase();
-            if (!nombre) return;
+        // Cada producto y categoría cuentan una vez por pedido, incluso si
+        // hay varias líneas iguales. Los pedidos anteriores usan p.producto.
+        const nombres = new Set(obtenerProductosPedido(p)
+            .map(({ nombre }) => nombre.replace(/\s+/g, ' ').trim().toUpperCase())
+            .filter(Boolean));
+        const categorias = new Set();
+        nombres.forEach((nombre) => {
             prodMapPeriodo[nombre] = (prodMapPeriodo[nombre] || 0) + 1;
-            catProductos[categorizarProducto(nombre)] = (catProductos[categorizarProducto(nombre)] || 0) + 1;
-        }
+            categorias.add(categorizarProducto(nombre));
+        });
+        categorias.forEach((categoria) => {
+            catProductos[categoria] = (catProductos[categoria] || 0) + 1;
+        });
     });
 
     const entregadosPeriodo = pedidosCerradosPeriodo.filter((p) => p.estado === 'Entregado').length;

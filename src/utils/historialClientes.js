@@ -50,8 +50,11 @@ export function obtenerHistorialCliente(cliente, pedidos, hoy = obtenerFechaLoca
 
     // Promedio de días entre pedidos
     let promedioDias = 0;
-    if (pedidosCliente.length > 1) {
-        const fechas = pedidosCliente.map((p) => new Date(p.fecha_solicitud)).sort((a, b) => a - b);
+    const fechas = pedidosCliente
+        .map((p) => Date.parse(p.fecha_solicitud))
+        .filter(Number.isFinite)
+        .sort((a, b) => a - b);
+    if (fechas.length > 1) {
         let sumaDias = 0;
         for (let i = 1; i < fechas.length; i++) {
             const diff = (fechas[i] - fechas[i - 1]) / (1000 * 60 * 60 * 24);

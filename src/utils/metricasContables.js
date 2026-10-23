@@ -22,14 +22,21 @@ export function calcularMetricasContables(pedidos, movimientos, rango = {}) {
 
     let costoTotal = 0;
     let precioTotalVenta = 0;
+    let descuentosEntregados = 0;
     let ventasConCosto = 0;
     let pedidosConCosto = 0;
-    const porProducto = {};
+    // El nombre de un producto puede coincidir con una propiedad heredada
+    // (por ejemplo, "constructor"); no debe desaparecer del ranking.
+    const porProducto = Object.create(null);
     const clientePorValor = new Map();
 
     pedidosEntregados.forEach((p) => {
         const precio = montoValido(p.precio);
-        const costoUnitario = montoValido(p.costo_unitario);
+        // El costo a nivel de pedido solo describe el producto de los
+        // registros antiguos. Al editar uno pueden quedar costo_unitario y
+        // cantidad antiguos junto a productos nuevos; no representan su costo.
+        const tieneLineas = Array.isArray(p.productos) && p.productos.length > 0;
+        const costoUnitario = tieneLineas ? null : montoValido(p.costo_unitario);
         const cantidad = p.cantidad == null || p.cantidad === '' ? 1 : montoValido(p.cantidad);
         const costoCalculado = costoUnitario !== null && cantidad !== null ? costoUnitario * cantidad : null;
         const tieneCosto = precio !== null && cantidad > 0 &&
@@ -39,7 +46,13 @@ export function calcularMetricasContables(pedidos, movimientos, rango = {}) {
         const cliente = String(p.cliente ?? '').trim().replace(/\s+/g, ' ') || 'Anónimo';
         const claveCliente = cliente.toLocaleLowerCase('es-CR');
 
-        if (precio !== null) precioTotalVenta += precio;
+        if (precio !== null) {
+            precioTotalVenta += precio;
+            const subtotal = montoValido(p.subtotal);
+            if (subtotal !== null && subtotal >= precio) {
+                descuentosEntregados += subtotal - precio;
+            }
+        }
 
         if (!clientePorValor.has(claveCliente)) {
             clientePorValor.set(claveCliente, { nombre: cliente, valor: 0, pedidos: 0, ventaConCosto: 0, costo: 0 });
@@ -114,6 +127,7 @@ export function calcularMetricasContables(pedidos, movimientos, rango = {}) {
     return {
         costoTotal,
         precioTotalVenta,
+        descuentosEntregados,
         ventasConCosto,
         pedidosConCosto,
         gananciaTotal,

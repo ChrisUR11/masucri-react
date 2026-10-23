@@ -31,7 +31,9 @@ La aplicación usa el proyecto de Firebase configurado en `src/config/firebase.j
 - `src/config/firebase.js`: inicialización de Authentication y Firestore.
 - `test/`: pruebas de las reglas de negocio que no requieren conexión a Firebase.
 
-Los pagos originados por pedidos guardan `pedido_id` en el movimiento de Caja. La venta rápida, los adelantos, los abonos y los pagos al entregar escriben pedido y movimiento juntos mediante un batch de Firestore. Caja muestra los movimientos vinculados, pero impide editarlos o borrarlos desde allí para conservar el saldo y el historial del pedido. Los movimientos manuales de Caja siguen siendo independientes.
+Los pedidos nuevos y las ventas rápidas admiten varios productos, descuentos y pagos iniciales. Los pedidos anteriores conservan su formato al consultarlos; se convierten a líneas de productos solo si se editan y guardan.
+
+Los pagos originados por pedidos guardan `pedido_id` en el movimiento de Caja. La venta rápida y los adelantos iniciales escriben pedido y movimiento juntos mediante un batch de Firestore. Los abonos y los pagos al entregar usan transacciones para comprobar el saldo vigente antes de registrar ambos documentos. Caja muestra los movimientos vinculados, pero impide editarlos o borrarlos desde allí para conservar el saldo y el historial del pedido. Los movimientos manuales de Caja siguen siendo independientes.
 
 ## Trabajo sin conexión
 

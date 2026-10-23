@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { LOGO_TICKET, formatoMontoTicket, prepararDatosTicket } from '../utils/ticketDatos';
+import { LOGO_TICKET, WHATSAPP_NEGOCIO, formatoMontoTicket, formatoPorcentajeTicket, prepararDatosTicket } from '../utils/ticketDatos';
 import './TicketImpresion.css';
 
 export const TicketImpresion = forwardRef(function TicketImpresion({ pedido, nombreCliente }, ref) {
@@ -20,13 +20,32 @@ export const TicketImpresion = forwardRef(function TicketImpresion({ pedido, nom
                 <h2>Cliente</h2>
                 <p>{datos.cliente}</p>
             </section>
-            <section className="ticket-recibo-producto">
-                <h2>Producto</h2>
-                <p>{datos.producto}</p>
+            <section className="ticket-recibo-productos">
+                <h2>Productos</h2>
+                <ul>
+                    {datos.productos.map((producto, index) => (
+                        <li key={index}>
+                            <strong>{producto.nombre}</strong>
+                            <div className="ticket-recibo-producto-detalle">
+                                <span>{producto.cantidad} × {formatoMontoTicket(producto.precioUnitario)} c/u</span>
+                                <b>{formatoMontoTicket(producto.total)}</b>
+                            </div>
+                        </li>
+                    ))}
+                </ul>
             </section>
             <dl className="ticket-recibo-totales">
+                {datos.descuento > 0 && (
+                    <>
+                        <div><dt>Subtotal</dt><dd>{formatoMontoTicket(datos.subtotal)}</dd></div>
+                        <div className="ticket-recibo-descuento">
+                            <dt>Descuento ({formatoPorcentajeTicket(datos.descuentoPorcentaje)})</dt>
+                            <dd>{formatoMontoTicket(datos.descuento)}</dd>
+                        </div>
+                    </>
+                )}
                 <div><dt>Total del pedido</dt><dd>{formatoMontoTicket(datos.total)}</dd></div>
-                <div><dt>Total abonado</dt><dd>{formatoMontoTicket(datos.pagado)}</dd></div>
+                <div className="ticket-recibo-abonado"><dt>Total abonado</dt><dd>{formatoMontoTicket(datos.pagado)}</dd></div>
             </dl>
             <section className="ticket-recibo-abonos">
                 <h2>Abonos registrados</h2>
@@ -53,7 +72,7 @@ export const TicketImpresion = forwardRef(function TicketImpresion({ pedido, nom
             {datos.saldoAFavor > 0 && <p>Saldo a favor: {formatoMontoTicket(datos.saldoAFavor)}</p>}
             <footer className="ticket-recibo-pie">
                 <strong>¡Gracias por tu compra!</strong>
-                <p>WhatsApp: 8404-6513</p>
+                <p>WhatsApp: {WHATSAPP_NEGOCIO}</p>
             </footer>
         </article>
     );

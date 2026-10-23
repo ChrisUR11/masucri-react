@@ -85,3 +85,12 @@ test('el historial no atribuye antigüedad de pago a pedidos solo activos', () =
     assert.equal(historial.saldoEntregado, 0);
     assert.equal(historial.diasDeuda, null);
 });
+
+test('omite fechas de solicitud inválidas al calcular el tiempo entre pedidos', () => {
+    const pedidos = [
+        { cliente: 'Eva', fecha_solicitud: '2026-10-01', estado: 'Pendiente' },
+        { cliente: 'Eva', fecha_solicitud: 'fecha inválida', estado: 'Pendiente' },
+        { cliente: 'Eva', fecha_solicitud: '2026-10-11', estado: 'Pendiente' }
+    ];
+    assert.equal(obtenerHistorialCliente('Eva', pedidos).promedioDias, 10);
+});

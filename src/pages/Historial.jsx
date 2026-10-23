@@ -8,16 +8,20 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import FichaPedidoDetalle from '../components/FichaPedidoDetalle';
+import ProductosPedidoForm from '../components/ProductosPedidoForm';
 import { registrarAbono } from '../utils/abonoPedido';
 import { borrarPedidoConTrazabilidad } from '../utils/trazabilidad';
 import { abrirWhatsApp, mensajePedido } from '../utils/whatsapp';
 import { compartirTicket } from '../utils/ticketImagen';
 import { formatoColones } from '../utils/formato';
+import { calcularTotalesPedido, detalleProductosPedido, obtenerProductosPedido, resumenProductos, validarProductosPedido } from '../utils/productosPedido';
+import { aCentavos, tieneMaximoDosDecimales } from '../utils/dinero';
 
 const ESTADOS_ACTIVOS = ['Pendiente', 'En producción', 'Por Retirar'];
 
 export default function Historial() {
     const { datos: pedidos, cargando, error } = useFirestoreCollection(() => collection(db, 'pedidos'), []);
+    const { datos: productosCatalogo } = useFirestoreCollection(() => collection(db, 'productos'), []);
 
     const [filtroTexto, setFiltroTexto] = useState('');
     const [filtroEstado, setFiltroEstado] = useState('con_saldo');
@@ -31,8 +35,14 @@ export default function Historial() {
     const [guardandoEdicion, setGuardandoEdicion] = useState(false);
     const [errorEdicion, setErrorEdicion] = useState('');
     const [formEdicion, setFormEdicion] = useState({
-        cliente: '', telefono: '', producto: '', descripcion: '', fecha_entrega: '', precio: ''
+        cliente: '', telefono: '', productos: [], descripcion: '', fecha_entrega: '',
+        aplicaDescuento: false, descuentoMonto: '', descuentoPorcentaje: '', descuentoOrigen: 'monto'
     });
+
+    const totalesEdicion = calcularTotalesPedido(formEdicion.productos, formEdicion.aplicaDescuento ? {
+        descuento_monto: formEdicion.descuentoMonto,
+        descuento_porcentaje: formEdicion.descuentoPorcentaje
+    } : {});
 
     const filtroTextoDebounced = useDebounce(filtroTexto, 250);
 
@@ -46,7 +56,9 @@ export default function Historial() {
 
         if (filtroTextoDebounced) {
             const txt = filtroTextoDebounced.toLowerCase();
-            lista = lista.filter((p) => p.cliente?.toLowerCase().includes(txt) || p.producto?.toLowerCase().includes(txt));
+            lista = lista.filter((p) => p.cliente?.toLowerCase().includes(txt)
+                || p.producto?.toLowerCase().includes(txt)
+                || obtenerProductosPedido(p).some((producto) => producto.nombre.toLowerCase().includes(txt)));
         }
         return lista;
     }, [pedidos, filtroEstado, filtroTextoDebounced]);
@@ -67,13 +79,20 @@ export default function Historial() {
     const abrirEditar = () => {
         if (pedidoActivoActualizado?.estado !== 'Entregado' || procesando) return;
         const ped = pedidoActivoActualizado;
+        const productos = obtenerProductosPedido(ped);
+        const subtotal = calcularTotalesPedido(productos).subtotal;
+        const descuentoMonto = ped.descuento_monto ?? Math.max(0, subtotal - (Number(ped.precio) || 0));
+        const descuentoPorcentaje = ped.descuento_porcentaje ?? (subtotal > 0 ? Number(descuentoMonto) / subtotal * 100 : 0);
         setFormEdicion({
             cliente: ped.cliente || '',
             telefono: ped.telefono || '',
-            producto: ped.producto || '',
+            productos: productos.length ? productos : [{ nombre: '', precio_unitario: '', cantidad: 1, total: 0 }],
             descripcion: ped.descripcion || '',
             fecha_entrega: ped.fecha_entrega || '',
-            precio: ped.precio ?? ''
+            aplicaDescuento: Number(descuentoMonto) > 0,
+            descuentoMonto: descuentoMonto > 0 ? String(descuentoMonto) : '',
+            descuentoPorcentaje: descuentoPorcentaje > 0 ? String(descuentoPorcentaje) : '',
+            descuentoOrigen: 'monto'
         });
         setErrorEdicion('');
         setEditando(true);
@@ -84,15 +103,77 @@ export default function Historial() {
         setErrorEdicion('');
     };
 
+    const actualizarProductos = (productos) => {
+        setFormEdicion((actual) => {
+            if (!actual.aplicaDescuento) return { ...actual, productos };
+            const descuento = actual.descuentoOrigen === 'porcentaje'
+                ? { descuento_porcentaje: actual.descuentoPorcentaje }
+                : { descuento_monto: actual.descuentoMonto };
+            const totales = calcularTotalesPedido(productos, descuento);
+            return {
+                ...actual,
+                productos,
+                descuentoMonto: actual.descuentoOrigen === 'porcentaje' && actual.descuentoPorcentaje !== ''
+                    ? String(totales.descuento_monto)
+                    : actual.descuentoMonto !== '' ? String(totales.descuento_monto) : '',
+                descuentoPorcentaje: actual.descuentoOrigen === 'monto' && actual.descuentoMonto !== ''
+                    ? String(totales.descuento_porcentaje) : actual.descuentoPorcentaje
+            };
+        });
+        setErrorEdicion('');
+    };
+
+    const cambiarAplicaDescuento = (e) => {
+        const aplicaDescuento = e.target.checked;
+        setFormEdicion((actual) => ({
+            ...actual,
+            aplicaDescuento,
+            ...(aplicaDescuento ? {} : { descuentoMonto: '', descuentoPorcentaje: '', descuentoOrigen: 'monto' })
+        }));
+        setErrorEdicion('');
+    };
+
+    const actualizarDescuento = (origen) => (e) => {
+        const valor = e.target.value;
+        setFormEdicion((actual) => {
+            const totales = calcularTotalesPedido(actual.productos, origen === 'monto'
+                ? { descuento_monto: valor }
+                : { descuento_porcentaje: valor });
+            return {
+                ...actual,
+                descuentoOrigen: origen,
+                descuentoMonto: valor === '' ? '' : origen === 'monto' ? valor : String(totales.descuento_monto),
+                descuentoPorcentaje: valor === '' ? '' : origen === 'porcentaje' ? valor : String(totales.descuento_porcentaje)
+            };
+        });
+        setErrorEdicion('');
+    };
+
     const guardarEdicion = async (e) => {
         e.preventDefault();
         if (!pedidoActivoActualizado || guardandoEdicion) return;
 
-        const precio = Number(formEdicion.precio);
         const cliente = formEdicion.cliente.trim();
-        const producto = formEdicion.producto.trim();
-        if (!cliente || !producto || formEdicion.precio === '' || !Number.isFinite(precio) || precio < 0) {
-            setErrorEdicion('Completa el cliente, el producto y un precio válido.');
+        if (!cliente) {
+            setErrorEdicion('Ingresa el nombre del cliente.');
+            return;
+        }
+        let productos;
+        try {
+            productos = validarProductosPedido(formEdicion.productos);
+        } catch (err) {
+            setErrorEdicion(err.message);
+            return;
+        }
+        const totales = calcularTotalesPedido(productos, formEdicion.aplicaDescuento ? {
+            descuento_monto: formEdicion.descuentoMonto,
+            descuento_porcentaje: formEdicion.descuentoPorcentaje
+        } : {});
+        if (formEdicion.aplicaDescuento && (!tieneMaximoDosDecimales(formEdicion.descuentoMonto || 0)
+            || Number(formEdicion.descuentoMonto) < 0 || Number(formEdicion.descuentoMonto) > totales.subtotal
+            || !Number.isFinite(Number(formEdicion.descuentoPorcentaje))
+            || Number(formEdicion.descuentoPorcentaje) < 0 || Number(formEdicion.descuentoPorcentaje) > 100)) {
+            setErrorEdicion('El descuento debe estar entre cero y el subtotal del pedido.');
             return;
         }
 
@@ -105,16 +186,17 @@ export default function Historial() {
                 if (!actual.exists() || actual.data().estado !== 'Entregado') {
                     throw new Error('Este pedido ya no está entregado. Vuelve a abrirlo desde el historial.');
                 }
-                if (precio < (Number(actual.data().monto_pagado) || 0)) {
+                if (aCentavos(totales.precio) < aCentavos(actual.data().monto_pagado || 0)) {
                     throw new Error('El precio total no puede ser menor que el monto ya pagado.');
                 }
                 transaccion.update(pedidoRef, {
                     cliente,
                     telefono: formEdicion.telefono.trim(),
-                    producto,
+                    producto: resumenProductos(productos),
+                    productos,
                     descripcion: formEdicion.descripcion.trim(),
                     fecha_entrega: formEdicion.fecha_entrega,
-                    precio
+                    ...totales
                 });
             });
             setEditando(false);
@@ -226,7 +308,7 @@ export default function Historial() {
                     <Form.Select className="w-auto border-primary fw-bold text-primary shadow-sm" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)} aria-label="Filtrar historial por estado de pago">
                         <option value="con_saldo">Mostrar: Con Saldo Pendiente</option>
                         <option value="todos">Mostrar: Todos</option>
-                        <option value="entregados">Mostrar: Cancelados al 100%</option>
+                        <option value="entregados">Mostrar: Entregados sin saldo</option>
                         <option value="anulados">Mostrar: Anulados/Eliminados</option>
                     </Form.Select>
                 </div>
@@ -241,7 +323,7 @@ export default function Historial() {
                     ) : (
                         <Table hover className="mobile-card-table align-middle m-0" aria-label="Pedidos finalizados">
                             <thead className="table-light sticky-top shadow-sm" style={{ zIndex: 1 }}>
-                                <tr><th>Estado</th><th>Cliente</th><th>Producto</th><th className="text-center">Acción</th></tr>
+                                <tr><th>Estado</th><th>Cliente</th><th>Productos</th><th className="text-center">Acción</th></tr>
                             </thead>
                             <tbody>
                                 {historialCortado.length === 0 ? (
@@ -257,7 +339,7 @@ export default function Historial() {
                                             <tr key={ped.id}>
                                                 <td data-label="Estado"><Badge bg={bColor}>{txtEst}</Badge></td>
                                                 <td data-label="Cliente" className="fw-bold">{ped.cliente}</td>
-                                                <td data-label="Producto" className="historial-producto">{ped.producto}</td>
+                                                <td data-label="Productos" className="historial-producto">{detalleProductosPedido(ped) || ped.producto}</td>
                                                 <td data-label="Acción" className="text-center">
                                                     <Button variant="primary" size="sm" className="rounded-pill px-3 shadow-sm fw-bold" onClick={() => handleVerDetalle(ped)}>
                                                         <i className="fas fa-search"></i> Ver
@@ -281,7 +363,7 @@ export default function Historial() {
             </Card>
 
             {/* MODAL DE DETALLE DE PEDIDO */}
-            <Modal show={showModal} onHide={() => { if (!guardandoEdicion) { setShowModal(false); setEditando(false); } }} centered scrollable enforceFocus={false} className="d-print-none">
+            <Modal show={showModal} onHide={() => { if (!guardandoEdicion) { setShowModal(false); setEditando(false); } }} centered scrollable enforceFocus={false} size={editando ? 'lg' : undefined} className="d-print-none">
                 <Modal.Header closeButton className="bg-light border-bottom-0 pb-0">
                     <Modal.Title className="fw-bold fs-5"><i className={`fas ${editando ? 'fa-pen' : 'fa-file-invoice'} text-dark`}></i> {editando ? 'Editar pedido entregado' : 'Detalle del Pedido'}</Modal.Title>
                 </Modal.Header>
@@ -289,7 +371,7 @@ export default function Historial() {
                     <>
                         <Modal.Body className="pt-3">
                             <Form id="editar-pedido-entregado" onSubmit={guardarEdicion}>
-                                <p className="small text-muted">Corrige los datos del pedido o aumenta el precio si el cliente se llevó algo más. Los pagos ya registrados se conservan.</p>
+                                <p className="small text-muted">Corrige los productos, el descuento o los datos del pedido. Los pagos ya registrados se conservan.</p>
                                 <Form.Group controlId="historial-editar-cliente" className="mb-3">
                                     <Form.Label className="fw-bold small">Cliente</Form.Label>
                                     <Form.Control required type="text" autoComplete="name" value={formEdicion.cliente} onChange={actualizarEdicion('cliente')} />
@@ -298,26 +380,51 @@ export default function Historial() {
                                     <Form.Label className="fw-bold small">Teléfono</Form.Label>
                                     <Form.Control type="tel" inputMode="tel" autoComplete="tel" value={formEdicion.telefono} onChange={actualizarEdicion('telefono')} />
                                 </Form.Group>
-                                <Form.Group controlId="historial-editar-producto" className="mb-3">
-                                    <Form.Label className="fw-bold small">Producto</Form.Label>
-                                    <Form.Control required type="text" value={formEdicion.producto} onChange={actualizarEdicion('producto')} />
-                                </Form.Group>
+                                <ProductosPedidoForm
+                                    productos={formEdicion.productos}
+                                    onChange={actualizarProductos}
+                                    catalogo={productosCatalogo}
+                                    idPrefix="historial-editar"
+                                />
                                 <Form.Group controlId="historial-editar-descripcion" className="mb-3">
-                                    <Form.Label className="fw-bold small">Notas</Form.Label>
+                                    <Form.Label className="fw-bold small">Descripción / notas internas</Form.Label>
                                     <Form.Control as="textarea" rows={2} value={formEdicion.descripcion} onChange={actualizarEdicion('descripcion')} />
                                 </Form.Group>
                                 <Form.Group controlId="historial-editar-fecha" className="mb-3">
                                     <Form.Label className="fw-bold small">Fecha de entrega pautada</Form.Label>
                                     <Form.Control type="date" value={formEdicion.fecha_entrega} onChange={actualizarEdicion('fecha_entrega')} />
                                 </Form.Group>
-                                <Form.Group controlId="historial-editar-precio" className="mb-2">
-                                    <Form.Label className="fw-bold small">Precio total (₡)</Form.Label>
-                                    <Form.Control required type="number" inputMode="decimal" min="0" step="0.01" value={formEdicion.precio} onChange={actualizarEdicion('precio')} />
-                                </Form.Group>
+                                <div className="border rounded p-3 mb-3">
+                                    <div className="d-flex justify-content-between flex-wrap gap-2 mb-2">
+                                        <span>Subtotal</span><strong>{formatoColones(totalesEdicion.subtotal)}</strong>
+                                    </div>
+                                    <Form.Check
+                                        type="switch"
+                                        id="historial-editar-aplica-descuento"
+                                        label={<span className="fw-bold small">¿Se aplicará descuento?</span>}
+                                        checked={formEdicion.aplicaDescuento}
+                                        onChange={cambiarAplicaDescuento}
+                                    />
+                                    {formEdicion.aplicaDescuento && (
+                                        <div className="row g-2 mt-1">
+                                            <Form.Group className="col-12 col-sm-6" controlId="historial-editar-descuento-porcentaje">
+                                                <Form.Label className="small">Descuento (%)</Form.Label>
+                                                <Form.Control type="number" inputMode="decimal" min="0" max="100" step="any" value={formEdicion.descuentoPorcentaje} onChange={actualizarDescuento('porcentaje')} />
+                                            </Form.Group>
+                                            <Form.Group className="col-12 col-sm-6" controlId="historial-editar-descuento-monto">
+                                                <Form.Label className="small">Descuento (₡)</Form.Label>
+                                                <Form.Control type="number" inputMode="decimal" min="0" max={totalesEdicion.subtotal} step="0.01" value={formEdicion.descuentoMonto} onChange={actualizarDescuento('monto')} />
+                                            </Form.Group>
+                                        </div>
+                                    )}
+                                    <div className="d-flex justify-content-between flex-wrap gap-2 mt-3 pt-2 border-top fw-bold">
+                                        <span>Total del pedido</span><span>{formatoColones(totalesEdicion.precio)}</span>
+                                    </div>
+                                </div>
                                 <div className="bg-light border rounded p-2 small" aria-live="polite">
                                     Pagado: <strong>{formatoColones(pedidoActivoActualizado?.monto_pagado)}</strong><br />
-                                    Nuevo saldo: <strong>{Number(formEdicion.precio) >= (pedidoActivoActualizado?.monto_pagado || 0)
-                                        ? formatoColones(Number(formEdicion.precio) - (pedidoActivoActualizado?.monto_pagado || 0))
+                                    Nuevo saldo: <strong>{totalesEdicion.precio >= (pedidoActivoActualizado?.monto_pagado || 0)
+                                        ? formatoColones(totalesEdicion.precio - (pedidoActivoActualizado?.monto_pagado || 0))
                                         : 'El total es menor que lo pagado'}</strong>
                                 </div>
                                 {errorEdicion && <div role="alert" className="alert alert-warning mt-3 mb-0">{errorEdicion}</div>}
@@ -352,10 +459,13 @@ export default function Historial() {
                             </Modal.Body>
                         )}
                         <Modal.Footer className="justify-content-center bg-white border-top-0 pt-3 gap-2 flex-wrap">
-                            <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleEnviarTicket} disabled={procesando}>
-                                <i className="fas fa-share-nodes"></i> Enviar Ticket
-                            </Button>
-                            {pedidoActivoActualizado && (pedidoActivoActualizado.precio || 0) - (pedidoActivoActualizado.monto_pagado || 0) > 0 && (
+                            {pedidoActivoActualizado?.estado === 'Entregado' && (
+                                <Button variant="outline-info" className="fw-bold flex-grow-1" onClick={handleEnviarTicket} disabled={procesando}>
+                                    <i className="fas fa-share-nodes"></i> Enviar Ticket
+                                </Button>
+                            )}
+                            {pedidoActivoActualizado?.estado === 'Entregado'
+                                && (pedidoActivoActualizado.precio || 0) - (pedidoActivoActualizado.monto_pagado || 0) > 0 && (
                                 <Button variant="outline-primary" className="fw-bold flex-grow-1" onClick={handleAbonar} disabled={procesando}>
                                     <i className="fas fa-coins"></i> Abonar
                                 </Button>

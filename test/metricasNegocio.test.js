@@ -93,3 +93,28 @@ test('montos inválidos o negativos no contaminan las métricas financieras', ()
     assert.equal(resultado.volMedia, 0);
     assert.equal(resultado.tasaCanc, '0.0');
 });
+
+test('desglosa los productos nuevos por pedido sin duplicar líneas ni categorías', () => {
+    const pedidosConLineas = [
+        {
+            estado: 'Pendiente', fecha_solicitud: '2026-10-10',
+            producto: 'Taza y 2 productos más', precio: 2700,
+            productos: [
+                { nombre: 'Taza', cantidad: 2, precio_unitario: 500 },
+                { nombre: ' taza ', cantidad: 1, precio_unitario: 500 },
+                { nombre: 'Vaso', cantidad: 1, precio_unitario: 700 },
+                { nombre: 'Llavero', cantidad: 1, precio_unitario: 500 }
+            ]
+        },
+        { estado: 'Entregado', fecha_solicitud: '2026-10-11', producto: 'Taza', precio: 500 },
+        {
+            estado: 'Cancelado', fecha_solicitud: '2026-10-12', producto: 'Llavero',
+            productos: [{ nombre: 'Llavero', cantidad: 3, precio_unitario: 500 }], precio: 1500
+        }
+    ];
+
+    const metricas = calcularMetricas(pedidosConLineas, [], { inicio: '2026-10-01', fin: '2026-10-31' });
+    assert.deepEqual(metricas.topProd, [['TAZA', 2], ['VASO', 1], ['LLAVERO', 1]]);
+    assert.deepEqual(metricas.catProductos, { 'Tazas y Vasos': 2, 'Llaveros y Placas': 1 });
+    assert.equal(metricas.topProd.some(([nombre]) => nombre.includes('MÁS')), false);
+});

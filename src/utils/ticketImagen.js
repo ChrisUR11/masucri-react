@@ -1,5 +1,5 @@
 import Swal from 'sweetalert2';
-import { LOGO_TICKET, formatoMontoTicket, lineasTicket, prepararDatosTicket } from './ticketDatos';
+import { LOGO_TICKET, WHATSAPP_NEGOCIO, formatoMontoTicket, formatoPorcentajeTicket, lineasTicket, prepararDatosTicket } from './ticketDatos';
 
 const ANCHO = 680;
 const MARGEN = 40;
@@ -26,7 +26,7 @@ function cargarLogo() {
     return logoPendiente;
 }
 
-// Se mide primero y luego se dibuja: la altura depende del producto y de los abonos.
+// Se mide primero y luego se dibuja: la altura depende de los productos y de los abonos.
 function dibujarTicket(ctx, datos, logo, pintar) {
     const texto = (valor, x, y, ancho, tam = 24, color = AZUL, negrita = false, alineacion = 'left', mostrar = true) => {
         ctx.font = (negrita ? 'bold ' : '') + tam + 'px Arial, sans-serif';
@@ -70,19 +70,20 @@ function dibujarTicket(ctx, datos, logo, pintar) {
     y += texto('CLIENTE', MARGEN, y, CONTENIDO, 18, GRIS, true) + 6;
     y += texto(datos.cliente, MARGEN, y, CONTENIDO, 30, AZUL, true) + 26;
 
-    const yProducto = y;
-    y += 22;
-    const altoEtiqueta = texto('PRODUCTO', MARGEN + 22, y, CONTENIDO - 44, 18, GRIS, true, 'left', false);
-    const yNombreProducto = y + altoEtiqueta + 8;
-    const altoProducto = texto(datos.producto, MARGEN + 22, yNombreProducto, CONTENIDO - 44, 28, AZUL, true, 'left', false);
-    y = yNombreProducto + altoProducto + 22;
-    rectangulo(MARGEN, yProducto, CONTENIDO, y - yProducto, '#f1f5f7');
-    // El fondo se coloca detrás de los textos, usando las mismas medidas.
-    if (pintar) {
-        texto('PRODUCTO', MARGEN + 22, yProducto + 22, CONTENIDO - 44, 18, GRIS, true);
-        texto(datos.producto, MARGEN + 22, yNombreProducto, CONTENIDO - 44, 28, AZUL, true);
+    y += texto('PRODUCTOS', MARGEN, y, CONTENIDO, 18, GRIS, true) + 14;
+    for (const producto of datos.productos) {
+        y += texto(producto.nombre, MARGEN, y, CONTENIDO, 27, AZUL, true) + 5;
+        const detalle = String(producto.cantidad) + ' × ' + formatoMontoTicket(producto.precioUnitario) + ' c/u';
+        const altoDetalle = texto(detalle, MARGEN, y, 350, 20, GRIS);
+        const altoTotal = texto(formatoMontoTicket(producto.total), ANCHO - MARGEN, y, 220, 23, AZUL, true, 'right');
+        y += Math.max(altoDetalle, altoTotal) + 16;
+        separador(y);
+        y += 14;
     }
-    y += 30;
+    if (datos.descuento > 0) {
+        y += fila('Subtotal', datos.subtotal, y);
+        y += fila('Descuento (' + formatoPorcentajeTicket(datos.descuentoPorcentaje) + ')', datos.descuento, y, false, '#176446');
+    }
     y += fila('Total del pedido', datos.total, y, true);
     y += fila('Total abonado', datos.pagado, y, false, '#176446');
     separador(y);
@@ -122,7 +123,7 @@ function dibujarTicket(ctx, datos, logo, pintar) {
     separador(y);
     y += 24;
     y += texto('¡Gracias por tu compra!', ANCHO / 2, y, CONTENIDO, 24, AZUL, true, 'center') + 10;
-    y += texto('WhatsApp: 6274-7761', ANCHO / 2, y, CONTENIDO, 20, GRIS, false, 'center');
+    y += texto(`WhatsApp: ${WHATSAPP_NEGOCIO}`, ANCHO / 2, y, CONTENIDO, 20, GRIS, false, 'center');
     return Math.ceil(y + 34);
 }
 

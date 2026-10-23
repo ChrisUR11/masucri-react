@@ -6,6 +6,7 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { obtenerHistorialCliente } from '../utils/historialClientes';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import { formatoColones } from '../utils/formato';
+import DesglosePedidoCompacto from '../components/DesglosePedidoCompacto';
 
 export default function HistorialCliente() {
     const { datos: pedidos, cargando, error } = useFirestoreCollection(
@@ -157,7 +158,7 @@ export default function HistorialCliente() {
                                         <thead className="table-light">
                                             <tr>
                                                 <th>Fecha</th>
-                                                <th>Producto</th>
+                                                <th>Productos</th>
                                                 <th>Precio</th>
                                                 <th>Pagado</th>
                                                 <th>Saldo</th>
@@ -170,7 +171,7 @@ export default function HistorialCliente() {
                                                 return (
                                                     <tr key={p.id}>
                                                         <td data-label="Fecha" className="small">{p.fecha_solicitud}</td>
-                                                        <td data-label="Producto" className="small fw-bold">{p.producto}</td>
+                                                        <td data-label="Productos" className="small"><div className="mobile-table-value text-break"><DesglosePedidoCompacto pedido={p} /></div></td>
                                                         <td data-label="Precio" className="small">{formatoColones(p.precio)}</td>
                                                         <td data-label="Pagado" className="small text-success">{formatoColones(p.monto_pagado)}</td>
                                                         <td data-label="Saldo" className={`small fw-bold ${p.estado === 'Cancelado' ? 'text-muted' : saldo > 0 ? 'text-danger' : 'text-success'}`}>

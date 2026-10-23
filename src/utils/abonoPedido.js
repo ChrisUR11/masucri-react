@@ -1,7 +1,9 @@
-import { doc, collection, writeBatch } from 'firebase/firestore';
+import { doc, collection, runTransaction } from 'firebase/firestore';
 import Swal from 'sweetalert2';
 import { db } from '../config/firebase';
 import { obtenerFechaLocal } from './fecha';
+import { formatoColones } from './formato';
+import { aCentavos, deCentavos, tieneMaximoDosDecimales } from './dinero.js';
 
 /**
  * Abre el diálogo de "Abonar a la deuda" y, si se confirma, registra el pago
@@ -15,7 +17,7 @@ import { obtenerFechaLocal } from './fecha';
  * @returns {Promise<boolean>} true si se registró el abono, false si se canceló.
  */
 export async function registrarAbono(pedido) {
-    const deudaActual = (pedido.precio || 0) - (pedido.monto_pagado || 0);
+    const deudaActual = deCentavos(aCentavos(pedido.precio || 0) - aCentavos(pedido.monto_pagado || 0));
 
     if (deudaActual <= 0) {
         await Swal.fire('Aviso', 'Este pedido ya está pagado en su totalidad.', 'info');
@@ -26,8 +28,8 @@ export async function registrarAbono(pedido) {
         title: 'Abonar a la deuda',
         html: `
             <div class="text-start mb-2">
-                <label>Deuda Actual: ₡${deudaActual.toLocaleString('es-CR')}</label>
-                <input id="swal-monto" type="number" class="form-control border-primary" placeholder="Monto a abonar" min="1" max="${deudaActual}">
+                <label>Deuda actual: ${formatoColones(deudaActual)}</label>
+                <input id="swal-monto" type="number" step="0.01" class="form-control border-primary" placeholder="Monto a abonar" min="0.01" max="${deudaActual}">
             </div>
             <select id="swal-metodo" class="form-select border-primary">
                 <option>Sinpe Móvil</option>
@@ -38,14 +40,14 @@ export async function registrarAbono(pedido) {
         showCancelButton: true,
         confirmButtonText: 'Registrar Abono',
         preConfirm: () => {
-            const monto = parseFloat(document.getElementById('swal-monto').value);
+            const monto = Number(document.getElementById('swal-monto').value);
             const metodo = document.getElementById('swal-metodo').value;
-            if (!monto || monto <= 0) {
-                Swal.showValidationMessage('Ingresa un monto válido');
+            if (!tieneMaximoDosDecimales(monto) || monto <= 0) {
+                Swal.showValidationMessage('Ingresa un monto válido con máximo dos decimales');
                 return false;
             }
-            if (monto > deudaActual) {
-                Swal.showValidationMessage(`El abono no puede superar la deuda (₡${deudaActual.toLocaleString('es-CR')})`);
+            if (aCentavos(monto) > aCentavos(deudaActual)) {
+                Swal.showValidationMessage(`El abono no puede superar la deuda (${formatoColones(deudaActual)})`);
                 return false;
             }
             return { monto, metodo };
@@ -55,36 +57,49 @@ export async function registrarAbono(pedido) {
     if (!formValues) return false;
 
     const { monto, metodo } = formValues;
+    const montoCentavos = aCentavos(monto);
     const hoy = obtenerFechaLocal();
     const pedidoRef = doc(db, 'pedidos', pedido.id);
     const movimientoRef = doc(collection(db, 'movimientos'));
-    const nuevoPagado = (pedido.monto_pagado || 0) + monto;
-    const historialPagos = [...(pedido.historial_pagos || []), { fecha: hoy, monto, metodo }];
-
     try {
-        const batch = writeBatch(db);
-        batch.update(pedidoRef, {
-            monto_pagado: nuevoPagado,
-            ultimo_metodo_pago: metodo,
-            historial_pagos: historialPagos
+        await runTransaction(db, async (transaccion) => {
+            const actual = await transaccion.get(pedidoRef);
+            if (!actual.exists() || actual.data().estado === 'Cancelado') {
+                throw new Error('El pedido ya no está disponible para recibir abonos.');
+            }
+            const datos = actual.data();
+            const pagadoCentavos = Math.max(0, aCentavos(datos.monto_pagado || 0));
+            const deudaVigenteCentavos = Math.max(0, aCentavos(datos.precio || 0) - pagadoCentavos);
+            if (montoCentavos > deudaVigenteCentavos) {
+                throw new Error(`El saldo cambió. Ahora es ${formatoColones(deCentavos(deudaVigenteCentavos))}; vuelve a ingresar el abono.`);
+            }
+            transaccion.update(pedidoRef, {
+                monto_pagado: deCentavos(pagadoCentavos + montoCentavos),
+                ultimo_metodo_pago: metodo,
+                historial_pagos: [...(Array.isArray(datos.historial_pagos) ? datos.historial_pagos : []), { fecha: hoy, monto: deCentavos(montoCentavos), metodo }]
+            });
+            transaccion.set(movimientoRef, {
+                tipo: 'entrada',
+                metodo_pago: metodo,
+                fecha: hoy,
+                descripcion: `Abono: ${datos.producto || pedido.producto}`,
+                entidad: datos.cliente || pedido.cliente,
+                monto: deCentavos(montoCentavos),
+                pedido_id: pedido.id,
+                timestamp: new Date()
+            });
         });
-        batch.set(movimientoRef, {
-            tipo: 'entrada',
-            metodo_pago: metodo,
-            fecha: hoy,
-            descripcion: `Abono: ${pedido.producto}`,
-            entidad: pedido.cliente,
-            monto,
-            pedido_id: pedido.id,
-            timestamp: new Date()
-        });
-        await batch.commit();
 
         await Swal.fire({ icon: 'success', title: 'Abono Registrado', text: 'El dinero ya ingresó a Caja.', timer: 1500, showConfirmButton: false });
         return true;
     } catch (err) {
         console.error('Error registrando abono:', err);
-        await Swal.fire('Error', 'No se pudo registrar el abono. Intenta de nuevo.', 'error');
+        const mensaje = err.message?.startsWith('El saldo cambió') || err.message?.startsWith('El pedido ya no está')
+            ? err.message
+            : err.code === 'unavailable' || !navigator.onLine
+                ? 'Conéctate a internet para registrar el abono y comprobar el saldo vigente.'
+                : 'No se pudo registrar el abono. Intenta de nuevo.';
+        await Swal.fire('Error', mensaje, 'error');
         return false;
     }
 }

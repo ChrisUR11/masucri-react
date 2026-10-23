@@ -62,3 +62,47 @@ test('no acepta montos negativos, no numéricos, infinitos ni pagos excesivos', 
         );
     }
 });
+
+test('una venta con varios productos aplica el descuento antes de registrar el pago', () => {
+    const { datosPedido, datosMovimiento } = prepararDatosVentaRapida({
+        cliente: 'Ana',
+        telefono: '',
+        productos: [
+            { nombre: 'Taza', precio_unitario: '1500', cantidad: '2' },
+            { nombre: 'Llavero', precio_unitario: '500', cantidad: '1' }
+        ],
+        descripcion: 'Entregar en bolsa de regalo',
+        descuento_tipo: 'porcentaje',
+        descuento_valor: '10',
+        pagado: '1000',
+        metodo: 'Efectivo'
+    }, '2026-10-17', 'pedido-multiple');
+
+    assert.deepEqual(datosPedido.productos.map(({ total }) => total), [3000, 500]);
+    assert.equal(datosPedido.subtotal, 3500);
+    assert.equal(datosPedido.descuento_monto, 350);
+    assert.equal(datosPedido.descuento_porcentaje, 10);
+    assert.equal(datosPedido.precio, 3150);
+    assert.equal(datosPedido.descripcion, 'Entregar en bolsa de regalo');
+    assert.equal(datosPedido.monto_pagado, 1000);
+    assert.equal(datosMovimiento.monto, 1000);
+});
+
+test('rechaza cantidades, líneas y descuentos inválidos en venta rápida', () => {
+    const base = {
+        cliente: 'Ana', productos: [{ nombre: 'Taza', precio_unitario: '1000', cantidad: 1 }],
+        descuento_tipo: 'monto', descuento_valor: '', pagado: '', metodo: 'Efectivo'
+    };
+    for (const cambio of [
+        { productos: [{ nombre: 'Taza', precio_unitario: '1000', cantidad: 0 }] },
+        { productos: [{ nombre: '', precio_unitario: '1000', cantidad: 1 }] },
+        { productos: [{ nombre: 'Taza', precio_unitario: '', cantidad: 1 }] },
+        { descuento_valor: '1001' },
+        { descuento_tipo: 'porcentaje', descuento_valor: '101' },
+        { descuento_tipo: 'monto', descuento_valor: '-1' },
+        { descuento_tipo: 'monto', descuento_valor: '0.001' },
+        { pagado: '0.001' }
+    ]) {
+        assert.throws(() => prepararDatosVentaRapida({ ...base, ...cambio }, '2026-10-17', 'pedido-invalido'));
+    }
+});

@@ -9,12 +9,21 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import { obtenerFechaLocal } from '../utils/fecha';
-import { formatoColones, aNumeroSeguro } from '../utils/formato';
+import { formatoColones } from '../utils/formato';
+import { detalleProductosPedido, obtenerProductosPedido } from '../utils/productosPedido';
+import { aCentavos, deCentavos, tieneMaximoDosDecimales } from '../utils/dinero';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 const FILAS_INICIALES = 100;
 const FORM_VACIO = { tipo: 'entrada', fecha: obtenerFechaLocal(), metodoPago: 'Efectivo', descripcion: '', entidad: '', monto: '' };
+
+const montoMovimiento = (valor) => {
+    if (typeof valor !== 'number' && typeof valor !== 'string') return null;
+    if (typeof valor === 'string' && !valor.trim()) return null;
+    const monto = Number(valor);
+    return Number.isFinite(monto) && monto >= 0 ? monto : null;
+};
 
 export default function Finanzas() {
     // Sin límite: los totales de Entradas/Salidas/Balance deben reflejar SIEMPRE
@@ -69,18 +78,25 @@ export default function Finanzas() {
         setFilasVisibles(FILAS_INICIALES);
     };
 
-    const { totalEntradas, totalSalidas, movimientosInvalidos } = useMemo(() => {
+    const { totalEntradas, totalSalidas, movimientosInvalidos, montosInvalidos } = useMemo(() => {
         let entradas = 0;
         let salidas = 0;
         let invalidos = 0;
+        let importesInvalidos = 0;
         // OJO: se calcula sobre TODO `filtrados`, no sobre `filtradosVisibles` — el
         // recorte de filas es solo para la tabla, nunca para los totales de plata.
         filtrados.forEach((m) => {
-            if (m.tipo === 'entrada') entradas += m.monto || 0;
-            else if (m.tipo === 'salida') salidas += m.monto || 0;
-            else invalidos++; // 'tipo' vacío, mal escrito, o de datos viejos con otro esquema — no se suma a ningún lado.
+            const monto = montoMovimiento(m.monto);
+            if (monto === null) importesInvalidos++;
+            if (m.tipo !== 'entrada' && m.tipo !== 'salida') {
+                invalidos++; // 'tipo' vacío, mal escrito, o de datos viejos con otro esquema.
+                return;
+            }
+            if (monto === null) return;
+            if (m.tipo === 'entrada') entradas += monto;
+            else salidas += monto;
         });
-        return { totalEntradas: entradas, totalSalidas: salidas, movimientosInvalidos: invalidos };
+        return { totalEntradas: entradas, totalSalidas: salidas, movimientosInvalidos: invalidos, montosInvalidos: importesInvalidos };
     }, [filtrados]);
 
     const chartData = {
@@ -128,8 +144,11 @@ export default function Finanzas() {
                 return Swal.fire('Movimiento vinculado', 'Este movimiento ya no se puede editar desde Caja. Revisa el pedido asociado.', 'info');
             }
         }
-        const monto = aNumeroSeguro(form.monto);
-        if (monto <= 0) return Swal.fire('Monto inválido', 'Ingresa un monto mayor a cero.', 'warning');
+        const montoIndicado = Number(form.monto);
+        if (form.monto === '' || !tieneMaximoDosDecimales(montoIndicado) || montoIndicado <= 0) {
+            return Swal.fire('Monto inválido', 'Ingresa un monto mayor a cero con máximo dos decimales.', 'warning');
+        }
+        const monto = deCentavos(aCentavos(montoIndicado));
         if (!form.descripcion.trim()) return Swal.fire('Falta el concepto', 'Describe brevemente el movimiento.', 'warning');
 
         const datos = {
@@ -201,7 +220,7 @@ export default function Finanzas() {
                 getDocsFromServer(collection(db, 'movimientos'))
             ]);
 
-            const pedidos = pedidosSnap.docs.map((d) => d.data());
+            const pedidos = pedidosSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
             const productos = productosSnap.docs.map((d) => d.data());
             const todosMovimientos = movimientosSnap.docs.map((d) => d.data());
 
@@ -211,10 +230,15 @@ export default function Finanzas() {
                 wb,
                 XLSX.utils.json_to_sheet(
                     pedidos.map((p) => ({
+                        'Pedido ID': p.id,
                         Cliente: p.cliente,
                         Teléfono: p.telefono,
                         Producto: p.producto,
+                        Productos: detalleProductosPedido(p) || p.producto,
                         Descripción: p.descripcion,
+                        Subtotal: p.subtotal ?? p.precio ?? 0,
+                        'Descuento (%)': p.descuento_porcentaje ?? 0,
+                        'Descuento (₡)': p.descuento_monto ?? 0,
                         Precio: p.precio || 0,
                         Pagado: p.monto_pagado || 0,
                         Estado: p.estado,
@@ -224,6 +248,19 @@ export default function Finanzas() {
                     }))
                 ),
                 'Pedidos'
+            );
+
+            XLSX.utils.book_append_sheet(
+                wb,
+                XLSX.utils.json_to_sheet(pedidos.flatMap((p) => obtenerProductosPedido(p).map((item) => ({
+                    'Pedido ID': p.id,
+                    Cliente: p.cliente,
+                    Producto: item.nombre,
+                    Cantidad: item.cantidad,
+                    'Precio unitario': item.precio_unitario,
+                    'Total de línea': item.total
+                })))),
+                'Productos por pedido'
             );
 
             XLSX.utils.book_append_sheet(
@@ -349,6 +386,12 @@ export default function Finanzas() {
                         </div>
                     )}
 
+                    {montosInvalidos > 0 && (
+                        <div className="alert alert-danger small">
+                            Hay {montosInvalidos} movimiento(s) con un monto vacío, negativo o inválido. No se incluyen en los totales; revisa los registros señalados.
+                        </div>
+                    )}
+
                     <Row>
                         <Col lg={4} className="mb-4">
                             <Card className="finance-panel shadow-sm border-0 h-100">
@@ -388,7 +431,7 @@ export default function Finanzas() {
 
                         <Col lg={8} className="mb-4">
                             <Card className="finance-panel shadow-sm border-0 h-100">
-                                <Card.Header className="bg-white fw-bold d-flex justify-content-between align-items-center">
+                                <Card.Header className="bg-white fw-bold d-flex flex-wrap justify-content-between align-items-center gap-2">
                                     <span>Libro Diario <small className="text-muted fw-normal">({filtrados.length})</small></span>
                                     <div className="finance-export-actions">
                                         <Button variant="danger" size="sm" className="me-2 px-3" onClick={exportarPDF}><i className="fas fa-file-pdf"></i> PDF</Button>
@@ -421,8 +464,8 @@ export default function Finanzas() {
                                                                 <small className="text-muted">{m.entidad || ''}</small>
                                                             </div>
                                                         </td>
-                                                        <td data-label="Monto" className={`fw-bold ${m.tipo === 'entrada' ? 'text-success' : 'text-danger'}`}>
-                                                            {formatoColones(m.monto)}
+                                                        <td data-label="Monto" className={`fw-bold ${montoMovimiento(m.monto) === null ? 'text-danger' : m.tipo === 'entrada' ? 'text-success' : 'text-danger'}`}>
+                                                            {montoMovimiento(m.monto) === null ? 'Monto inválido' : formatoColones(m.monto)}
                                                         </td>
                                                         <td data-label="Acciones" className="text-center">
                                                             {m.pedido_id ? (
@@ -500,7 +543,7 @@ export default function Finanzas() {
                             </Col>
                             <Col md={6}>
                                 <Form.Label className="fw-bold">Monto (₡)</Form.Label>
-                                <Form.Control type="number" step="0.01" min="1" required value={form.monto} onChange={actualizar('monto')} />
+                                <Form.Control type="number" step="0.01" min="0.01" required value={form.monto} onChange={actualizar('monto')} />
                             </Col>
                         </Row>
                         <Button type="submit" variant={form.tipo === 'entrada' ? 'success' : 'danger'} className="w-100 fw-bold shadow-sm" disabled={guardando}>

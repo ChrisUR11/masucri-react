@@ -1,6 +1,7 @@
 import { Modal, Row, Col, Card, Badge, Table } from 'react-bootstrap';
 import { obtenerHistorialCliente } from '../utils/historialClientes';
 import { formatoColones } from '../utils/formato';
+import DesglosePedidoCompacto from './DesglosePedidoCompacto';
 
 export default function ModalHistorialCliente({ show, cliente, pedidos, onHide }) {
     if (!cliente || !show) return null;
@@ -92,7 +93,7 @@ export default function ModalHistorialCliente({ show, cliente, pedidos, onHide }
                             <thead className="table-light">
                                 <tr>
                                     <th>Fecha</th>
-                                    <th>Producto</th>
+                                    <th>Productos</th>
                                     <th>Precio</th>
                                     <th>Pagado</th>
                                     <th>Saldo</th>
@@ -105,7 +106,7 @@ export default function ModalHistorialCliente({ show, cliente, pedidos, onHide }
                                     return (
                                         <tr key={p.id}>
                                             <td data-label="Fecha" className="small">{p.fecha_solicitud}</td>
-                                            <td data-label="Producto" className="small fw-bold">{p.producto}</td>
+                                            <td data-label="Productos" className="small"><div className="mobile-table-value text-break"><DesglosePedidoCompacto pedido={p} /></div></td>
                                             <td data-label="Precio" className="small">{formatoColones(p.precio || 0)}</td>
                                             <td data-label="Pagado" className="small text-success">{formatoColones(p.monto_pagado || 0)}</td>
                                             <td data-label="Saldo" className={`small fw-bold ${p.estado === 'Cancelado' ? 'text-muted' : saldo > 0 ? 'text-danger' : 'text-success'}`}>

@@ -74,6 +74,29 @@
   padding: 0.7rem 0.75rem !important;
 }
 
+.pedido-ficha__producto-linea {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0;
+}
+
+.pedido-ficha__producto-linea + .pedido-ficha__producto-linea {
+  border-top: 1px solid #eef1f4;
+}
+
+.pedido-ficha__producto-datos {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pedido-ficha__producto-linea > strong {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+  white-space: nowrap;
+}
+
 .pedido-detail-modal .pedido-ficha__resumen .row {
   margin: 0;
 }

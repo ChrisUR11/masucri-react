@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fechaTicket, formatoMontoTicket, lineasTicket, prepararDatosTicket } from '../src/utils/ticketDatos.js';
+import { fechaTicket, formatoMontoTicket, formatoPorcentajeTicket, lineasTicket, prepararDatosTicket } from '../src/utils/ticketDatos.js';
 
 const pedido = Object.freeze({
     id: 'abc12345xyz',
@@ -54,6 +54,62 @@ test('los centavos se conservan y las fechas no cambian de día por la zona hora
     assert.equal(ticket.saldo, 800.25);
     assert.match(formatoMontoTicket(ticket.saldo), /800,25/);
     assert.equal(fechaTicket('2026-10-17'), '17/10/2026');
+});
+
+test('el ticket desglosa varios productos y aplica el descuento antes de calcular el saldo', () => {
+    const ticket = prepararDatosTicket({
+        producto: 'Resumen de dos productos',
+        descripcion: 'Nota interna',
+        productos: [
+            { nombre: 'Taza', precio_unitario: 3500, cantidad: 2, total: 7000 },
+            { nombre: 'Camisa', precio_unitario: 6000, cantidad: 1, total: 6000 }
+        ],
+        subtotal: 13000,
+        descuento_porcentaje: 10,
+        descuento_monto: 1300,
+        precio: 11700,
+        monto_pagado: 2000
+    });
+    assert.deepEqual(ticket.productos, [
+        { nombre: 'Taza', precioUnitario: 3500, cantidad: 2, total: 7000 },
+        { nombre: 'Camisa', precioUnitario: 6000, cantidad: 1, total: 6000 }
+    ]);
+    assert.equal(ticket.subtotal, 13000);
+    assert.equal(ticket.descuento, 1300);
+    assert.equal(ticket.descuentoPorcentaje, 10);
+    assert.equal(ticket.total, 11700);
+    assert.equal(ticket.pagado, 2000);
+    assert.equal(ticket.saldo, 9700);
+    assert.equal(formatoPorcentajeTicket(ticket.descuentoPorcentaje), '10%');
+    assert.equal('descripcion' in ticket, false);
+});
+
+test('pedidos anteriores y productos sin total de línea conservan un desglose válido', () => {
+    const anterior = prepararDatosTicket(pedido);
+    assert.deepEqual(anterior.productos, [
+        { nombre: 'Tazas personalizadas', precioUnitario: 20000, cantidad: 1, total: 20000 }
+    ]);
+    assert.equal(anterior.subtotal, anterior.total);
+    assert.equal(anterior.descuento, 0);
+
+    const nuevo = prepararDatosTicket({
+        productos: [{ nombre: 'Bolígrafo', cantidad: 3, precio_unitario: 1000.25 }],
+        precio: 3000.75
+    });
+    assert.equal(nuevo.productos[0].total, 3000.75);
+    assert.equal(nuevo.subtotal, 3000.75);
+});
+
+test('el ticket recalcula líneas y no oculta porcentajes de descuento pequeños', () => {
+    const ticket = prepararDatosTicket({
+        productos: [{ nombre: 'Lote', precio_unitario: 100000, cantidad: 1, total: 99999 }],
+        subtotal: 100000, descuento_monto: 1, precio: 99999
+    });
+    assert.equal(ticket.productos[0].total, 100000);
+    assert.equal(ticket.subtotal, 100000);
+    assert.equal(ticket.descuento, 1);
+    assert.equal(ticket.descuentoPorcentaje, 0.001);
+    assert.notEqual(formatoPorcentajeTicket(ticket.descuentoPorcentaje), '0%');
 });
 
 test('nombres largos y palabras sin espacios se dividen sin perder texto', () => {

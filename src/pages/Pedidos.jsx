@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Container, Card, Badge, Button, Form, Modal, Row, Col, InputGroup, ButtonGroup, ListGroup } from 'react-bootstrap';
-import { collection, query, orderBy, updateDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, updateDoc, doc, writeBatch, runTransaction } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import Swal from 'sweetalert2';
 import { TicketImpresion } from '../components/TicketImpresion';
@@ -9,6 +9,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import FichaPedidoDetalle from '../components/FichaPedidoDetalle';
 import '../components/FichaPedidoDetalle.css';
+import ProductosPedidoForm from '../components/ProductosPedidoForm';
 import VentaRapidaModal from '../components/VentaRapidaModal';
 import { registrarAbono } from '../utils/abonoPedido';
 import { entregarPedido } from '../utils/entregaPedido';
@@ -16,7 +17,9 @@ import { abrirWhatsApp, mensajePedido } from '../utils/whatsapp';
 import { compartirTicket } from '../utils/ticketImagen';
 import { seleccionarContacto, soportaSelectorContactos } from '../utils/contactos';
 import { obtenerFechaLocal, diasHastaEntrega, formatearFechaCorta } from '../utils/fecha';
-import { formatoColones, aNumeroSeguro } from '../utils/formato';
+import { formatoColones } from '../utils/formato';
+import { calcularTotalesPedido, obtenerProductosPedido, resumenProductos, validarProductosPedido } from '../utils/productosPedido';
+import { aCentavos, deCentavos, tieneMaximoDosDecimales } from '../utils/dinero';
 
 const ESTADOS_ACTIVOS = ['Pendiente', 'En producción', 'Por Retirar'];
 
@@ -34,9 +37,11 @@ const FORM_PEDIDO_VACIO = {
     fEntrega: '',
     cliente: '',
     telefono: '',
-    producto: '',
+    productos: [{ nombre: '', precio_unitario: '', cantidad: 1, total: 0 }],
     desc: '',
-    precio: '',
+    aplicaDescuento: false,
+    descuento_tipo: 'monto',
+    descuento_valor: '',
     dejoAdelanto: false,
     adelanto: '',
     metodoAdelanto: 'Sinpe Móvil'
@@ -64,6 +69,20 @@ export default function Pedidos() {
 
     const [formPedido, setFormPedido] = useState(FORM_PEDIDO_VACIO);
     const [guardandoPedido, setGuardandoPedido] = useState(false);
+
+    const totalesPedido = useMemo(() => calcularTotalesPedido(
+        formPedido.productos,
+        !formPedido.aplicaDescuento
+            ? { descuento_monto: 0 }
+            : formPedido.descuento_tipo === 'porcentaje'
+            ? { descuento_porcentaje: formPedido.descuento_valor }
+            : { descuento_monto: formPedido.descuento_valor }
+    ), [formPedido.productos, formPedido.aplicaDescuento, formPedido.descuento_tipo, formPedido.descuento_valor]);
+
+    const descuentoPorcentajeVisible = formPedido.descuento_tipo === 'porcentaje'
+        ? formPedido.descuento_valor : (formPedido.descuento_valor === '' ? '' : totalesPedido.descuento_porcentaje);
+    const descuentoMontoVisible = formPedido.descuento_tipo === 'monto'
+        ? formPedido.descuento_valor : (formPedido.descuento_valor === '' ? '' : totalesPedido.descuento_monto);
 
     // El pedido activo se busca por id en la lista en vivo, así el modal
     // siempre refleja el estado más reciente sin necesitar sincronización manual.
@@ -169,27 +188,55 @@ export default function Pedidos() {
     // --- Guardar Nuevo/Editar Pedido ---
     const handleGuardarPedido = async (e) => {
         e.preventDefault();
-        const pTotal = aNumeroSeguro(formPedido.precio);
-        const mAdelanto = formPedido.dejoAdelanto ? aNumeroSeguro(formPedido.adelanto) : 0;
+        let productos;
+        try {
+            productos = validarProductosPedido(formPedido.productos);
+        } catch (err) {
+            return Swal.fire('Revisa los productos', err.message, 'warning');
+        }
+        const adelantoIndicado = formPedido.dejoAdelanto ? Number(formPedido.adelanto) : 0;
+        const descuentoValor = !formPedido.aplicaDescuento || formPedido.descuento_valor === '' ? 0 : Number(formPedido.descuento_valor);
 
         if (!formPedido.cliente.trim()) return Swal.fire('Falta el cliente', 'Ingresa el nombre del cliente.', 'warning');
-        if (!formPedido.producto.trim()) return Swal.fire('Falta el producto', 'Ingresa el producto solicitado.', 'warning');
-        if (!pedidoEdit && mAdelanto > pTotal) return Swal.fire('Adelanto inválido', 'El adelanto no puede superar el precio total.', 'warning');
+        if (!Number.isFinite(descuentoValor) || descuentoValor < 0 || (formPedido.descuento_tipo === 'porcentaje'
+            ? descuentoValor > 100
+            : !tieneMaximoDosDecimales(descuentoValor) || descuentoValor > totalesPedido.subtotal)) {
+            return Swal.fire('Descuento inválido', 'El descuento debe estar entre cero y el subtotal del pedido (o entre 0 % y 100 %).', 'warning');
+        }
+        if (!tieneMaximoDosDecimales(adelantoIndicado) || adelantoIndicado < 0 || (formPedido.dejoAdelanto && formPedido.adelanto === '')) {
+            return Swal.fire('Adelanto inválido', 'Ingresa un adelanto válido con máximo dos decimales.', 'warning');
+        }
+        const mAdelanto = deCentavos(aCentavos(adelantoIndicado));
+        if (!pedidoEdit && aCentavos(mAdelanto) > aCentavos(totalesPedido.precio)) return Swal.fire('Adelanto inválido', 'El adelanto no puede superar el total con descuento.', 'warning');
+        if (pedidoEdit && aCentavos(pedidoEdit.monto_pagado || 0) > aCentavos(totalesPedido.precio)) {
+            return Swal.fire('Total insuficiente', 'El nuevo total no puede ser menor que los pagos ya registrados.', 'warning');
+        }
 
         const datos = {
             fecha_solicitud: formPedido.fSolicitud,
             fecha_entrega: formPedido.fEntrega,
             cliente: formPedido.cliente.trim(),
             telefono: formPedido.telefono.trim(),
-            producto: formPedido.producto.trim(),
+            producto: resumenProductos(productos),
+            productos,
             descripcion: formPedido.desc.trim(),
-            precio: pTotal
+            ...totalesPedido
         };
 
         setGuardandoPedido(true);
         try {
             if (pedidoEdit) {
-                await updateDoc(doc(db, 'pedidos', pedidoEdit.id), datos);
+                const pedidoRef = doc(db, 'pedidos', pedidoEdit.id);
+                await runTransaction(db, async (transaccion) => {
+                    const actual = await transaccion.get(pedidoRef);
+                    if (!actual.exists() || !ESTADOS_ACTIVOS.includes(actual.data().estado)) {
+                        throw new Error('El pedido cambió de estado. Vuelve a abrirlo para editarlo.');
+                    }
+                    if (aCentavos(actual.data().monto_pagado || 0) > aCentavos(totalesPedido.precio)) {
+                        throw new Error('El nuevo total no puede ser menor que los pagos ya registrados.');
+                    }
+                    transaccion.update(pedidoRef, datos);
+                });
             } else {
                 datos.estado = 'Pendiente';
                 datos.monto_pagado = mAdelanto;
@@ -223,7 +270,12 @@ export default function Pedidos() {
             Swal.fire({ icon: 'success', title: 'Guardado', timer: 1000, showConfirmButton: false });
         } catch (err) {
             console.error(err);
-            Swal.fire('Error', 'No se pudo guardar el pedido.', 'error');
+            const mensaje = err.message?.startsWith('El pedido cambió') || err.message?.startsWith('El nuevo total')
+                ? err.message
+                : pedidoEdit && (err.code === 'unavailable' || !navigator.onLine)
+                    ? 'Conéctate a internet para editar el pedido y comprobar sus pagos vigentes.'
+                    : 'No se pudo guardar el pedido.';
+            Swal.fire('Error', mensaje, 'error');
         } finally {
             setGuardandoPedido(false);
         }
@@ -231,10 +283,13 @@ export default function Pedidos() {
 
     const limpiarFormularioPedido = () => {
         setPedidoEdit(null);
-        setFormPedido({ ...FORM_PEDIDO_VACIO, fSolicitud: obtenerFechaLocal() });
+        setFormPedido({ ...FORM_PEDIDO_VACIO, productos: [{ nombre: '', precio_unitario: '', cantidad: 1, total: 0 }], fSolicitud: obtenerFechaLocal() });
     };
 
     const abrirEditar = (ped) => {
+        const productos = obtenerProductosPedido(ped);
+        const subtotal = calcularTotalesPedido(productos).subtotal;
+        const descuentoMonto = ped.descuento_monto ?? Math.max(0, subtotal - (Number(ped.precio) || 0));
         setShowDetalle(false);
         setPedidoEdit(ped);
         setFormPedido({
@@ -242,9 +297,11 @@ export default function Pedidos() {
             fEntrega: ped.fecha_entrega || '',
             cliente: ped.cliente,
             telefono: ped.telefono || '',
-            producto: ped.producto,
+            productos: productos.length ? productos : [{ nombre: '', precio_unitario: '', cantidad: 1, total: 0 }],
             desc: ped.descripcion || '',
-            precio: ped.precio || '',
+            aplicaDescuento: descuentoMonto > 0,
+            descuento_tipo: 'monto',
+            descuento_valor: descuentoMonto > 0 ? String(descuentoMonto) : '',
             dejoAdelanto: false,
             adelanto: '',
             metodoAdelanto: 'Sinpe Móvil'
@@ -258,7 +315,9 @@ export default function Pedidos() {
         let lista = [...pedidos];
         if (filtroTextoDebounced) {
             const txt = filtroTextoDebounced.toLowerCase();
-            lista = lista.filter((p) => p.cliente?.toLowerCase().includes(txt) || p.producto?.toLowerCase().includes(txt));
+            lista = lista.filter((p) => p.cliente?.toLowerCase().includes(txt)
+                || p.producto?.toLowerCase().includes(txt)
+                || p.productos?.some((item) => item.nombre?.toLowerCase().includes(txt)));
         }
         lista.sort((a, b) => new Date(a.fecha_entrega || '2099-01-01') - new Date(b.fecha_entrega || '2099-01-01'));
         return lista;
@@ -266,6 +325,7 @@ export default function Pedidos() {
 
     const renderCard = (ped) => {
         const deuda = (ped.precio || 0) - (ped.monto_pagado || 0);
+        const sinCargoPorDescuento = Number(ped.subtotal) > 0 && Number(ped.precio) === 0;
         const diff = diasHastaEntrega(ped.fecha_entrega);
         let colorAlerta = 'border-secondary'; // Por defecto, sin fecha
         if (diff !== null) {
@@ -305,8 +365,8 @@ export default function Pedidos() {
                     </div>
                     <p className="small mb-1 text-truncate">{ped.producto}</p>
                     <div className="d-flex justify-content-between align-items-center mt-2">
-                        <Badge bg={deuda > 0 ? 'warning' : ped.precio ? 'success' : 'secondary'} className="text-dark">
-                            {deuda > 0 ? `Debe ${formatoColones(deuda)}` : ped.precio ? 'Pagado' : 'Sin precio'}
+                        <Badge bg={deuda > 0 ? 'warning' : ped.precio || sinCargoPorDescuento ? 'success' : 'secondary'} className="text-dark">
+                            {deuda > 0 ? `Debe ${formatoColones(deuda)}` : sinCargoPorDescuento ? 'Descuento total' : ped.precio ? 'Pagado' : 'Sin precio'}
                         </Badge>
                         <div className="d-flex gap-1">
                             <Button
@@ -421,8 +481,6 @@ export default function Pedidos() {
                 </Row>
             )}
 
-            <datalist id="listaCatalogo">{productosCatalogo.map((p) => <option key={p.id} value={p.nombre} />)}</datalist>
-
             {/* MODAL: DETALLE DEL PEDIDO */}
             <Modal show={showDetalle} onHide={() => setShowDetalle(false)} centered scrollable enforceFocus={false} className="pedido-detail-modal d-print-none">
                 <Modal.Header closeButton className="pedido-detail-modal__header">
@@ -465,7 +523,7 @@ export default function Pedidos() {
             </Modal>
 
             {/* MODAL NUEVO / EDITAR */}
-            <Modal show={showNuevo} onHide={() => setShowNuevo(false)} backdrop="static" className="d-print-none">
+            <Modal show={showNuevo} onHide={() => setShowNuevo(false)} backdrop="static" size="lg" className="d-print-none">
                 <Modal.Header closeButton className="bg-primary text-white">
                     <Modal.Title className="fw-bold">{pedidoEdit ? 'Editar Pedido' : 'Nuevo Pedido'}</Modal.Title>
                 </Modal.Header>
@@ -507,55 +565,56 @@ export default function Pedidos() {
                             </InputGroup>
                         </Form.Group>
 
-                        <Form.Group controlId="pedido-producto" className="mb-3">
-                            <Form.Label className="small fw-bold text-secondary mb-1">Producto</Form.Label>
-                            <InputGroup>
-                                <InputGroup.Text className="bg-light"><i className="fas fa-box-open text-muted"></i></InputGroup.Text>
-                                <Form.Control
-                                    required
-                                    name="producto"
-                                    type="text"
-                                    placeholder="Ej: Taza personalizada 11oz"
-                                    list="listaCatalogo"
-                                    value={formPedido.producto}
-                                    onChange={(e) => {
-                                        const nombre = e.target.value;
-                                        setFormPedido((f) => {
-                                            const actualizado = { ...f, producto: nombre };
-                                            // Si coincide exactamente con el catálogo, autocomple el precio.
-                                            if (nombre.trim()) {
-                                                const encontrado = productosCatalogo.find(
-                                                    (p) => p.nombre.toLowerCase() === nombre.trim().toLowerCase()
-                                                );
-                                                if (encontrado && !f.precio) {
-                                                    actualizado.precio = (encontrado.precio_venta || '').toString();
-                                                }
-                                            }
-                                            return actualizado;
-                                        });
-                                    }}
-                                />
-                            </InputGroup>
-                            <Form.Text className="text-muted">Si el nombre coincide con el catálogo, el precio se autocompleta.</Form.Text>
-                        </Form.Group>
+                        <ProductosPedidoForm
+                            productos={formPedido.productos}
+                            onChange={(productos) => setFormPedido((f) => ({ ...f, productos }))}
+                            catalogo={productosCatalogo}
+                            idPrefix="pedido"
+                        />
+
+                        <div className="mb-3 p-3 bg-light rounded border">
+                            <div className="d-flex justify-content-between flex-wrap gap-2 mb-3">
+                                <span>Subtotal de productos</span>
+                                <strong>{formatoColones(totalesPedido.subtotal)}</strong>
+                            </div>
+                            <Form.Check
+                                type="switch"
+                                id="switch-descuento-pedido"
+                                className="mb-3"
+                                label={<span className="fw-bold small">¿Se aplicará descuento?</span>}
+                                checked={formPedido.aplicaDescuento}
+                                onChange={(e) => setFormPedido((f) => ({
+                                    ...f,
+                                    aplicaDescuento: e.target.checked,
+                                    descuento_valor: e.target.checked ? f.descuento_valor : ''
+                                }))}
+                            />
+                            {formPedido.aplicaDescuento && <Row className="g-2 mb-3">
+                                <Col xs={12} sm={6}>
+                                    <Form.Label htmlFor="pedido-descuento-porcentaje" className="small fw-bold">Descuento (%)</Form.Label>
+                                    <InputGroup>
+                                        <Form.Control id="pedido-descuento-porcentaje" type="number" min="0" max="100" step="any" placeholder="0" value={descuentoPorcentajeVisible} onChange={(e) => setFormPedido((f) => ({ ...f, descuento_tipo: 'porcentaje', descuento_valor: e.target.value }))} />
+                                        <InputGroup.Text>%</InputGroup.Text>
+                                    </InputGroup>
+                                </Col>
+                                <Col xs={12} sm={6}>
+                                    <Form.Label htmlFor="pedido-descuento-monto" className="small fw-bold">Descuento (₡)</Form.Label>
+                                    <InputGroup>
+                                        <InputGroup.Text>₡</InputGroup.Text>
+                                        <Form.Control id="pedido-descuento-monto" type="number" min="0" max={totalesPedido.subtotal} step="0.01" placeholder="0" value={descuentoMontoVisible} onChange={(e) => setFormPedido((f) => ({ ...f, descuento_tipo: 'monto', descuento_valor: e.target.value }))} />
+                                    </InputGroup>
+                                </Col>
+                            </Row>}
+                            <div className="d-flex justify-content-between flex-wrap gap-2 border-top pt-2 fs-5">
+                                <strong>Total del pedido</strong>
+                                <strong className="text-primary">{formatoColones(totalesPedido.precio)}</strong>
+                            </div>
+                        </div>
 
                         <Form.Group controlId="pedido-notas" className="mb-3">
-                            <Form.Label className="small fw-bold text-secondary mb-1">Notas (opcional)</Form.Label>
-                            <Form.Control
-                                as="textarea"
-                                rows={2}
-                                placeholder="Ej: sin canela, entregar en caja de regalo, color celeste..."
-                                value={formPedido.desc}
-                                onChange={actualizarForm('desc')}
-                            />
-                        </Form.Group>
-
-                        <Form.Group controlId="pedido-precio" className="mb-3">
-                            <Form.Label className="small fw-bold text-secondary mb-1">Precio Total</Form.Label>
-                            <InputGroup>
-                                <InputGroup.Text className="bg-light fw-bold">₡</InputGroup.Text>
-                                <Form.Control type="number" step="0.01" min="0" placeholder="0" value={formPedido.precio} onChange={actualizarForm('precio')} />
-                            </InputGroup>
+                            <Form.Label className="small fw-bold text-secondary mb-1">Descripción / notas internas (opcional)</Form.Label>
+                            <Form.Control as="textarea" rows={2} placeholder="Ej: color, tamaño, personalización o instrucciones de entrega" value={formPedido.desc} onChange={actualizarForm('desc')} />
+                            <Form.Text>No aparece en el ticket del cliente.</Form.Text>
                         </Form.Group>
 
                         {!pedidoEdit && (
@@ -598,7 +657,7 @@ export default function Pedidos() {
             </Modal>
 
             {/* MODAL: VENTA RÁPIDA (antes faltaba por completo) */}
-            <VentaRapidaModal show={showVenta} onHide={() => setShowVenta(false)} />
+            <VentaRapidaModal show={showVenta} onHide={() => setShowVenta(false)} catalogo={productosCatalogo} />
 
             {/* PIEZA DE IMPRESIÓN (invisible en pantalla, visible al imprimir) */}
             <TicketImpresion pedido={pedidoActivo} nombreCliente={nombreTicket} />

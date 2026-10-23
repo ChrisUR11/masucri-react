@@ -66,6 +66,55 @@ test('sin costos registrados no presenta un margen supuesto', () => {
     assert.deepEqual(metricas.topMargen, []);
 });
 
+test('usa el valor final con descuento y no reutiliza costos antiguos para líneas nuevas', () => {
+    const pedidos = [
+        {
+            estado: 'Entregado', fecha_cierre: '2026-10-15', cliente: 'Ana',
+            producto: 'Taza', precio: 800, costo_unitario: 200
+        },
+        {
+            estado: 'Entregado', fecha_cierre: '2026-10-16', cliente: 'Ana',
+            producto: 'Taza y 1 producto más', subtotal: 2000, descuento_monto: 500,
+            precio: 1500, costo_unitario: 100, cantidad: 10,
+            productos: [
+                { nombre: 'Taza', precio_unitario: 1000, cantidad: 1, total: 1000 },
+                { nombre: 'Llavero', precio_unitario: 1000, cantidad: 1, total: 1000 }
+            ]
+        }
+    ];
+
+    const metricas = calcularMetricasContables(pedidos, [], rangoOctubre);
+    assert.equal(metricas.precioTotalVenta, 2300);
+    assert.equal(metricas.descuentosEntregados, 500);
+    assert.equal(metricas.pedidosConCosto, 1);
+    assert.equal(metricas.ventasConCosto, 800);
+    assert.equal(metricas.costoTotal, 200);
+    assert.deepEqual(metricas.topMargen.map((producto) => producto.nombre), ['Taza']);
+    assert.equal(metricas.topClientesPorValor[0].valor, 2300);
+});
+
+test('incluye productos cuyo nombre coincide con una propiedad de Object', () => {
+    const metricas = calcularMetricasContables([{
+        estado: 'Entregado', fecha_cierre: '2026-10-15',
+        producto: 'constructor', precio: 100, costo_unitario: 50
+    }], [], rangoOctubre);
+    assert.deepEqual(metricas.topMargen.map(({ nombre, margen }) => [nombre, margen]), [['constructor', 50]]);
+});
+
+test('un descuento total conserva el costo y la pérdida aunque no tenga porcentaje de margen', () => {
+    const metricas = calcularMetricasContables([{
+        estado: 'Entregado', fecha_cierre: '2026-10-15', producto: 'Regalo',
+        subtotal: 1000, precio: 0, costo_unitario: 300
+    }], [], rangoOctubre);
+
+    assert.equal(metricas.descuentosEntregados, 1000);
+    assert.equal(metricas.pedidosConCosto, 1);
+    assert.equal(metricas.costoTotal, 300);
+    assert.equal(metricas.gananciaTotal, -300);
+    assert.equal(metricas.margenPromedio, null);
+    assert.deepEqual(metricas.topMargen, []);
+});
+
 test('filtra movimientos por su fecha y conserva ambos extremos del rango', () => {
     const movimientos = [
         { fecha: '2026-09-30', tipo: 'entrada', monto: 999 },

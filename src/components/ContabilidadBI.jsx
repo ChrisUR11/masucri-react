@@ -2,7 +2,8 @@ import { Badge, Card, Col, Row } from 'react-bootstrap';
 import { formatoColones } from '../utils/formato';
 
 export default function ContabilidadBI({ metricas, alcance, periodoTexto }) {
-    const hayCostos = metricas.pedidosConCosto > 0 && Number.isFinite(metricas.margenPromedio);
+    const hayCostos = metricas.pedidosConCosto > 0;
+    const hayPorcentajeMargen = Number.isFinite(metricas.margenPromedio);
     const cobertura = `${metricas.pedidosConCosto} de ${metricas.pedidosEntregadosEnPeriodo}`;
     const alcanceEnFrase = alcance === 'histórico' ? 'todo el histórico' : 'el período elegido';
 
@@ -10,7 +11,7 @@ export default function ContabilidadBI({ metricas, alcance, periodoTexto }) {
         <section aria-labelledby="bi-contabilidad" className="bi-accounting mb-4">
             <div className="bi-section-heading mb-3">
                 <h4 id="bi-contabilidad" className="fw-bold mb-1"><i className="fas fa-book-open text-success me-2" aria-hidden="true"></i>Contabilidad · {alcance}</h4>
-                <p className="small text-muted mb-0">{periodoTexto}. La caja muestra pagos y gastos registrados; el valor de pedidos entregados incluye importes aún por cobrar.</p>
+                <p className="small text-muted mb-0">{periodoTexto}. La caja muestra pagos y gastos registrados; el valor de pedidos entregados usa el precio final con descuento e incluye importes aún por cobrar.</p>
             </div>
 
             <Row className="g-3 mb-3">
@@ -28,7 +29,7 @@ export default function ContabilidadBI({ metricas, alcance, periodoTexto }) {
                         <Card.Body>
                             <small className="text-muted fw-semibold">Valor de entregados</small>
                             <div className="bi-accounting-value fw-bold">{formatoColones(metricas.precioTotalVenta)}</div>
-                            <small className="text-muted">No equivale a dinero cobrado</small>
+                            <small className="text-muted">No equivale a dinero cobrado{metricas.descuentosEntregados > 0 ? ` · Descuentos: ${formatoColones(metricas.descuentosEntregados)}` : ''}</small>
                         </Card.Body>
                     </Card>
                 </Col>
@@ -46,7 +47,11 @@ export default function ContabilidadBI({ metricas, alcance, periodoTexto }) {
                         <Card.Body>
                             <small className="text-muted fw-semibold">Margen bruto estimado</small>
                             <div className={`bi-accounting-value fw-bold ${hayCostos && metricas.gananciaTotal < 0 ? 'text-danger' : 'text-success'}`}>{hayCostos ? formatoColones(metricas.gananciaTotal) : 'Sin datos'}</div>
-                            <small className="text-muted">{hayCostos ? `${metricas.margenPromedio.toFixed(1)}% sobre ${cobertura} pedidos` : 'Falta registrar costo por pedido'}</small>
+                            <small className="text-muted">{hayCostos
+                                ? hayPorcentajeMargen
+                                    ? `${metricas.margenPromedio.toFixed(1)}% sobre ${cobertura} pedidos`
+                                    : `Porcentaje no calculable: venta neta en cero · ${cobertura} pedidos`
+                                : 'Sin costos registrados para estas entregas'}</small>
                         </Card.Body>
                     </Card>
                 </Col>
@@ -85,11 +90,11 @@ export default function ContabilidadBI({ metricas, alcance, periodoTexto }) {
                 </Col>
             </Row>
 
-            {hayCostos && (
+            {metricas.topMargen.length > 0 && (
                 <Card className="border-0 shadow-sm mb-3">
                     <Card.Header className="bg-white fw-bold">Productos con margen calculable · {alcance}</Card.Header>
                     <Card.Body>
-                        <p className="text-muted small">Solo se incluyen pedidos entregados con costo unitario registrado.</p>
+                        <p className="text-muted small">Solo se incluyen productos con costo registrado y valor neto de venta mayor a cero.</p>
                         <ol className="bi-accounting-ranking small mb-0 ps-3">
                             {metricas.topMargen.map((producto) => (
                                 <li key={producto.nombre}>
