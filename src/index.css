@@ -679,6 +679,30 @@ a:focus-visible {
   padding-block: 0.8rem;
 }
 
+.finance-movement-modal .finance-expense-category {
+  padding: 0.85rem;
+  border: 1px solid #f0d6b5;
+  border-inline-start: 4px solid #ce7915;
+  border-radius: 0.75rem;
+  background: linear-gradient(110deg, #fffaf3, #fff);
+}
+
+.finance-movement-modal .finance-expense-category .form-select {
+  border-color: #dfbe96;
+  background-color: #fff;
+}
+
+.finance-movement-modal .finance-expense-category .form-text {
+  color: #745c40;
+}
+
+.finance-page .finance-category-badge {
+  border: 1px solid #e3c8a8;
+  background-color: #fff7e9 !important;
+  color: #78511c !important;
+  font-weight: 600;
+}
+
 .bi-page .bi-profit-card {
   background: linear-gradient(155deg, #fff, #f8fbff);
 }

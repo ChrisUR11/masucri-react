@@ -17,6 +17,13 @@ import { formatoFechaLegible } from '../utils/fecha';
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
+const COLORES_GASTOS = {
+    Luz: '#e9a100', Agua: '#0d8ed0', Maquinaria: '#596579', Telas: '#9355bf',
+    Sublimación: '#d64884', Transporte: '#198a77', Alimentación: '#db682e',
+    Varios: '#6654bf', 'Gastos generales': '#5f6f7d', Otros: '#a07559',
+    'Servicios Públicos': '#0d8ed0'
+};
+
 function ListaProgreso({ dataObj, total, colorCls }) {
     const arr = Object.entries(dataObj).sort((a, b) => b[1] - a[1]);
     if (arr.length === 0) return <div className="p-3 text-muted">Sin datos.</div>;
@@ -60,6 +67,7 @@ export default function DashboardBI() {
     const m = useMemo(() => calcularMetricas(pedidos, movimientos, rango), [pedidos, movimientos, rango]);
     const mc = useMemo(() => calcularMetricasContables(pedidos, movimientos, rango), [pedidos, movimientos, rango]);
     const activos = useMemo(() => calcularPedidosActivos(pedidos), [pedidos]);
+    const categoriasGasto = Object.keys(m.gastosAgrupados);
     const esHistorico = preset === 'historico';
     const alcance = esHistorico ? 'histórico' : 'período';
     const alcanceEnFrase = esHistorico ? 'todo el histórico' : 'el período';
@@ -244,14 +252,14 @@ export default function DashboardBI() {
                 <Col lg={4}>
                     <Card className="shadow-sm border-0 h-100">
                         <Card.Header className="bg-white fw-bold text-center border-0">Gastos por categoría <small className="text-muted fw-normal">({alcance})</small></Card.Header>
-                        <Card.Body style={{ height: '200px' }} className="d-flex justify-content-center">
-                            {Object.keys(m.gastosAgrupados).length > 0 ? (
+                        <Card.Body style={{ height: `${Math.max(200, categoriasGasto.length * 24)}px` }} className="d-flex justify-content-center">
+                            {categoriasGasto.length > 0 ? (
                                 <>
                                     <p className="visually-hidden">Gastos por categoría: {Object.entries(m.gastosAgrupados).map(([categoria, monto]) => `${categoria}: ${formatoColones(monto)}`).join('; ')}.</p>
                                     <Doughnut
                                         data={{
-                                            labels: Object.keys(m.gastosAgrupados),
-                                            datasets: [{ data: Object.values(m.gastosAgrupados), backgroundColor: ['#e83e8c', '#0dcaf0', '#fd7e14', '#20c997', '#6c757d', '#0d6efd'] }]
+                                            labels: categoriasGasto,
+                                            datasets: [{ data: Object.values(m.gastosAgrupados), backgroundColor: categoriasGasto.map((categoria) => COLORES_GASTOS[categoria] || '#768391') }]
                                         }}
                                         options={{ maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } } } }}
                                     />

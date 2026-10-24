@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Container, Card, Table, Button, Modal, Form, Row, Col, Badge } from 'react-bootstrap';
-import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, doc, getDocsFromServer } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, deleteField, doc, getDocsFromServer } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import Swal from 'sweetalert2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
@@ -12,11 +12,12 @@ import { obtenerFechaLocal } from '../utils/fecha';
 import { formatoColones } from '../utils/formato';
 import { detalleProductosPedido, obtenerProductosPedido } from '../utils/productosPedido';
 import { aCentavos, deCentavos, tieneMaximoDosDecimales } from '../utils/dinero';
+import { CATEGORIAS_GASTO, esCategoriaGastoValida } from '../utils/categoriasGasto';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 const FILAS_INICIALES = 100;
-const FORM_VACIO = { tipo: 'entrada', fecha: obtenerFechaLocal(), metodoPago: 'Efectivo', descripcion: '', entidad: '', monto: '' };
+const FORM_VACIO = { tipo: 'entrada', fecha: obtenerFechaLocal(), metodoPago: 'Efectivo', categoria: '', descripcion: '', entidad: '', monto: '' };
 
 const montoMovimiento = (valor) => {
     if (typeof valor !== 'number' && typeof valor !== 'string') return null;
@@ -50,6 +51,10 @@ export default function Finanzas() {
     const [generandoRespaldo, setGenerandoRespaldo] = useState(false);
 
     const actualizar = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }));
+    const cambiarTipo = (e) => {
+        const tipo = e.target.value;
+        setForm((f) => ({ ...f, tipo, categoria: tipo === 'salida' ? f.categoria : '' }));
+    };
 
     const filtrados = useMemo(() => {
         let lista = movimientos;
@@ -59,7 +64,7 @@ export default function Finanzas() {
         if (filtroTextoDebounced) {
             const texto = filtroTextoDebounced.toLowerCase();
             lista = lista.filter((m) =>
-                [m.descripcion, m.entidad, m.metodo_pago, m.tipo]
+                [m.descripcion, m.entidad, m.categoria, m.metodo_pago, m.tipo]
                     .filter(Boolean)
                     .some((valor) => String(valor).toLowerCase().includes(texto))
             );
@@ -126,6 +131,7 @@ export default function Finanzas() {
                 tipo: m.tipo,
                 fecha: m.fecha,
                 metodoPago: m.metodo_pago || 'Efectivo',
+                categoria: m.tipo === 'salida' && esCategoriaGastoValida(m.categoria) ? m.categoria : '',
                 descripcion: m.descripcion || '',
                 entidad: m.entidad || '',
                 monto: m.monto ?? ''
@@ -149,6 +155,9 @@ export default function Finanzas() {
             return Swal.fire('Monto inválido', 'Ingresa un monto mayor a cero con máximo dos decimales.', 'warning');
         }
         const monto = deCentavos(aCentavos(montoIndicado));
+        if (form.tipo === 'salida' && !esCategoriaGastoValida(form.categoria)) {
+            return Swal.fire('Falta la categoría', 'Selecciona la categoría de esta salida.', 'warning');
+        }
         if (!form.descripcion.trim()) return Swal.fire('Falta el concepto', 'Describe brevemente el movimiento.', 'warning');
 
         const datos = {
@@ -158,7 +167,8 @@ export default function Finanzas() {
             descripcion: form.descripcion.trim(),
             entidad: form.entidad.trim(),
             monto,
-            timestamp: new Date()
+            timestamp: new Date(),
+            ...(form.tipo === 'salida' ? { categoria: form.categoria } : editId ? { categoria: deleteField() } : {})
         };
 
         setGuardando(true);
@@ -271,6 +281,7 @@ export default function Finanzas() {
                         Tipo: m.tipo,
                         Método: m.metodo_pago,
                         Concepto: m.descripcion,
+                        Categoría: m.tipo === 'salida' ? m.categoria || '' : '',
                         Entidad: m.entidad,
                         Monto: m.monto || 0
                     }))
@@ -312,8 +323,8 @@ export default function Finanzas() {
             const docPDF = new jsPDF();
             docPDF.text('Reporte Contable - MASUCRI', 14, 15);
             autoTable(docPDF, {
-                head: [['Fecha', 'Método', 'Tipo', 'Concepto', 'Monto']],
-                body: filtrados.map((m) => [m.fecha, m.metodo_pago || 'Manual', (m.tipo || 'DESCONOCIDO').toUpperCase(), m.descripcion, formatoColones(m.monto)]),
+                head: [['Fecha', 'Método', 'Tipo', 'Categoría', 'Concepto', 'Monto']],
+                body: filtrados.map((m) => [m.fecha, m.metodo_pago || 'Manual', (m.tipo || 'DESCONOCIDO').toUpperCase(), m.tipo === 'salida' ? m.categoria || '' : '', m.descripcion, formatoColones(m.monto)]),
                 startY: 28
             });
             docPDF.save(`Finanzas_MASUCRI_${obtenerFechaLocal()}.pdf`);
@@ -332,6 +343,7 @@ export default function Finanzas() {
                     Fecha: m.fecha,
                     Método: m.metodo_pago || 'Manual',
                     Tipo: (m.tipo || 'DESCONOCIDO').toUpperCase(),
+                    Categoría: m.tipo === 'salida' ? m.categoria || '' : '',
                     Concepto: m.descripcion,
                     Monto: m.monto
                 }))
@@ -460,7 +472,7 @@ export default function Finanzas() {
                                                         <td data-label="Fecha">{m.fecha}</td>
                                                         <td data-label="Detalle / Método">
                                                             <div className="mobile-table-value">
-                                                                <strong>{m.descripcion}</strong> <Badge bg="secondary">{m.metodo_pago || 'Manual'}</Badge><br />
+                                                                <strong>{m.descripcion}</strong> <Badge bg="secondary">{m.metodo_pago || 'Manual'}</Badge>{m.tipo === 'salida' && typeof m.categoria === 'string' && m.categoria.trim() && <> <Badge bg="light" text="dark" className="finance-category-badge">{m.categoria}</Badge></>}<br />
                                                                 <small className="text-muted">{m.entidad || ''}</small>
                                                             </div>
                                                         </td>
@@ -505,7 +517,7 @@ export default function Finanzas() {
             )}
 
             {/* MODAL DE REGISTRO / EDICIÓN */}
-            <Modal show={showModal} onHide={handleClose} backdrop="static">
+            <Modal show={showModal} onHide={handleClose} backdrop="static" className="finance-movement-modal">
                 <Modal.Header closeButton className={form.tipo === 'entrada' ? 'bg-success text-white' : 'bg-danger text-white'}>
                     <Modal.Title className="fw-bold"><i className="fas fa-cash-register"></i> {editId ? 'Editar' : 'Registrar'} Movimiento</Modal.Title>
                 </Modal.Header>
@@ -514,7 +526,7 @@ export default function Finanzas() {
                         <Row className="mb-3">
                             <Col md={6}>
                                 <Form.Label className="fw-bold">Tipo</Form.Label>
-                                <Form.Select value={form.tipo} onChange={actualizar('tipo')}>
+                                <Form.Select value={form.tipo} onChange={cambiarTipo}>
                                     <option value="entrada">Entrada (Ingreso)</option>
                                     <option value="salida">Salida (Gasto)</option>
                                 </Form.Select>
@@ -532,6 +544,16 @@ export default function Finanzas() {
                                 <option value="Transferencia">Transferencia</option>
                             </Form.Select>
                         </Form.Group>
+                        {form.tipo === 'salida' && (
+                            <Form.Group className="finance-expense-category mb-3" controlId="finance-categoria-gasto">
+                                <Form.Label className="fw-bold mb-1"><i className="fas fa-tags me-2" aria-hidden="true"></i>Categoría del gasto</Form.Label>
+                                <Form.Select required value={form.categoria} onChange={actualizar('categoria')} aria-describedby="finance-categoria-ayuda">
+                                    <option value="" disabled>Selecciona una categoría</option>
+                                    {CATEGORIAS_GASTO.map((categoria) => <option key={categoria} value={categoria}>{categoria}</option>)}
+                                </Form.Select>
+                                <Form.Text id="finance-categoria-ayuda">Agrupa esta salida en tus reportes.</Form.Text>
+                            </Form.Group>
+                        )}
                         <Form.Group className="mb-3">
                             <Form.Label className="fw-bold">Concepto</Form.Label>
                             <Form.Control required name="concepto" type="text" placeholder="Ej: Compra de tintas" value={form.descripcion} onChange={actualizar('descripcion')} />

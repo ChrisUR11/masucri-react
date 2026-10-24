@@ -1,13 +1,14 @@
 import { obtenerMesDeFecha } from './fecha.js';
 import { obtenerProductosPedido } from './productosPedido.js';
+import { esCategoriaGastoValida } from './categoriasGasto.js';
 
 const GASTOS_AGRUPADOS_BASE = {
-    'Telas y Costura': 0,
-    'Suministros (Sublimación)': 0,
+    'Telas': 0,
+    'Sublimación': 0,
     'Transporte': 0,
     'Servicios Públicos': 0,
     'Alimentación': 0,
-    'Gastos Generales': 0
+    'Gastos generales': 0
 };
 
 /** Clasifica un gasto en una categoría amplia para el gráfico de "Fuga de Capital". */
@@ -18,13 +19,13 @@ function categorizarGasto(descripcion, entidad) {
         txt.includes('tela') || txt.includes('aracely') || txt.includes('hilo') || txt.includes('costura') ||
         txt.includes('cinta') || txt.includes('encaje') || txt.includes('encage') || txt.includes('elástico') ||
         txt.includes('elastico') || txt.includes('pasamaneria') || txt.includes('pasamanería')
-    ) return 'Telas y Costura';
+    ) return 'Telas';
 
     if (
         txt.includes('ubora') || txt.includes('tinta') || txt.includes('papel') || txt.includes('vinil') ||
         txt.includes('sublimac') || txt.includes('fauca') || txt.includes('cameo') || txt.includes('sticker') ||
         txt.includes('sublimaci')
-    ) return 'Suministros (Sublimación)';
+    ) return 'Sublimación';
 
     // OJO: "transporte" y "bomba" (gasolinera) se agregaron después de revisar
     // datos reales — muchos movimientos dicen solo "Transporte" sin la palabra
@@ -46,7 +47,7 @@ function categorizarGasto(descripcion, entidad) {
         txt.includes('macdonalds') || txt.includes('mcdonalds') || txt.includes('taco bell') || txt.includes('tacobell')
     ) return 'Alimentación';
 
-    return 'Gastos Generales';
+    return 'Gastos generales';
 }
 
 /** Clasifica un producto en una categoría para el gráfico de productos solicitados. */
@@ -151,8 +152,12 @@ export function calcularMetricas(pedidos, movimientos, rango = {}) {
             }
             gastosMap[entidad] = (gastosMap[entidad] || 0) + monto;
 
-            const categoria = categorizarGasto(desc, entidad);
-            gastosAgrupados[categoria] += monto;
+            // Las salidas nuevas llevan categoría explícita. Para los registros
+            // anteriores al selector conservamos la clasificación por texto.
+            const categoria = esCategoriaGastoValida(m.categoria)
+                ? m.categoria
+                : categorizarGasto(desc, entidad);
+            gastosAgrupados[categoria] = (gastosAgrupados[categoria] || 0) + monto;
         }
         // Si m.tipo no es ni 'entrada' ni 'salida' (vacío, mal escrito, dato viejo),
         // no se suma a ningún lado — antes cualquier valor no-'entrada' caía aquí

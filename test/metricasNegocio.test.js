@@ -94,6 +94,26 @@ test('montos inválidos o negativos no contaminan las métricas financieras', ()
     assert.equal(resultado.tasaCanc, '0.0');
 });
 
+test('BI respeta la categoría elegida y conserva el respaldo para gastos antiguos', () => {
+    const resultado = calcularMetricas([], [
+        { fecha: '2026-10-10', tipo: 'salida', monto: 1200, descripcion: 'Compra de telas', categoria: 'Maquinaria' },
+        { fecha: '2026-10-11', tipo: 'salida', monto: 300, descripcion: 'Bus al centro' },
+        { fecha: '2026-10-12', tipo: 'salida', monto: 50, descripcion: 'Almuerzo', categoria: 'Categoría obsoleta' },
+        { fecha: '2026-10-12', tipo: 'salida', monto: 100, descripcion: 'Hilo para confección' },
+        { fecha: '2026-10-12', tipo: 'salida', monto: 200, descripcion: 'Tinta sublimación' },
+        { fecha: '2026-10-13', tipo: 'entrada', monto: 100, descripcion: 'Pago', categoria: 'Luz' }
+    ], { inicio: '2026-10-01', fin: '2026-10-31' });
+
+    assert.equal(resultado.gastosPeriodo, 1850);
+    assert.deepEqual(resultado.gastosAgrupados, {
+        Telas: 100,
+        Sublimación: 200,
+        Transporte: 300,
+        Alimentación: 50,
+        Maquinaria: 1200
+    });
+});
+
 test('desglosa los productos nuevos por pedido sin duplicar líneas ni categorías', () => {
     const pedidosConLineas = [
         {
