@@ -12,7 +12,7 @@ import { obtenerFechaLocal } from '../utils/fecha';
 import { formatoColones } from '../utils/formato';
 import { detalleProductosPedido, obtenerProductosPedido } from '../utils/productosPedido';
 import { aCentavos, deCentavos, tieneMaximoDosDecimales } from '../utils/dinero';
-import { CATEGORIAS_GASTO, esCategoriaGastoValida } from '../utils/categoriasGasto';
+import { CATEGORIAS_GASTO, descripcionMovimientoParaGuardar, esCategoriaGastoValida } from '../utils/categoriasGasto';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -25,6 +25,11 @@ const montoMovimiento = (valor) => {
     const monto = Number(valor);
     return Number.isFinite(monto) && monto >= 0 ? monto : null;
 };
+
+const conceptoParaReporte = (movimiento) =>
+    movimiento.tipo === 'salida' && movimiento.descripcion === movimiento.categoria
+        ? ''
+        : movimiento.descripcion || '';
 
 export default function Finanzas() {
     // Sin límite: los totales de Entradas/Salidas/Balance deben reflejar SIEMPRE
@@ -53,7 +58,12 @@ export default function Finanzas() {
     const actualizar = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }));
     const cambiarTipo = (e) => {
         const tipo = e.target.value;
-        setForm((f) => ({ ...f, tipo, categoria: tipo === 'salida' ? f.categoria : '' }));
+        setForm((f) => ({
+            ...f,
+            tipo,
+            categoria: tipo === 'salida' ? f.categoria : '',
+            descripcion: tipo === 'entrada' && f.tipo === 'salida' ? '' : f.descripcion
+        }));
     };
 
     const filtrados = useMemo(() => {
@@ -131,7 +141,9 @@ export default function Finanzas() {
                 tipo: m.tipo,
                 fecha: m.fecha,
                 metodoPago: m.metodo_pago || 'Efectivo',
-                categoria: m.tipo === 'salida' && esCategoriaGastoValida(m.categoria) ? m.categoria : '',
+                categoria: m.tipo === 'salida'
+                    ? (esCategoriaGastoValida(m.categoria) ? m.categoria : esCategoriaGastoValida(m.descripcion) ? m.descripcion : '')
+                    : '',
                 descripcion: m.descripcion || '',
                 entidad: m.entidad || '',
                 monto: m.monto ?? ''
@@ -144,8 +156,8 @@ export default function Finanzas() {
 
     const handleSave = async (e) => {
         e.preventDefault();
+        const movimientoActual = editId ? movimientos.find((m) => m.id === editId) : null;
         if (editId) {
-            const movimientoActual = movimientos.find((m) => m.id === editId);
             if (!movimientoActual || movimientoActual.pedido_id) {
                 return Swal.fire('Movimiento vinculado', 'Este movimiento ya no se puede editar desde Caja. Revisa el pedido asociado.', 'info');
             }
@@ -158,13 +170,15 @@ export default function Finanzas() {
         if (form.tipo === 'salida' && !esCategoriaGastoValida(form.categoria)) {
             return Swal.fire('Falta la categoría', 'Selecciona la categoría de esta salida.', 'warning');
         }
-        if (!form.descripcion.trim()) return Swal.fire('Falta el concepto', 'Describe brevemente el movimiento.', 'warning');
+        if (form.tipo === 'entrada' && !form.descripcion.trim()) {
+            return Swal.fire('Falta el concepto', 'Describe brevemente el movimiento.', 'warning');
+        }
 
         const datos = {
             tipo: form.tipo,
             fecha: form.fecha,
             metodo_pago: form.metodoPago,
-            descripcion: form.descripcion.trim(),
+            descripcion: descripcionMovimientoParaGuardar(form, movimientoActual),
             entidad: form.entidad.trim(),
             monto,
             timestamp: new Date(),
@@ -324,7 +338,7 @@ export default function Finanzas() {
             docPDF.text('Reporte Contable - MASUCRI', 14, 15);
             autoTable(docPDF, {
                 head: [['Fecha', 'Método', 'Tipo', 'Categoría', 'Concepto', 'Monto']],
-                body: filtrados.map((m) => [m.fecha, m.metodo_pago || 'Manual', (m.tipo || 'DESCONOCIDO').toUpperCase(), m.tipo === 'salida' ? m.categoria || '' : '', m.descripcion, formatoColones(m.monto)]),
+                body: filtrados.map((m) => [m.fecha, m.metodo_pago || 'Manual', (m.tipo || 'DESCONOCIDO').toUpperCase(), m.tipo === 'salida' ? m.categoria || '' : '', conceptoParaReporte(m), formatoColones(m.monto)]),
                 startY: 28
             });
             docPDF.save(`Finanzas_MASUCRI_${obtenerFechaLocal()}.pdf`);
@@ -344,7 +358,7 @@ export default function Finanzas() {
                     Método: m.metodo_pago || 'Manual',
                     Tipo: (m.tipo || 'DESCONOCIDO').toUpperCase(),
                     Categoría: m.tipo === 'salida' ? m.categoria || '' : '',
-                    Concepto: m.descripcion,
+                    Concepto: conceptoParaReporte(m),
                     Monto: m.monto
                 }))
             );
@@ -412,7 +426,7 @@ export default function Finanzas() {
                                     <Form.Control
                                         type="search"
                                         className="mb-3"
-                                        placeholder="Buscar concepto, cliente o método..."
+                                        placeholder="Buscar categoría, concepto o método..."
                                         value={filtroTexto}
                                         onChange={(e) => setFiltroTexto(e.target.value)}
                                         aria-label="Buscar en movimientos financieros"
@@ -472,8 +486,12 @@ export default function Finanzas() {
                                                         <td data-label="Fecha">{m.fecha}</td>
                                                         <td data-label="Detalle / Método">
                                                             <div className="mobile-table-value">
-                                                                <strong>{m.descripcion}</strong> <Badge bg="secondary">{m.metodo_pago || 'Manual'}</Badge>{m.tipo === 'salida' && typeof m.categoria === 'string' && m.categoria.trim() && <> <Badge bg="light" text="dark" className="finance-category-badge">{m.categoria}</Badge></>}<br />
-                                                                <small className="text-muted">{m.entidad || ''}</small>
+                                                                <strong>{m.tipo === 'salida' && esCategoriaGastoValida(m.categoria) ? m.categoria : m.descripcion}</strong>{' '}
+                                                                <Badge bg="secondary">{m.metodo_pago || 'Manual'}</Badge>
+                                                                {m.tipo === 'salida' && esCategoriaGastoValida(m.categoria) && m.descripcion?.trim() && m.descripcion.trim() !== m.categoria && (
+                                                                    <><br /><small className="text-muted">{m.descripcion}</small></>
+                                                                )}
+                                                                {m.entidad && <><br /><small className="text-muted">{m.entidad}</small></>}
                                                             </div>
                                                         </td>
                                                         <td data-label="Monto" className={`fw-bold ${montoMovimiento(m.monto) === null ? 'text-danger' : m.tipo === 'entrada' ? 'text-success' : 'text-danger'}`}>
@@ -551,13 +569,15 @@ export default function Finanzas() {
                                     <option value="" disabled>Selecciona una categoría</option>
                                     {CATEGORIAS_GASTO.map((categoria) => <option key={categoria} value={categoria}>{categoria}</option>)}
                                 </Form.Select>
-                                <Form.Text id="finance-categoria-ayuda">Agrupa esta salida en tus reportes.</Form.Text>
+                                <Form.Text id="finance-categoria-ayuda">Esta categoría aparecerá en Caja y BI.</Form.Text>
                             </Form.Group>
                         )}
-                        <Form.Group className="mb-3">
-                            <Form.Label className="fw-bold">Concepto</Form.Label>
-                            <Form.Control required name="concepto" type="text" placeholder="Ej: Compra de tintas" value={form.descripcion} onChange={actualizar('descripcion')} />
-                        </Form.Group>
+                        {form.tipo === 'entrada' && (
+                            <Form.Group className="mb-3">
+                                <Form.Label className="fw-bold">Concepto</Form.Label>
+                                <Form.Control required name="concepto" type="text" placeholder="Ej: Abono o ingreso" value={form.descripcion} onChange={actualizar('descripcion')} />
+                            </Form.Group>
+                        )}
                         <Row className="mb-4">
                             <Col md={6}>
                                 <Form.Label className="fw-bold">Entidad (Opcional)</Form.Label>

@@ -156,7 +156,9 @@ export function calcularMetricas(pedidos, movimientos, rango = {}) {
             // anteriores al selector conservamos la clasificación por texto.
             const categoria = esCategoriaGastoValida(m.categoria)
                 ? m.categoria
-                : categorizarGasto(desc, entidad);
+                : esCategoriaGastoValida(m.descripcion)
+                    ? m.descripcion
+                    : categorizarGasto(desc, entidad);
             gastosAgrupados[categoria] = (gastosAgrupados[categoria] || 0) + monto;
         }
         // Si m.tipo no es ni 'entrada' ni 'salida' (vacío, mal escrito, dato viejo),
