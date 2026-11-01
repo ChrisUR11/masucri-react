@@ -10,7 +10,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import { obtenerFechaLocal } from '../utils/fecha';
 import { formatoColones } from '../utils/formato';
-import { aCentavos, deCentavos, tieneMaximoDosDecimales } from '../utils/dinero';
+import { aCentavos, deCentavos, tieneMaximoDosDecimales } from '../utils/dinero.ts';
 import { CATEGORIAS_GASTO, descripcionMovimientoParaGuardar, esCategoriaGastoValida } from '../utils/categoriasGasto';
 import { descargarRespaldoCompleto, descargarPDFMovimientos, descargarExcelMovimientos } from '../services/exportacionFinanzas';
 

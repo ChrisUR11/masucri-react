@@ -3,7 +3,7 @@ import Swal from 'sweetalert2';
 import { db } from '../config/firebase';
 import { obtenerFechaLocal } from './fecha';
 import { formatoColones } from './formato';
-import { aCentavos, deCentavos, tieneMaximoDosDecimales } from './dinero.js';
+import { aCentavos, deCentavos, tieneMaximoDosDecimales } from './dinero.ts';
 
 /**
  * Marca un pedido como "Entregado". Si tiene saldo pendiente, primero

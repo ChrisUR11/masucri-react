@@ -11,7 +11,7 @@ import ContabilidadBI from '../components/ContabilidadBI';
 import { calcularRangoPreset } from '../utils/rangoFechas';
 import { calcularMetricas } from '../utils/metricasNegocio';
 import { calcularMetricasContables } from '../utils/metricasContables';
-import { calcularPedidosActivos } from '../utils/metricasPedidosActivos';
+import { calcularPedidosActivos } from '../utils/metricasPedidosActivos.ts';
 import { formatoColones, formatoNumero } from '../utils/formato';
 import { formatoFechaLegible } from '../utils/fecha';
 

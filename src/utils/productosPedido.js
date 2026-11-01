@@ -1,5 +1,5 @@
 /** Desglose común de productos, incluidos los pedidos guardados antes de tener líneas. */
-import { aCentavos, deCentavos, tieneMaximoDosDecimales } from './dinero.js';
+import { aCentavos, deCentavos, tieneMaximoDosDecimales } from './dinero.ts';
 
 const numeroFinito = (valor) => {
     if (valor == null || (typeof valor === 'string' && !valor.trim())) return null;

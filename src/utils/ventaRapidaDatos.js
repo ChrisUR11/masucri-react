@@ -1,5 +1,5 @@
 import { calcularTotalesPedido, resumenProductos, validarProductosPedido } from './productosPedido.js';
-import { aCentavos, deCentavos, tieneMaximoDosDecimales } from './dinero.js';
+import { aCentavos, deCentavos, tieneMaximoDosDecimales } from './dinero.ts';
 
 /** Valida y construye los registros que se guardan para una venta rápida. */
 export function prepararDatosVentaRapida(

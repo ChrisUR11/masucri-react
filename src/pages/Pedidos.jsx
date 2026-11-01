@@ -20,7 +20,7 @@ import { seleccionarContacto, soportaSelectorContactos } from '../utils/contacto
 import { obtenerFechaLocal } from '../utils/fecha';
 import { formatoColones } from '../utils/formato';
 import { calcularTotalesPedido, obtenerProductosPedido, resumenProductos, validarProductosPedido } from '../utils/productosPedido';
-import { aCentavos, deCentavos, tieneMaximoDosDecimales } from '../utils/dinero';
+import { aCentavos, deCentavos, tieneMaximoDosDecimales } from '../utils/dinero.ts';
 
 const ESTADOS_ACTIVOS = ['Pendiente', 'En producción', 'Por Retirar'];
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calcularPedidosActivos } from '../src/utils/metricasPedidosActivos.js';
+import { calcularPedidosActivos } from '../src/utils/metricasPedidosActivos.ts';
 
 test('resume estados activos, abonos, saldos y entregas atrasadas', () => {
     const resumen = calcularPedidosActivos([

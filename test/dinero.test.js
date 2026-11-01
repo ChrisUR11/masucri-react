@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { aCentavos, deCentavos, tieneMaximoDosDecimales } from '../src/utils/dinero.js';
+import { aCentavos, deCentavos, tieneMaximoDosDecimales } from '../src/utils/dinero.ts';
 
 test('una deuda con centavos acepta exactamente el saldo pendiente', () => {
     const deuda = aCentavos(1000.30) - aCentavos(1000.10);

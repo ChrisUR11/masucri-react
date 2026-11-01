@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { calcularMetricas } from '../src/utils/metricasNegocio.js';
 import { calcularMetricasContables } from '../src/utils/metricasContables.js';
-import { calcularPedidosActivos } from '../src/utils/metricasPedidosActivos.js';
+import { calcularPedidosActivos } from '../src/utils/metricasPedidosActivos.ts';
 
 test('BI separa caja del período, cierres del período y saldos activos actuales', () => {
     const rango = { inicio: '2026-10-01', fin: '2026-10-31' };

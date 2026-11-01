@@ -4,7 +4,7 @@ Aplicación web para gestionar pedidos, producción, catálogo, caja, historial 
 
 ## Desarrollo local
 
-Necesitas Node.js y npm compatibles con las versiones declaradas en `package.json`.
+Necesitas Node.js 24 o posterior y npm. Las pruebas importan módulos `.ts` mediante el soporte nativo de Node; el build comprueba sus tipos con `tsc` antes de compilar con Vite.
 
 ```bash
 npm ci
@@ -19,7 +19,9 @@ La aplicación usa el proyecto de Firebase configurado en `src/config/firebase.j
 | `npm run build` | Compila la aplicación en `dist/`. |
 | `npm run preview` | Previsualiza la compilación. |
 | `npm run lint` | Ejecuta ESLint. |
+| `npm run typecheck` | Comprueba los módulos TypeScript antes de compilar. |
 | `npm test` | Ejecuta las pruebas con `node --test`. |
+| `npm run test:rules` | Prueba los permisos de Firestore en el emulador local. |
 | `npm run deploy` | Publica `dist/` mediante `gh-pages` cuando el destino está configurado. |
 
 ## Organización del código
@@ -52,6 +54,8 @@ Las transacciones de Firestore requieren conexión. Borrar un pedido con sus mov
 
 ## Integridad y acceso
 
-`CORREOS_PERMITIDOS` en `src/App.jsx` limita lo que muestra la interfaz, pero **no protege la base de datos**. Hay que configurar reglas de seguridad de Firestore que comprueben la identidad y los permisos de cada operación. Este repositorio no incluye esas reglas.
+`CORREOS_PERMITIDOS` en `src/App.jsx` limita lo que muestra la interfaz. `firestore.rules` define la barrera de Firestore: permite leer y escribir únicamente a los dos administradores con sesión de Google y correo verificado. `npm run test:rules` prueba permisos autorizados y rechazados sin acceder a producción. Para que los cambios de ese archivo rijan en producción hay que desplegar las reglas por separado: `npm run deploy` solo publica la web en GitHub Pages.
+
+Para desplegar exclusivamente las reglas en el proyecto correcto, tras probarlas y autenticar Firebase CLI, ejecuta `npx firebase deploy --only firestore:rules --project masucri-65fed`.
 
 El borrado con trazabilidad consulta los movimientos en el servidor y después confirma un batch. La consulta y el batch no son una transacción frente a pagos creados concurrentemente; si se necesita esa garantía, la operación debe coordinarse en el servidor junto con reglas que bloqueen nuevos pagos durante el borrado.

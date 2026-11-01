@@ -15,7 +15,7 @@ import { abrirWhatsApp, mensajePedido } from '../utils/whatsapp';
 import { compartirTicket } from '../utils/ticketImagen';
 import { formatoColones } from '../utils/formato';
 import { calcularTotalesPedido, detalleProductosPedido, obtenerProductosPedido, resumenProductos, validarProductosPedido } from '../utils/productosPedido';
-import { aCentavos, tieneMaximoDosDecimales } from '../utils/dinero';
+import { aCentavos, tieneMaximoDosDecimales } from '../utils/dinero.ts';
 
 const ESTADOS_ACTIVOS = ['Pendiente', 'En producción', 'Por Retirar'];
 

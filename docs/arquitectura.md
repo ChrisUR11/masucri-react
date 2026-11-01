@@ -23,11 +23,11 @@ La migración a estas responsabilidades es gradual: todavía hay páginas que es
 2. Mantener juntos los cambios de pedido y movimiento de caja. Para saldos concurrentes se usan transacciones; para crear documentos relacionados, operaciones por lote.
 3. Separar cálculos puros de consultas, ventanas y descargas. Probar los cálculos y las reglas de dinero cuando un cambio pueda alterar resultados.
 4. Conservar la caché persistente de Firestore y verificar los flujos que requieren conexión. Las transacciones no funcionan sin conexión.
-5. Ejecutar `npm test`, `npm run lint` y `npm run build` antes de publicar.
+5. Ejecutar `npm test`, `npm run test:rules`, `npm run lint`, `npm run typecheck` y `npm run build` antes de publicar.
 
 ## Evolución recomendada
 
-- Revisar las reglas **desplegadas** de Firestore, versionarlas y probar permisos con Emulator Suite antes de cambiarlas. La lista de correos del frontend no protege la base de datos.
+- Mantener `firestore.rules` y sus pruebas de Emulator Suite junto al código. Antes de cada despliegue de reglas, comparar su versión local con la desplegada y usar el proyecto de Firebase explícito.
 - Continuar con servicios para operaciones de pedidos y catálogo, sin alterar las transacciones existentes durante una extracción solo visual.
-- Incorporar TypeScript de forma gradual en modelos y reglas de dinero, comenzando por nuevos módulos o archivos puros; no convertir toda la aplicación de una vez.
+- Ampliar TypeScript gradualmente desde dinero y métricas de pedidos activos hacia modelos y reglas de pedidos. Validar en ejecución los datos antiguos de Firestore, porque sus tipos no garantizan el contenido almacenado.
 - Usar Cloud Functions solo si una operación necesita privilegios de servidor, integraciones privadas o una garantía de coordinación que el cliente y las reglas no puedan asegurar.

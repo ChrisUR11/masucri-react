@@ -3,7 +3,7 @@ import Swal from 'sweetalert2';
 import { db } from '../config/firebase';
 import { obtenerFechaLocal } from './fecha';
 import { formatoColones } from './formato';
-import { aCentavos, deCentavos, tieneMaximoDosDecimales } from './dinero.js';
+import { aCentavos, deCentavos, tieneMaximoDosDecimales } from './dinero.ts';
 
 /**
  * Abre el diálogo de "Abonar a la deuda" y, si se confirma, registra el pago
