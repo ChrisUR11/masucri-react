@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Container, Card, Table, Button, Modal, Form, Row, Col, Badge } from 'react-bootstrap';
-import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, deleteField, doc, getDocsFromServer } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, updateDoc, deleteDoc, deleteField, doc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import Swal from 'sweetalert2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
@@ -10,9 +10,9 @@ import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import { obtenerFechaLocal } from '../utils/fecha';
 import { formatoColones } from '../utils/formato';
-import { detalleProductosPedido, obtenerProductosPedido } from '../utils/productosPedido';
 import { aCentavos, deCentavos, tieneMaximoDosDecimales } from '../utils/dinero';
 import { CATEGORIAS_GASTO, descripcionMovimientoParaGuardar, esCategoriaGastoValida } from '../utils/categoriasGasto';
+import { descargarRespaldoCompleto, descargarPDFMovimientos, descargarExcelMovimientos } from '../services/exportacionFinanzas';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -25,11 +25,6 @@ const montoMovimiento = (valor) => {
     const monto = Number(valor);
     return Number.isFinite(monto) && monto >= 0 ? monto : null;
 };
-
-const conceptoParaReporte = (movimiento) =>
-    movimiento.tipo === 'salida' && movimiento.descripcion === movimiento.categoria
-        ? ''
-        : movimiento.descripcion || '';
 
 export default function Finanzas() {
     // Sin límite: los totales de Entradas/Salidas/Balance deben reflejar SIEMPRE
@@ -228,7 +223,7 @@ export default function Finanzas() {
     /**
      * Descarga TODO el negocio (pedidos, movimientos y catálogo completos —
      * no solo lo que se ve filtrado en pantalla ni los últimos 200
-     * movimientos) en un solo Excel con 3 pestañas. Es una red de seguridad
+     * movimientos) en un solo Excel con 4 pestañas. Es una red de seguridad
      * manual: si algo se borra por error, queda esta copia.
      */
     const handleRespaldoCompleto = async () => {
@@ -237,87 +232,7 @@ export default function Finanzas() {
         }
         setGenerandoRespaldo(true);
         try {
-            const [XLSX, pedidosSnap, productosSnap, movimientosSnap] = await Promise.all([
-                import('xlsx'),
-                getDocsFromServer(collection(db, 'pedidos')),
-                getDocsFromServer(collection(db, 'productos')),
-                getDocsFromServer(collection(db, 'movimientos'))
-            ]);
-
-            const pedidos = pedidosSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
-            const productos = productosSnap.docs.map((d) => d.data());
-            const todosMovimientos = movimientosSnap.docs.map((d) => d.data());
-
-            const wb = XLSX.utils.book_new();
-
-            XLSX.utils.book_append_sheet(
-                wb,
-                XLSX.utils.json_to_sheet(
-                    pedidos.map((p) => ({
-                        'Pedido ID': p.id,
-                        Cliente: p.cliente,
-                        Teléfono: p.telefono,
-                        Producto: p.producto,
-                        Productos: detalleProductosPedido(p) || p.producto,
-                        Descripción: p.descripcion,
-                        Subtotal: p.subtotal ?? p.precio ?? 0,
-                        'Descuento (%)': p.descuento_porcentaje ?? 0,
-                        'Descuento (₡)': p.descuento_monto ?? 0,
-                        Precio: p.precio || 0,
-                        Pagado: p.monto_pagado || 0,
-                        Estado: p.estado,
-                        'Fecha Solicitud': p.fecha_solicitud,
-                        'Fecha Entrega': p.fecha_entrega,
-                        'Fecha Cierre': p.fecha_cierre
-                    }))
-                ),
-                'Pedidos'
-            );
-
-            XLSX.utils.book_append_sheet(
-                wb,
-                XLSX.utils.json_to_sheet(pedidos.flatMap((p) => obtenerProductosPedido(p).map((item) => ({
-                    'Pedido ID': p.id,
-                    Cliente: p.cliente,
-                    Producto: item.nombre,
-                    Cantidad: item.cantidad,
-                    'Precio unitario': item.precio_unitario,
-                    'Total de línea': item.total
-                })))),
-                'Productos por pedido'
-            );
-
-            XLSX.utils.book_append_sheet(
-                wb,
-                XLSX.utils.json_to_sheet(
-                    todosMovimientos.map((m) => ({
-                        Fecha: m.fecha,
-                        Tipo: m.tipo,
-                        Método: m.metodo_pago,
-                        Concepto: m.descripcion,
-                        Categoría: m.tipo === 'salida' ? m.categoria || '' : '',
-                        Entidad: m.entidad,
-                        Monto: m.monto || 0
-                    }))
-                ),
-                'Movimientos'
-            );
-
-            XLSX.utils.book_append_sheet(
-                wb,
-                XLSX.utils.json_to_sheet(
-                    productos.map((p) => ({
-                        Nombre: p.nombre,
-                        Proveedor: p.proveedor,
-                        Código: p.codigo_proveedor,
-                        Costo: p.costo || 0,
-                        'Precio Venta': p.precio_venta || 0
-                    }))
-                ),
-                'Catálogo'
-            );
-
-            XLSX.writeFile(wb, `Respaldo_MASUCRI_${obtenerFechaLocal()}.xlsx`);
+            await descargarRespaldoCompleto();
             Swal.fire({ icon: 'success', title: 'Respaldo descargado', timer: 1200, showConfirmButton: false });
         } catch (err) {
             console.error('Error generando respaldo:', err);
@@ -330,18 +245,7 @@ export default function Finanzas() {
     const exportarPDF = async () => {
         if (filtrados.length === 0) return Swal.fire('Aviso', 'No hay datos para exportar.', 'warning');
         try {
-            const [{ jsPDF }, { default: autoTable }] = await Promise.all([
-                import('jspdf'),
-                import('jspdf-autotable')
-            ]);
-            const docPDF = new jsPDF();
-            docPDF.text('Reporte Contable - MASUCRI', 14, 15);
-            autoTable(docPDF, {
-                head: [['Fecha', 'Método', 'Tipo', 'Categoría', 'Concepto', 'Monto']],
-                body: filtrados.map((m) => [m.fecha, m.metodo_pago || 'Manual', (m.tipo || 'DESCONOCIDO').toUpperCase(), m.tipo === 'salida' ? m.categoria || '' : '', conceptoParaReporte(m), formatoColones(m.monto)]),
-                startY: 28
-            });
-            docPDF.save(`Finanzas_MASUCRI_${obtenerFechaLocal()}.pdf`);
+            await descargarPDFMovimientos(filtrados);
         } catch (err) {
             console.error('Error generando PDF:', err);
             Swal.fire('Error', 'No se pudo generar el PDF. Intenta de nuevo.', 'error');
@@ -351,20 +255,7 @@ export default function Finanzas() {
     const exportarExcel = async () => {
         if (filtrados.length === 0) return Swal.fire('Aviso', 'No hay datos para exportar.', 'warning');
         try {
-            const XLSX = await import('xlsx');
-            const ws = XLSX.utils.json_to_sheet(
-                filtrados.map((m) => ({
-                    Fecha: m.fecha,
-                    Método: m.metodo_pago || 'Manual',
-                    Tipo: (m.tipo || 'DESCONOCIDO').toUpperCase(),
-                    Categoría: m.tipo === 'salida' ? m.categoria || '' : '',
-                    Concepto: conceptoParaReporte(m),
-                    Monto: m.monto
-                }))
-            );
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Datos');
-            XLSX.writeFile(wb, `Finanzas_MASUCRI_${obtenerFechaLocal()}.xlsx`);
+            await descargarExcelMovimientos(filtrados);
         } catch (err) {
             console.error('Error generando Excel:', err);
             Swal.fire('Error', 'No se pudo generar el Excel. Intenta de nuevo.', 'error');

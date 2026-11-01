@@ -8,6 +8,7 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { useDebounce } from '../hooks/useDebounce';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import FichaPedidoDetalle from '../components/FichaPedidoDetalle';
+import TarjetaPedido from '../components/TarjetaPedido';
 import '../components/FichaPedidoDetalle.css';
 import ProductosPedidoForm from '../components/ProductosPedidoForm';
 import VentaRapidaModal from '../components/VentaRapidaModal';
@@ -16,7 +17,7 @@ import { entregarPedido } from '../utils/entregaPedido';
 import { abrirWhatsApp, mensajePedido } from '../utils/whatsapp';
 import { compartirTicket } from '../utils/ticketImagen';
 import { seleccionarContacto, soportaSelectorContactos } from '../utils/contactos';
-import { obtenerFechaLocal, diasHastaEntrega, formatearFechaCorta } from '../utils/fecha';
+import { obtenerFechaLocal } from '../utils/fecha';
 import { formatoColones } from '../utils/formato';
 import { calcularTotalesPedido, obtenerProductosPedido, resumenProductos, validarProductosPedido } from '../utils/productosPedido';
 import { aCentavos, deCentavos, tieneMaximoDosDecimales } from '../utils/dinero';
@@ -323,83 +324,6 @@ export default function Pedidos() {
         return lista;
     }, [pedidos, filtroTextoDebounced]);
 
-    const renderCard = (ped) => {
-        const deuda = (ped.precio || 0) - (ped.monto_pagado || 0);
-        const sinCargoPorDescuento = Number(ped.subtotal) > 0 && Number(ped.precio) === 0;
-        const diff = diasHastaEntrega(ped.fecha_entrega);
-        let colorAlerta = 'border-secondary'; // Por defecto, sin fecha
-        if (diff !== null) {
-            if (diff < 0) {
-                // Vencido: bien rojo
-                colorAlerta = 'border-danger bg-danger-subtle';
-            } else if (diff === 0) {
-                // Hoy: rojo también pero quizá con tonalidad distinta
-                colorAlerta = 'border-danger bg-danger-subtle';
-            } else if (diff <= 2) {
-                // 1-2 días: naranja/warning
-                colorAlerta = 'order-soon bg-warning-subtle';
-            } else if (diff <= 5) {
-                // 3-5 días: info/azul (requiere atención pero no urgente)
-                colorAlerta = 'border-info bg-info-subtle';
-            } else {
-                // 6+ días: verde/success (hay tiempo)
-                colorAlerta = 'border-success bg-success-subtle';
-            }
-        }
-
-        return (
-            <Card
-                key={ped.id}
-                className={`production-order-card mb-2 shadow-sm border-start border-4 ${colorAlerta}`}
-                draggable
-                onDragStart={(e) => handleDragStart(e, ped.id)}
-                style={{ cursor: 'grab' }}
-            >
-                <Card.Body
-                    className="p-2"
-                    onClick={() => abrirDetalle(ped)}
-                >
-                    <div className="d-flex justify-content-between">
-                        <strong className="text-truncate">{ped.cliente}</strong>
-                        <small className="text-muted fw-bold">{formatearFechaCorta(ped.fecha_entrega)}</small>
-                    </div>
-                    <p className="small mb-1 text-truncate">{ped.producto}</p>
-                    <div className="d-flex justify-content-between align-items-center mt-2">
-                        <Badge bg={deuda > 0 ? 'warning' : ped.precio || sinCargoPorDescuento ? 'success' : 'secondary'} className="text-dark">
-                            {deuda > 0 ? `Debe ${formatoColones(deuda)}` : sinCargoPorDescuento ? 'Descuento total' : ped.precio ? 'Pagado' : 'Sin precio'}
-                        </Badge>
-                        <div className="d-flex gap-1">
-                            <Button
-                                variant="light"
-                                size="sm"
-                                className="border shadow-sm"
-                                aria-label={`Ver detalle del pedido de ${ped.cliente}`}
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    abrirDetalle(ped);
-                                }}
-                            >
-                                <i className="fas fa-eye text-primary" aria-hidden="true"></i>
-                            </Button>
-                            <Button
-                                variant="light"
-                                size="sm"
-                                className="border shadow-sm"
-                                aria-label={`Editar pedido de ${ped.cliente}`}
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    abrirEditar(ped);
-                                }}
-                            >
-                                <i className="fas fa-pen text-secondary" aria-hidden="true"></i>
-                            </Button>
-                        </div>
-                    </div>
-                </Card.Body>
-            </Card>
-        );
-    };
-
     return (
             <Container className="orders-page mt-4 flex-grow-1 d-flex flex-column">
             <div className="app-page-heading page-heading d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 d-print-none">
@@ -471,7 +395,15 @@ export default function Pedidos() {
                                         {pedidosColumna.length === 0 ? (
                                             <p className="text-muted small text-center py-4 mb-0">Sin pedidos aquí.</p>
                                         ) : (
-                                            pedidosColumna.map(renderCard)
+                                            pedidosColumna.map((pedido) => (
+                                                <TarjetaPedido
+                                                    key={pedido.id}
+                                                    pedido={pedido}
+                                                    onDragStart={handleDragStart}
+                                                    onVerDetalle={abrirDetalle}
+                                                    onEditar={abrirEditar}
+                                                />
+                                            ))
                                         )}
                                     </Card.Body>
                                 </Card>

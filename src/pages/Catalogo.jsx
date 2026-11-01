@@ -1,13 +1,15 @@
 import { useState, useMemo } from 'react';
 import { collection, query, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
 import { db } from '../config/firebase';
-import { Container, Row, Col, Card, Button, Form, Modal, InputGroup, Badge, Alert, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Form, InputGroup } from 'react-bootstrap';
 import { useDebounce } from '../hooks/useDebounce';
 import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
-import { parsearCSV, compararProductos, descargarTemplate } from '../utils/importarProductos';
+import TarjetaProductoCatalogo from '../components/TarjetaProductoCatalogo';
+import ModalProductoCatalogo from '../components/ModalProductoCatalogo';
+import ModalImportarCatalogo from '../components/ModalImportarCatalogo';
+import { parsearCSV, compararProductos } from '../utils/importarProductos';
 import Swal from 'sweetalert2';
-import { formatoColones } from '../utils/formato';
 
 const FORM_VACIO = { nombre: '', descripcion: '', precio_costo: '', precio_venta: '', codigo: '', categoria: '', proveedor: '' };
 
@@ -297,228 +299,36 @@ export default function Catalogo() {
                 <p className="text-muted text-center py-4">Sin productos que coincidan con los filtros.</p>
             ) : (
                 <Row className="g-3">
-                    {filtrados.map((p) => {
-                        const margen = p.precio_venta && p.precio_costo ? (((p.precio_venta - p.precio_costo) / p.precio_venta) * 100).toFixed(0) : 0;
-                        return (
-                            <Col key={p.id} xs={12} sm={6} md={4} lg={3}>
-                                <Card className="catalog-product-card shadow-sm border-0 h-100 d-flex flex-column">
-                                    <Card.Body className="flex-grow-1">
-                                        <div className="d-flex justify-content-between align-items-start mb-2">
-                                            <Card.Title className="catalog-product-title fw-bold small m-0">{p.nombre}</Card.Title>
-                                            {p.codigo && <Badge bg="secondary" className="catalog-product-code ms-2" style={{ fontSize: '10px' }}>{p.codigo}</Badge>}
-                                        </div>
-                                        {p.categoria && <Badge className="mb-2" bg="info">{p.categoria}</Badge>}
-                                        {p.descripcion && <p className="small text-muted mb-2">{p.descripcion}</p>}
-                                        <div className="catalog-product-prices small">
-                                            {p.precio_costo && <p className="mb-1"><strong>C:</strong> {formatoColones(p.precio_costo)}</p>}
-                                            {p.precio_venta && <p className="mb-1"><strong>V:</strong> <span className="text-success fw-bold">{formatoColones(p.precio_venta)}</span></p>}
-                                            {p.precio_venta && p.precio_costo && <p className="mb-2 text-info"><strong>Margen:</strong> {margen}%</p>}
-                                        </div>
-                                    </Card.Body>
-                                    <Card.Footer className="bg-white border-top-0 pt-0">
-                                        <div className="d-flex gap-2">
-                                            <Button variant="outline-primary" size="sm" className="flex-grow-1" onClick={() => handleEditar(p)} aria-label={`Editar ${p.nombre}`}>
-                                                <i className="fas fa-pen"></i>
-                                            </Button>
-                                            <Button variant="outline-danger" size="sm" className="flex-grow-1" onClick={() => handleEliminar(p.id, p.nombre)} aria-label={`Eliminar ${p.nombre}`}>
-                                                <i className="fas fa-trash"></i>
-                                            </Button>
-                                        </div>
-                                    </Card.Footer>
-                                </Card>
-                            </Col>
-                        );
-                    })}
+                    {filtrados.map((producto) => (
+                        <TarjetaProductoCatalogo key={producto.id} producto={producto} onEditar={handleEditar} onEliminar={handleEliminar} />
+                    ))}
                 </Row>
             )}
 
-            <Modal show={showModal} onHide={() => setShowModal(false)} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>{editId ? 'Editar' : 'Nuevo'} Producto</Modal.Title>
-                </Modal.Header>
-                <Form onSubmit={handleGuardar}>
-                    <Modal.Body>
-                        <Form.Group controlId="catalogo-producto-nombre" className="mb-3">
-                            <Form.Label className="fw-bold">Nombre *</Form.Label>
-                            <Form.Control required value={form.nombre} onChange={actualizar('nombre')} placeholder="Ej: Pijama talla 6" />
-                        </Form.Group>
-                        <Form.Group controlId="catalogo-producto-descripcion" className="mb-3">
-                            <Form.Label className="fw-bold">Descripción</Form.Label>
-                            <Form.Control as="textarea" rows={2} value={form.descripcion} onChange={actualizar('descripcion')} placeholder="Detalles opcionales" />
-                        </Form.Group>
-                        <Row>
-                            <Col md={6}>
-                                <Form.Group controlId="catalogo-producto-codigo" className="mb-3">
-                                    <Form.Label className="fw-bold">Código (SKU)</Form.Label>
-                                    <Form.Control value={form.codigo} onChange={actualizar('codigo')} placeholder="Ej: UBR-001" />
-                                </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                                <Form.Group controlId="catalogo-producto-categoria" className="mb-3">
-                                    <Form.Label className="fw-bold">Categoría</Form.Label>
-                                    <Form.Control value={form.categoria} onChange={actualizar('categoria')} placeholder="Ej: Pijamas, Ropa" />
-                                </Form.Group>
-                            </Col>
-                        </Row>
-                        <Row>
-                            <Col md={6}>
-                                <Form.Group controlId="catalogo-producto-costo" className="mb-3">
-                                    <Form.Label className="fw-bold">Precio Costo</Form.Label>
-                                    <Form.Control type="number" value={form.precio_costo} onChange={actualizar('precio_costo')} placeholder="0" />
-                                </Form.Group>
-                            </Col>
-                            <Col md={6}>
-                                <Form.Group controlId="catalogo-producto-venta" className="mb-3">
-                                    <Form.Label className="fw-bold">Precio Venta</Form.Label>
-                                    <Form.Control type="number" value={form.precio_venta} onChange={actualizar('precio_venta')} placeholder="0" />
-                                </Form.Group>
-                            </Col>
-                        </Row>
-                        <Form.Group controlId="catalogo-producto-proveedor" className="mb-3">
-                            <Form.Label className="fw-bold">Proveedor</Form.Label>
-                            <Form.Control value={form.proveedor} onChange={actualizar('proveedor')} placeholder="Ej: Ubora" />
-                        </Form.Group>
-                    </Modal.Body>
-                    <Modal.Footer>
-                        <Button variant="secondary" onClick={() => setShowModal(false)}>Cancelar</Button>
-                        <Button variant="primary" type="submit" disabled={guardando}>
-                            {guardando ? 'Guardando...' : 'Guardar'}
-                        </Button>
-                    </Modal.Footer>
-                </Form>
-            </Modal>
+            <ModalProductoCatalogo
+                show={showModal}
+                editando={Boolean(editId)}
+                form={form}
+                guardando={guardando}
+                onActualizar={actualizar}
+                onGuardar={handleGuardar}
+                onCerrar={() => setShowModal(false)}
+            />
 
-            <Modal show={showImportar} onHide={() => { setShowImportar(false); setPaso(1); }} size={paso === 2 ? 'lg' : 'sm'} centered>
-                <Modal.Header closeButton>
-                    <Modal.Title>
-                        {paso === 1 ? 'Importar Productos' : paso === 2 ? 'Revisar Importación' : 'Establecer Precios'}
-                    </Modal.Title>
-                </Modal.Header>
-
-                <Modal.Body>
-                    {paso === 1 && (
-                        <div>
-                            <p className="text-muted mb-3">
-                                Sube un archivo CSV con los productos de un proveedor. El archivo debe tener las columnas:
-                                <code className="d-block mt-2">nombre, precio_costo, descripcion, categoria, proveedor, codigo</code>
-                            </p>
-                            <Form.Group controlId="catalogo-importar-archivo" className="mb-3">
-                                <Form.Label className="fw-bold">Seleccionar archivo CSV</Form.Label>
-                                <Form.Control type="file" accept=".csv" onChange={handleSeleccionarArchivo} />
-                            </Form.Group>
-                            <Button variant="outline-secondary" size="sm" className="w-100 mb-3" onClick={descargarTemplate}>
-                                <i className="fas fa-download me-2"></i> Descargar Plantilla
-                            </Button>
-                            {archivoSeleccionado && (
-                                <Alert variant="info" className="small mb-0 text-break">
-                                    <i className="fas fa-check me-2"></i> {archivoSeleccionado.name} ({(archivoSeleccionado.size / 1024).toFixed(1)} KB)
-                                </Alert>
-                            )}
-                        </div>
-                    )}
-
-                    {paso === 2 && comparacion && (
-                        <div>
-                            <Alert variant="info" className="small mb-3">
-                                <strong>Nuevos: {comparacion.nuevos.length}</strong> productos para agregar<br />
-                                <strong>Existentes: {comparacion.existentes.length}</strong> ya están en el catálogo
-                            </Alert>
-
-                            {comparacion.nuevos.length > 0 && (
-                                <div className="mb-3">
-                                    <h6 className="fw-bold text-success">✓ Nuevos productos:</h6>
-                                    <div className="table-responsive mobile-card-table-wrap">
-                                        <table className="table table-sm table-striped mobile-card-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Nombre</th>
-                                                    <th>Costo</th>
-                                                    <th>Proveedor</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {comparacion.nuevos.map((p, i) => (
-                                                    <tr key={i}>
-                                                        <td data-label="Nombre" className="small fw-bold">{p.nombre}</td>
-                                                        <td data-label="Costo" className="small">{formatoColones(p.precio_costo)}</td>
-                                                        <td data-label="Proveedor" className="small">{p.proveedor}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            )}
-
-                            {comparacion.existentes.length > 0 && (
-                                <div>
-                                    <h6 className="fw-bold text-warning">⚠️ Productos que ya existen:</h6>
-                                    <div className="small text-muted" style={{ maxHeight: '150px', overflow: 'auto' }}>
-                                        {comparacion.existentes.map((item, i) => (
-                                            <div key={i} className="mb-1">
-                                                • {item.importado.nombre}
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {paso === 3 && comparacion && (
-                        <div>
-                            <p className="small text-muted mb-3">
-                                Ingresa el precio de venta para cada nuevo producto:
-                            </p>
-                            <div style={{ maxHeight: '300px', overflow: 'auto' }}>
-                                {comparacion.nuevos.map((p, i) => (
-                                    <Form.Group key={i} controlId={`catalogo-precio-importacion-${i}`} className="mb-2">
-                                        <Form.Label className="small fw-bold">{p.nombre}</Form.Label>
-                                        <div className="input-group input-group-sm">
-                                            <span className="input-group-text">₡</span>
-                                            <Form.Control
-                                                type="number"
-                                                placeholder="Precio de venta"
-                                                value={preciosVenta[p.nombre] || ''}
-                                                onChange={(e) => setPreciosVenta({ ...preciosVenta, [p.nombre]: e.target.value })}
-                                            />
-                                        </div>
-                                    </Form.Group>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </Modal.Body>
-
-                <Modal.Footer>
-                    {paso > 1 && (
-                        <Button variant="outline-secondary" onClick={() => setPaso(paso - 1)} disabled={aplicandoImportacion}>
-                            Atrás
-                        </Button>
-                    )}
-                    {paso < 3 && (
-                        <Button
-                            variant="primary"
-                            onClick={paso === 1 ? handleProcesarArchivo : () => setPaso(3)}
-                            disabled={!archivoSeleccionado || aplicandoImportacion}
-                        >
-                            {paso === 1 ? 'Revisar' : 'Establecer Precios'}
-                        </Button>
-                    )}
-                    {paso === 3 && (
-                        <Button
-                            variant="success"
-                            onClick={handleAplicarImportacion}
-                            disabled={aplicandoImportacion}
-                        >
-                            {aplicandoImportacion ? <><Spinner animation="border" size="sm" className="me-2" /> Importando...</> : 'Importar'}
-                        </Button>
-                    )}
-                    <Button variant="secondary" onClick={() => { setShowImportar(false); setPaso(1); }} disabled={aplicandoImportacion}>
-                        Cerrar
-                    </Button>
-                </Modal.Footer>
-            </Modal>
+            <ModalImportarCatalogo
+                show={showImportar}
+                paso={paso}
+                archivoSeleccionado={archivoSeleccionado}
+                comparacion={comparacion}
+                preciosVenta={preciosVenta}
+                aplicandoImportacion={aplicandoImportacion}
+                onCerrar={() => { setShowImportar(false); setPaso(1); }}
+                onSeleccionarArchivo={handleSeleccionarArchivo}
+                onProcesarArchivo={handleProcesarArchivo}
+                onCambiarPaso={setPaso}
+                onCambiarPrecio={(nombre, valor) => setPreciosVenta((actual) => ({ ...actual, [nombre]: valor }))}
+                onAplicarImportacion={handleAplicarImportacion}
+            />
         </Container>
     );
 }

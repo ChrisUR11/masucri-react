@@ -27,9 +27,12 @@ La aplicación usa el proyecto de Firebase configurado en `src/config/firebase.j
 - `src/pages/`: módulos de pedidos, historial, catálogo, caja y reportes.
 - `src/components/`: componentes compartidos y avisos de la PWA.
 - `src/utils/`: reglas de negocio, formatos, cálculos y operaciones de pedidos.
+- `src/services/`: acceso a servicios externos y exportaciones, incorporado gradualmente.
 - `src/hooks/`: suscripciones y estado reutilizable.
 - `src/config/firebase.js`: inicialización de Authentication y Firestore.
 - `test/`: pruebas de las reglas de negocio que no requieren conexión a Firebase.
+
+La separación de responsabilidades y los próximos pasos están en [docs/arquitectura.md](docs/arquitectura.md).
 
 Los pedidos nuevos y las ventas rápidas admiten varios productos, descuentos y pagos iniciales. Los pedidos anteriores conservan su formato al consultarlos; se convierten a líneas de productos solo si se editan y guardan.
 
