@@ -6,7 +6,8 @@ export function prepararDatosVentaRapida(
     { cliente, telefono, producto, productos, precio, descripcion, descuento_tipo, descuento_valor, pagado, metodo },
     fecha,
     pedidoId,
-    timestamp = new Date()
+    timestamp = new Date(),
+    movimientoId = null
 ) {
     const nombreCliente = String(cliente ?? '').trim();
     const lineas = Array.isArray(productos) ? productos : [{ nombre: producto, precio_unitario: precio, cantidad: 1 }];
@@ -51,7 +52,10 @@ export function prepararDatosVentaRapida(
         monto_pagado: montoPagado,
         estado: 'Entregado',
         ultimo_metodo_pago: montoPagado > 0 ? metodo : 'Pendiente',
-        historial_pagos: montoPagado > 0 ? [{ fecha, monto: montoPagado, metodo }] : [],
+        historial_pagos: montoPagado > 0 ? [{
+            fecha, monto: montoPagado, metodo,
+            ...(movimientoId ? { movimiento_id: movimientoId } : {})
+        }] : [],
         timestamp
     };
 

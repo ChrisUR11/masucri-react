@@ -1,6 +1,7 @@
-import { ListGroup, Row, Col, Badge, Button } from 'react-bootstrap';
+import { ListGroup, Row, Col, Button } from 'react-bootstrap';
 import { formatoColones } from '../utils/formato';
 import { calcularTotalesPedido, obtenerProductosPedido } from '../utils/productosPedido';
+import AbonosPedido from './AbonosPedido';
 import './FichaPedidoDetalle.css';
 
 /**
@@ -13,7 +14,6 @@ import './FichaPedidoDetalle.css';
  */
 export default function FichaPedidoDetalle({ pedido, badgeEstado, onWhatsApp, mostrarHistorialPagos = false, children }) {
     const deuda = (pedido.precio || 0) - (pedido.monto_pagado || 0);
-    const pagos = pedido.historial_pagos || [];
     const productos = obtenerProductosPedido(pedido);
     const subtotal = calcularTotalesPedido(productos).subtotal;
     const descuentoMonto = Math.max(0, subtotal - (Number(pedido.precio) || 0));
@@ -106,17 +106,7 @@ export default function FichaPedidoDetalle({ pedido, badgeEstado, onWhatsApp, mo
                     </ListGroup.Item>
                 )}
 
-                {mostrarHistorialPagos && pagos.length > 0 && (
-                    <ListGroup.Item className="bg-light py-3">
-                        <small className="fw-bold d-block mb-2 text-primary"><i className="fas fa-history"></i> Pagos Registrados</small>
-                        {pagos.map((p, idx) => (
-                            <div key={idx} className="d-flex flex-wrap justify-content-between gap-2 small border-bottom pb-1 mb-1">
-                                <span className="text-break">{p.fecha} <Badge bg="secondary" className="ms-1">{p.metodo}</Badge></span>
-                                <span className="text-success fw-bold ms-auto">{formatoColones(p.monto)}</span>
-                            </div>
-                        ))}
-                    </ListGroup.Item>
-                )}
+                {mostrarHistorialPagos && <AbonosPedido pedido={pedido} />}
 
                 {children}
             </ListGroup>

@@ -7,10 +7,13 @@ export const PRESETS = [
     { id: 'ultimos_30', label: '30 días' },
     { id: 'este_anio', label: 'Este año' },
     { id: 'personalizado', label: 'Personalizado' }
-];
+] as const;
+
+export type PresetRangoId = (typeof PRESETS)[number]['id'];
+export type RangoFechas = { inicio: string | null; fin: string | null };
 
 /** Calcula el rango { inicio, fin } (YYYY-MM-DD) para un preset dado. */
-export function calcularRangoPreset(presetId, hoy = new Date()) {
+export function calcularRangoPreset(presetId: PresetRangoId, hoy: Date = new Date()): RangoFechas {
     switch (presetId) {
         case 'historico':
             return { inicio: null, fin: null };

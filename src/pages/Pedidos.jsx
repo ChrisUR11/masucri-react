@@ -243,17 +243,22 @@ export default function Pedidos() {
                 datos.monto_pagado = mAdelanto;
                 datos.historial_pagos = [];
                 const fechaAdelanto = mAdelanto > 0 ? obtenerFechaLocal() : null;
-                if (mAdelanto > 0) {
-                    datos.ultimo_metodo_pago = formPedido.metodoAdelanto;
-                    datos.historial_pagos.push({ fecha: fechaAdelanto, monto: mAdelanto, metodo: formPedido.metodoAdelanto });
-                }
                 datos.timestamp = new Date();
                 const pedidoRef = doc(collection(db, 'pedidos'));
+                const movimientoRef = mAdelanto > 0 ? doc(collection(db, 'movimientos')) : null;
+                if (movimientoRef) {
+                    datos.ultimo_metodo_pago = formPedido.metodoAdelanto;
+                    datos.historial_pagos.push({
+                        fecha: fechaAdelanto,
+                        monto: mAdelanto,
+                        metodo: formPedido.metodoAdelanto,
+                        movimiento_id: movimientoRef.id
+                    });
+                }
                 const batch = writeBatch(db);
                 batch.set(pedidoRef, datos);
 
-                if (mAdelanto > 0) {
-                    const movimientoRef = doc(collection(db, 'movimientos'));
+                if (movimientoRef) {
                     batch.set(movimientoRef, {
                         tipo: 'entrada',
                         metodo_pago: formPedido.metodoAdelanto,
@@ -423,6 +428,7 @@ export default function Pedidos() {
                         <FichaPedidoDetalle
                             pedido={pedidoActivo}
                             onWhatsApp={handleWhatsApp}
+                            mostrarHistorialPagos
                             badgeEstado={
                                 <Badge
                                     bg={pedidoActivo.estado === 'Por Retirar' ? 'warning text-dark' : pedidoActivo.estado === 'En producción' ? 'info text-dark' : 'secondary'}

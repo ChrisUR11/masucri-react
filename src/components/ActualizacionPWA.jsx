@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { ToastContainer, Toast, Button } from 'react-bootstrap';
+import './ActualizacionPWA.css';
 
 const QUINCE_MINUTOS_MS = 15 * 60 * 1000;
 const UN_MINUTO_MS = 60 * 1000;
@@ -106,12 +107,12 @@ export default function ActualizacionPWA() {
     if (!needRefresh) return null;
 
     return (
-        <ToastContainer position="bottom-center" className="p-3 d-print-none" style={{ zIndex: 2000 }}>
-            <Toast show onClose={() => setNeedRefresh(false)} bg="warning">
+        <ToastContainer containerPosition="fixed" className="pwa-update-container d-print-none" role="status" aria-live="polite">
+            <Toast show onClose={() => setNeedRefresh(false)} bg="warning" className="pwa-update-toast">
                 <Toast.Body className="text-dark">
-                    <div className="d-flex align-items-center justify-content-between gap-3 flex-wrap">
-                        <span className="small fw-bold">🔄 Hay una versión nueva de MASUCRI disponible.</span>
-                        <div className="d-flex gap-2">
+                    <div className="pwa-update-content">
+                        <span className="pwa-update-message small fw-bold">🔄 Hay una versión nueva de MASUCRI disponible.</span>
+                        <div className="pwa-update-actions">
                             <Button size="sm" variant="dark" onClick={aplicarActualizacion} disabled={actualizando}>
                                 {actualizando ? 'Actualizando…' : 'Actualizar ahora'}
                             </Button>

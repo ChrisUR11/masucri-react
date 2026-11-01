@@ -17,7 +17,8 @@ test('la venta con pago vincula el ingreso al pedido y conserva los montos', () 
         venta,
         '2026-10-17',
         'pedido-123',
-        timestamp
+        timestamp,
+        'movimiento-123'
     );
 
     assert.equal(datosPedido.cliente, 'Ana');
@@ -26,7 +27,7 @@ test('la venta con pago vincula el ingreso al pedido y conserva los montos', () 
     assert.equal(datosPedido.precio, 1000.50);
     assert.equal(datosPedido.monto_pagado, 200.25);
     assert.deepEqual(datosPedido.historial_pagos, [
-        { fecha: '2026-10-17', monto: 200.25, metodo: 'Efectivo' }
+        { fecha: '2026-10-17', monto: 200.25, metodo: 'Efectivo', movimiento_id: 'movimiento-123' }
     ]);
     assert.equal(datosMovimiento.pedido_id, 'pedido-123');
     assert.equal(datosMovimiento.monto, datosPedido.monto_pagado);

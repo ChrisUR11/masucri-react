@@ -4,6 +4,18 @@ import { calcularMetricasContables } from '../src/utils/metricasContables.js';
 
 const rangoOctubre = { inicio: '2026-10-01', fin: '2026-10-31' };
 
+test('contabilidad excluye el importe original de abonos anulados', () => {
+    const metricas = calcularMetricasContables([], [
+        { fecha: '2026-10-02', tipo: 'entrada', monto: 1000, anulado: true },
+        { fecha: '2026-10-02', tipo: 'entrada', monto: 750 }
+    ], rangoOctubre);
+    assert.equal(metricas.ingresos, 750);
+    assert.equal(metricas.flujoCaja, 750);
+    assert.deepEqual(metricas.flujoCajaPorMes, [
+        { mes: '2026-10', flujo: 750, ingresos: 750, gastos: 0 }
+    ]);
+});
+
 test('atribuye las entregas a la fecha de cierre y usa la solicitud solo en registros antiguos', () => {
     const pedidos = [
         { estado: 'Entregado', fecha_solicitud: '2026-09-20', fecha_cierre: '2026-10-01', precio: 1000, cliente: 'Ana' },

@@ -77,7 +77,7 @@ export async function entregarPedido(pedido) {
                 datosPedido.monto_pagado = deCentavos(pagadoCentavos + montoCentavos);
                 datosPedido.ultimo_metodo_pago = metodo;
                 datosPedido.historial_pagos = [...(Array.isArray(datos.historial_pagos) ? datos.historial_pagos : []),
-                    { fecha: hoy, monto: deCentavos(montoCentavos), metodo }];
+                    { fecha: hoy, monto: deCentavos(montoCentavos), metodo, movimiento_id: movimientoRef.id }];
             }
             transaccion.update(pedidoRef, datosPedido);
             if (movimientoRef) {

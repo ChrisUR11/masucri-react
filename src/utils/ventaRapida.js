@@ -11,16 +11,19 @@ import { prepararDatosVentaRapida } from './ventaRapidaDatos';
  */
 export async function registrarVentaRapida(venta) {
     const pedidoRef = doc(collection(db, 'pedidos'));
+    const movimientoRef = doc(collection(db, 'movimientos'));
     const { datosPedido, datosMovimiento } = prepararDatosVentaRapida(
         venta,
         obtenerFechaLocal(),
-        pedidoRef.id
+        pedidoRef.id,
+        new Date(),
+        movimientoRef.id
     );
 
     const batch = writeBatch(db);
     batch.set(pedidoRef, datosPedido);
     if (datosMovimiento) {
-        batch.set(doc(collection(db, 'movimientos')), datosMovimiento);
+        batch.set(movimientoRef, datosMovimiento);
     }
     await batch.commit();
     return pedidoRef.id;

@@ -18,7 +18,7 @@ export function calcularMetricasContables(pedidos, movimientos, rango = {}) {
     const pedidosEntregados = pedidos.filter((p) =>
         p.estado === 'Entregado' && dentroDeRango(p.fecha_cierre || p.fecha_solicitud, rango)
     );
-    const movsPeriodo = movimientos.filter((m) => dentroDeRango(m.fecha, rango));
+    const movsPeriodo = movimientos.filter((m) => !m.anulado && dentroDeRango(m.fecha, rango));
 
     let costoTotal = 0;
     let precioTotalVenta = 0;

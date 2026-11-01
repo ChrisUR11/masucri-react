@@ -36,6 +36,19 @@ test('total, abonos y saldo no suman los pagos dos veces', () => {
     assert.equal(prepararDatosTicket({ ...pedido, monto_pagado: null }).pagado, 7000);
 });
 
+test('el ticket omite abonos anulados del detalle y del total de respaldo', () => {
+    const ticket = prepararDatosTicket({
+        ...pedido, monto_pagado: null,
+        historial_pagos: [
+            { fecha: '2026-10-15', metodo: 'Efectivo', monto: 1000, anulado: true },
+            { fecha: '2026-10-15', metodo: 'Efectivo', monto: 750 }
+        ]
+    });
+    assert.equal(ticket.pagado, 750);
+    assert.equal(ticket.pagos.length, 1);
+    assert.equal(ticket.pagos[0].monto, 750);
+});
+
 test('los pedidos sin abonos, pagados y con saldo a favor tienen importes coherentes', () => {
     const sinAbonos = prepararDatosTicket({ ...pedido, monto_pagado: 0, historial_pagos: null });
     assert.equal(sinAbonos.saldo, 20000);

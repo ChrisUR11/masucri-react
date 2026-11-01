@@ -2,9 +2,11 @@ import { Badge, Button, Card, Col } from 'react-bootstrap';
 import { formatoColones } from '../utils/formato';
 
 export default function TarjetaProductoCatalogo({ producto, onEditar, onEliminar }) {
-    const margen = producto.precio_venta && producto.precio_costo
+    const costoConocido = producto.precio_costo != null && producto.precio_costo !== '';
+    const ventaConocida = producto.precio_venta != null && producto.precio_venta !== '';
+    const margen = ventaConocida && costoConocido && Number(producto.precio_venta) > 0
         ? (((producto.precio_venta - producto.precio_costo) / producto.precio_venta) * 100).toFixed(0)
-        : 0;
+        : null;
 
     return (
         <Col xs={12} sm={6} md={4} lg={3}>
@@ -17,9 +19,9 @@ export default function TarjetaProductoCatalogo({ producto, onEditar, onEliminar
                     {producto.categoria && <Badge className="mb-2" bg="info">{producto.categoria}</Badge>}
                     {producto.descripcion && <p className="small text-muted mb-2">{producto.descripcion}</p>}
                     <div className="catalog-product-prices small">
-                        {producto.precio_costo && <p className="mb-1"><strong>C:</strong> {formatoColones(producto.precio_costo)}</p>}
-                        {producto.precio_venta && <p className="mb-1"><strong>V:</strong> <span className="text-success fw-bold">{formatoColones(producto.precio_venta)}</span></p>}
-                        {producto.precio_venta && producto.precio_costo && <p className="mb-2 text-info"><strong>Margen:</strong> {margen}%</p>}
+                        <p className="mb-1"><strong>C:</strong> {costoConocido ? formatoColones(producto.precio_costo) : <span className="text-muted">Por definir</span>}</p>
+                        <p className="mb-1"><strong>V:</strong> {ventaConocida ? <span className="text-success fw-bold">{formatoColones(producto.precio_venta)}</span> : <span className="text-muted">Por definir</span>}</p>
+                        {margen != null && <p className="mb-2 text-info"><strong>Margen:</strong> {margen}%</p>}
                     </div>
                 </Card.Body>
                 <Card.Footer className="bg-white border-top-0 pt-0">

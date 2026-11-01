@@ -38,7 +38,9 @@ La separación de responsabilidades y los próximos pasos están en [docs/arquit
 
 Los pedidos nuevos y las ventas rápidas admiten varios productos, descuentos y pagos iniciales. Los pedidos anteriores conservan su formato al consultarlos; se convierten a líneas de productos solo si se editan y guardan.
 
-Los pagos originados por pedidos guardan `pedido_id` en el movimiento de Caja. La venta rápida y los adelantos iniciales escriben pedido y movimiento juntos mediante un batch de Firestore. Los abonos y los pagos al entregar usan transacciones para comprobar el saldo vigente antes de registrar ambos documentos. Caja muestra los movimientos vinculados, pero impide editarlos o borrarlos desde allí para conservar el saldo y el historial del pedido. Los movimientos manuales de Caja siguen siendo independientes.
+Los pagos originados por pedidos guardan `pedido_id` en el movimiento de Caja. La venta rápida y los adelantos iniciales escriben pedido y movimiento juntos mediante un batch de Firestore. Los abonos y los pagos al entregar usan transacciones para comprobar el saldo vigente antes de registrar ambos documentos. Caja muestra los movimientos vinculados, pero impide editarlos o borrarlos desde allí. Si un abono fue registrado por error, se corrige o anula desde el detalle del pedido: una transacción ajusta el saldo y conserva el movimiento original marcado como anulado. Los movimientos manuales de Caja siguen siendo independientes.
+
+En Catálogo aparecen productos detectados en pedidos recientes que todavía no tienen ficha. Se pueden completar y guardar con costo, precio de venta y proveedor; «Revisar pedidos anteriores» amplía la búsqueda por bloques. Los nombres se comparan sin diferencias de acentos, mayúsculas ni espacios repetidos. Las fichas nuevas usan un ID estable para evitar duplicados entre dispositivos.
 
 ## Trabajo sin conexión
 
@@ -50,7 +52,7 @@ Firestore usa caché persistente compartida entre pestañas. Puede mostrar datos
 
 El caché permanece en el navegador entre sesiones y puede contener datos de clientes. Usa la aplicación solo en dispositivos de confianza y borra los datos del sitio antes de ceder uno.
 
-Las transacciones de Firestore requieren conexión. Borrar un pedido con sus movimientos y descargar un respaldo completo también requieren consultar el servidor: usar una caché parcial podría omitir movimientos. El respaldo descarga pedidos, movimientos y catálogo, pero sus tres consultas no forman una instantánea atómica si hay cambios concurrentes.
+Las transacciones de Firestore requieren conexión, incluidas las correcciones de abonos. Borrar un pedido con sus movimientos y descargar un respaldo completo también requieren consultar el servidor: usar una caché parcial podría omitir movimientos. El respaldo descarga pedidos, movimientos y catálogo, con una hoja separada para abonos anulados, pero sus tres consultas no forman una instantánea atómica si hay cambios concurrentes.
 
 ## Integridad y acceso
 

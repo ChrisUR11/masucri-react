@@ -94,6 +94,16 @@ test('montos inválidos o negativos no contaminan las métricas financieras', ()
     assert.equal(resultado.tasaCanc, '0.0');
 });
 
+test('BI no suma abonos anulados ni usa su fecha en el período histórico', () => {
+    const resultado = calcularMetricas([], [
+        { fecha: '2026-09-01', tipo: 'entrada', monto: 1000, anulado: true },
+        { fecha: '2026-10-01', tipo: 'entrada', monto: 750 }
+    ]);
+    assert.equal(resultado.ingresosPeriodo, 750);
+    assert.equal(resultado.minFecha, '2026-10-01');
+    assert.equal(resultado.maxFecha, '2026-10-01');
+});
+
 test('BI respeta la categoría elegida y conserva el respaldo para gastos antiguos', () => {
     const resultado = calcularMetricas([], [
         { fecha: '2026-10-10', tipo: 'salida', monto: 1200, descripcion: 'Compra de telas', categoria: 'Maquinaria' },

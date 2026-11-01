@@ -9,10 +9,69 @@ const conceptoParaReporte = (movimiento) =>
         ? ''
         : movimiento.descripcion || '';
 
+const valorCelda = (valor) => {
+    if (valor == null) return null;
+    if (typeof valor.toDate === 'function') return valor.toDate().toISOString();
+    if (valor instanceof Date) return valor.toISOString();
+    if (typeof valor === 'number') return Number.isFinite(valor) ? valor : null;
+    if (typeof valor === 'string' || typeof valor === 'boolean') return valor;
+    return String(valor);
+};
+
+const crearHoja = (sheet, columnas, filas) => ({
+    sheet,
+    data: [columnas, ...filas.map((fila) => fila.map(valorCelda))]
+});
+
+/** Prepara las hojas sin consultar Firestore ni iniciar una descarga. */
+export function construirHojasRespaldo(pedidos, productos, todosMovimientos) {
+    const movimientosActivos = todosMovimientos.filter((movimiento) => !movimiento.anulado);
+    const movimientosAnulados = todosMovimientos.filter((movimiento) => movimiento.anulado);
+
+    return [
+        crearHoja('Pedidos', [
+            'Pedido ID', 'Cliente', 'Teléfono', 'Producto', 'Productos', 'Descripción',
+            'Subtotal', 'Descuento (%)', 'Descuento (₡)', 'Precio', 'Pagado', 'Estado',
+            'Fecha Solicitud', 'Fecha Entrega', 'Fecha Cierre'
+        ], pedidos.map((p) => [
+            p.id, p.cliente, p.telefono, p.producto,
+            detalleProductosPedido(p) || p.producto, p.descripcion,
+            p.subtotal ?? p.precio ?? 0, p.descuento_porcentaje ?? 0,
+            p.descuento_monto ?? 0, p.precio || 0, p.monto_pagado || 0,
+            p.estado, p.fecha_solicitud, p.fecha_entrega, p.fecha_cierre
+        ])),
+        crearHoja('Productos por pedido', [
+            'Pedido ID', 'Cliente', 'Producto', 'Cantidad', 'Precio unitario', 'Total de línea'
+        ], pedidos.flatMap((p) => obtenerProductosPedido(p).map((item) => [
+            p.id, p.cliente, item.nombre, item.cantidad, item.precio_unitario, item.total
+        ]))),
+        crearHoja('Movimientos', [
+            'Fecha', 'Tipo', 'Método', 'Concepto', 'Categoría', 'Entidad', 'Monto'
+        ], movimientosActivos.map((m) => [
+            m.fecha, m.tipo, m.metodo_pago, m.descripcion,
+            m.tipo === 'salida' ? m.categoria || '' : '', m.entidad, m.monto || 0
+        ])),
+        crearHoja('Abonos anulados', [
+            'Movimiento ID', 'Pedido ID', 'Fecha', 'Método', 'Concepto',
+            'Monto original', 'Motivo', 'Anulado en', 'Anulado por', 'Reemplazado por'
+        ], movimientosAnulados.map((m) => [
+            m.id, m.pedido_id || '', m.fecha, m.metodo_pago, m.descripcion,
+            m.monto, m.motivo_anulacion || '', m.anulado_en || null,
+            m.anulado_por || '', m.reemplazado_por || ''
+        ])),
+        crearHoja('Catálogo', [
+            'Nombre', 'Proveedor', 'Código', 'Costo', 'Precio Venta'
+        ], productos.map((p) => [
+            p.nombre, p.proveedor, p.codigo_proveedor,
+            p.precio_costo ?? p.costo ?? null, p.precio_venta ?? null
+        ]))
+    ];
+}
+
 /** Consulta todo desde el servidor para evitar respaldos parciales del caché. */
 export async function descargarRespaldoCompleto() {
-    const [XLSX, pedidosSnap, productosSnap, movimientosSnap] = await Promise.all([
-        import('xlsx'),
+    const [{ default: writeExcelFile }, pedidosSnap, productosSnap, movimientosSnap] = await Promise.all([
+        import('write-excel-file/browser'),
         getDocsFromServer(collection(db, 'pedidos')),
         getDocsFromServer(collection(db, 'productos')),
         getDocsFromServer(collection(db, 'movimientos'))
@@ -20,77 +79,9 @@ export async function descargarRespaldoCompleto() {
 
     const pedidos = pedidosSnap.docs.map((d) => ({ ...d.data(), id: d.id }));
     const productos = productosSnap.docs.map((d) => d.data());
-    const todosMovimientos = movimientosSnap.docs.map((d) => d.data());
-    const wb = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(
-        wb,
-        XLSX.utils.json_to_sheet(
-            pedidos.map((p) => ({
-                'Pedido ID': p.id,
-                Cliente: p.cliente,
-                Teléfono: p.telefono,
-                Producto: p.producto,
-                Productos: detalleProductosPedido(p) || p.producto,
-                Descripción: p.descripcion,
-                Subtotal: p.subtotal ?? p.precio ?? 0,
-                'Descuento (%)': p.descuento_porcentaje ?? 0,
-                'Descuento (₡)': p.descuento_monto ?? 0,
-                Precio: p.precio || 0,
-                Pagado: p.monto_pagado || 0,
-                Estado: p.estado,
-                'Fecha Solicitud': p.fecha_solicitud,
-                'Fecha Entrega': p.fecha_entrega,
-                'Fecha Cierre': p.fecha_cierre
-            }))
-        ),
-        'Pedidos'
-    );
-
-    XLSX.utils.book_append_sheet(
-        wb,
-        XLSX.utils.json_to_sheet(pedidos.flatMap((p) => obtenerProductosPedido(p).map((item) => ({
-            'Pedido ID': p.id,
-            Cliente: p.cliente,
-            Producto: item.nombre,
-            Cantidad: item.cantidad,
-            'Precio unitario': item.precio_unitario,
-            'Total de línea': item.total
-        })))),
-        'Productos por pedido'
-    );
-
-    XLSX.utils.book_append_sheet(
-        wb,
-        XLSX.utils.json_to_sheet(
-            todosMovimientos.map((m) => ({
-                Fecha: m.fecha,
-                Tipo: m.tipo,
-                Método: m.metodo_pago,
-                Concepto: m.descripcion,
-                Categoría: m.tipo === 'salida' ? m.categoria || '' : '',
-                Entidad: m.entidad,
-                Monto: m.monto || 0
-            }))
-        ),
-        'Movimientos'
-    );
-
-    XLSX.utils.book_append_sheet(
-        wb,
-        XLSX.utils.json_to_sheet(
-            productos.map((p) => ({
-                Nombre: p.nombre,
-                Proveedor: p.proveedor,
-                Código: p.codigo_proveedor,
-                Costo: p.costo || 0,
-                'Precio Venta': p.precio_venta || 0
-            }))
-        ),
-        'Catálogo'
-    );
-
-    XLSX.writeFile(wb, `Respaldo_MASUCRI_${obtenerFechaLocal()}.xlsx`);
+    const todosMovimientos = movimientosSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const hojas = construirHojasRespaldo(pedidos, productos, todosMovimientos);
+    await writeExcelFile(hojas).toFile(`Respaldo_MASUCRI_${obtenerFechaLocal()}.xlsx`);
 }
 
 export async function descargarPDFMovimientos(movimientos) {
@@ -102,7 +93,7 @@ export async function descargarPDFMovimientos(movimientos) {
     docPDF.text('Reporte Contable - MASUCRI', 14, 15);
     autoTable(docPDF, {
         head: [['Fecha', 'Método', 'Tipo', 'Categoría', 'Concepto', 'Monto']],
-        body: movimientos.map((m) => [
+        body: movimientos.filter((m) => !m.anulado).map((m) => [
             m.fecha,
             m.metodo_pago || 'Manual',
             (m.tipo || 'DESCONOCIDO').toUpperCase(),
@@ -115,19 +106,22 @@ export async function descargarPDFMovimientos(movimientos) {
     docPDF.save(`Finanzas_MASUCRI_${obtenerFechaLocal()}.pdf`);
 }
 
+export function construirHojaExcelMovimientos(movimientos) {
+    return crearHoja('Datos', [
+        'Fecha', 'Método', 'Tipo', 'Categoría', 'Concepto', 'Monto'
+    ], movimientos.filter((m) => !m.anulado).map((m) => [
+        m.fecha,
+        m.metodo_pago || 'Manual',
+        (m.tipo || 'DESCONOCIDO').toUpperCase(),
+        m.tipo === 'salida' ? m.categoria || '' : '',
+        conceptoParaReporte(m),
+        m.monto
+    ]));
+}
+
 export async function descargarExcelMovimientos(movimientos) {
-    const XLSX = await import('xlsx');
-    const ws = XLSX.utils.json_to_sheet(
-        movimientos.map((m) => ({
-            Fecha: m.fecha,
-            Método: m.metodo_pago || 'Manual',
-            Tipo: (m.tipo || 'DESCONOCIDO').toUpperCase(),
-            Categoría: m.tipo === 'salida' ? m.categoria || '' : '',
-            Concepto: conceptoParaReporte(m),
-            Monto: m.monto
-        }))
-    );
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Datos');
-    XLSX.writeFile(wb, `Finanzas_MASUCRI_${obtenerFechaLocal()}.xlsx`);
+    const { default: writeExcelFile } = await import('write-excel-file/browser');
+    const hoja = construirHojaExcelMovimientos(movimientos);
+    await writeExcelFile(hoja.data, { sheet: hoja.sheet })
+        .toFile(`Finanzas_MASUCRI_${obtenerFechaLocal()}.xlsx`);
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { PRESETS, calcularRangoPreset } from '../src/utils/rangoFechas.js';
+import { PRESETS, calcularRangoPreset } from '../src/utils/rangoFechas.ts';
 
 test('permite consultar todo el histórico sin límites', () => {
     assert.ok(PRESETS.some((preset) => preset.id === 'historico'));

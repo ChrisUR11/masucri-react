@@ -34,13 +34,14 @@ export default function ModalProductoCatalogo({ show, editando, form, guardando,
                         <Col md={6}>
                             <Form.Group controlId="catalogo-producto-costo" className="mb-3">
                                 <Form.Label className="fw-bold">Precio Costo</Form.Label>
-                                <Form.Control type="number" value={form.precio_costo} onChange={onActualizar('precio_costo')} placeholder="0" />
+                                <Form.Control type="number" min="0" step="0.01" value={form.precio_costo} onChange={onActualizar('precio_costo')} placeholder="Por definir" />
+                                <Form.Text>Déjalo vacío si aún no conoces el costo.</Form.Text>
                             </Form.Group>
                         </Col>
                         <Col md={6}>
                             <Form.Group controlId="catalogo-producto-venta" className="mb-3">
                                 <Form.Label className="fw-bold">Precio Venta</Form.Label>
-                                <Form.Control type="number" value={form.precio_venta} onChange={onActualizar('precio_venta')} placeholder="0" />
+                                <Form.Control type="number" min="0" step="0.01" value={form.precio_venta} onChange={onActualizar('precio_venta')} placeholder="Por definir" />
                             </Form.Group>
                         </Col>
                     </Row>

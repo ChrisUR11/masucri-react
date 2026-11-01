@@ -1,3 +1,5 @@
+import { normalizarNombreProducto } from './nombreProducto.ts';
+
 /**
  * Parsea un archivo CSV de productos.
  * Formato esperado: nombre,precio_costo,descripcion,categoria,proveedor,codigo (opcional)
@@ -58,18 +60,23 @@ export function compararProductos(productosImportados, productosExistentes) {
         duplicados: []
     };
 
+    const existentesPorNombre = new Map(productosExistentes.map((producto) => [normalizarNombreProducto(producto.nombre), producto]));
+    const nuevosPorNombre = new Map();
+
     productosImportados.forEach((importado) => {
-        const existe = productosExistentes.find(
-            (p) => p.nombre.toLowerCase().trim() === importado.nombre.toLowerCase().trim()
-        );
+        const clave = normalizarNombreProducto(importado.nombre);
+        const existe = existentesPorNombre.get(clave);
 
         if (existe) {
             resultado.existentes.push({
                 importado,
                 existente: existe
             });
+        } else if (nuevosPorNombre.has(clave)) {
+            resultado.duplicados.push({ importado, primero: nuevosPorNombre.get(clave) });
         } else {
             resultado.nuevos.push(importado);
+            nuevosPorNombre.set(clave, importado);
         }
     });
 

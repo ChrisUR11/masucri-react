@@ -119,6 +119,58 @@
   background: #e2f5e9 !important;
 }
 
+.pedido-ficha__abonos summary {
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.pedido-ficha__abonos-lista {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pedido-ficha__abono {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid #e0e7ed;
+  border-radius: 0.65rem;
+  background: #fff;
+}
+
+.pedido-ficha__abono--anulado {
+  background: #f6f7f8;
+}
+
+.pedido-ficha__abono-datos {
+  flex: 1 1 10rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pedido-ficha__abono > strong {
+  white-space: nowrap;
+}
+
+.pedido-ficha__abono-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+@media (max-width: 575.98px) {
+  .pedido-ficha__abono-acciones {
+    width: 100%;
+  }
+
+  .pedido-ficha__abono-acciones .btn {
+    flex: 1 1 5rem;
+    min-height: 2.5rem;
+  }
+}
+
 .pedido-detail-modal .pedido-ficha__estado {
   padding: 0.7rem 1rem !important;
   background: #f8fafc !important;

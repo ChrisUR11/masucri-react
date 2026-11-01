@@ -40,8 +40,12 @@ export default function ModalImportarCatalogo({
                     <div>
                         <Alert variant="info" className="small mb-3">
                             <strong>Nuevos: {comparacion.nuevos.length}</strong> productos para agregar<br />
-                            <strong>Existentes: {comparacion.existentes.length}</strong> ya están en el catálogo
+                            <strong>Existentes: {comparacion.existentes.length}</strong> ya están en el catálogo<br />
+                            <strong>Repetidos en el archivo: {comparacion.duplicados.length}</strong> se omitirán
                         </Alert>
+                        {comparacion.nuevos.length === 0 && (
+                            <Alert variant="success" className="small">No hay productos nuevos para importar.</Alert>
+                        )}
 
                         {comparacion.nuevos.length > 0 && (
                             <div className="mb-3">
@@ -70,6 +74,16 @@ export default function ModalImportarCatalogo({
                                 <h6 className="fw-bold text-warning">⚠️ Productos que ya existen:</h6>
                                 <div className="small text-muted" style={{ maxHeight: '150px', overflow: 'auto' }}>
                                     {comparacion.existentes.map((item, indice) => (
+                                        <div key={indice} className="mb-1">• {item.importado.nombre}</div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {comparacion.duplicados.length > 0 && (
+                            <div className="mt-3">
+                                <h6 className="fw-bold text-warning">Nombres repetidos en el archivo:</h6>
+                                <div className="small text-muted" style={{ maxHeight: '150px', overflow: 'auto' }}>
+                                    {comparacion.duplicados.map((item, indice) => (
                                         <div key={indice} className="mb-1">• {item.importado.nombre}</div>
                                     ))}
                                 </div>
@@ -111,7 +125,7 @@ export default function ModalImportarCatalogo({
                     <Button
                         variant="primary"
                         onClick={paso === 1 ? onProcesarArchivo : () => onCambiarPaso(3)}
-                        disabled={!archivoSeleccionado || aplicandoImportacion}
+                        disabled={!archivoSeleccionado || aplicandoImportacion || (paso === 2 && comparacion?.nuevos.length === 0)}
                     >
                         {paso === 1 ? 'Revisar' : 'Establecer Precios'}
                     </Button>

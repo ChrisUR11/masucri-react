@@ -103,14 +103,15 @@ function fechaCierrePedido(pedido) {
  * @param {object} rango - { inicio: 'YYYY-MM-DD'|null, fin: 'YYYY-MM-DD'|null }
  */
 export function calcularMetricas(pedidos, movimientos, rango = {}) {
+    const movimientosVigentes = movimientos.filter((movimiento) => !movimiento.anulado);
     const todasLasFechas = [
         ...pedidos.flatMap((p) => [p.fecha_solicitud, p.fecha_cierre]),
-        ...movimientos.map((m) => m.fecha)
+        ...movimientosVigentes.map((m) => m.fecha)
     ].filter(Boolean).sort();
     const minFecha = todasLasFechas[0] || 'N/A';
     const maxFecha = todasLasFechas[todasLasFechas.length - 1] || 'N/A';
 
-    const movimientosPeriodo = movimientos.filter((m) => dentroDeRango(m.fecha, rango));
+    const movimientosPeriodo = movimientosVigentes.filter((m) => dentroDeRango(m.fecha, rango));
     const pedidosCreadosPeriodo = pedidos.filter((p) => dentroDeRango(p.fecha_solicitud, rango));
     const pedidosCerradosPeriodo = pedidos.filter(
         (p) => (p.estado === 'Entregado' || p.estado === 'Cancelado') &&

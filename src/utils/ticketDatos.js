@@ -49,7 +49,7 @@ export function prepararDatosTicket(pedido, nombreCliente) {
     const descuento = montoValido(subtotal - total);
     const descuentoPorcentaje = subtotal > 0 ? descuento / subtotal * 100 : 0;
     const pagos = (Array.isArray(pedido.historial_pagos) ? pedido.historial_pagos : [])
-        .filter((pago) => pago && montoValido(pago.monto) > 0)
+        .filter((pago) => pago && !pago.anulado && montoValido(pago.monto) > 0)
         .map((pago) => ({
             fecha: fechaTicket(pago.fecha),
             metodo: String(pago.metodo || 'Abono'),

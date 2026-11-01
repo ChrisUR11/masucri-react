@@ -1,0 +1,49 @@
+.pwa-update-container {
+  inset-inline-start: 50%;
+  inset-block-end: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  width: min(32rem, calc(100vw - 1.5rem - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+  transform: translateX(-50%);
+  z-index: 2000;
+}
+
+.pwa-update-toast {
+  width: 100%;
+  max-width: 100%;
+  box-shadow: 0 0.75rem 2rem rgba(20, 31, 44, 0.22);
+}
+
+.pwa-update-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.65rem 0.9rem;
+}
+
+.pwa-update-message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.pwa-update-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-inline-start: auto;
+}
+
+@media (max-width: 480px) {
+  .pwa-update-content {
+    display: grid;
+  }
+
+  .pwa-update-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.75rem;
+    width: 100%;
+    margin-inline-start: 0;
+  }
+
+  .pwa-update-actions .btn {
+    min-height: 2.75rem;
+  }
+}

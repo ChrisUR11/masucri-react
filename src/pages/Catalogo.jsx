@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { collection, query, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { collection, query, updateDoc, deleteDoc, doc, orderBy, limit } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { Container, Row, Col, Card, Button, Form, InputGroup } from 'react-bootstrap';
 import { useDebounce } from '../hooks/useDebounce';
@@ -8,7 +8,11 @@ import EstadoCarga, { EstadoError } from '../components/EstadoCarga';
 import TarjetaProductoCatalogo from '../components/TarjetaProductoCatalogo';
 import ModalProductoCatalogo from '../components/ModalProductoCatalogo';
 import ModalImportarCatalogo from '../components/ModalImportarCatalogo';
+import ProductosDetectadosCatalogo from '../components/ProductosDetectadosCatalogo';
 import { parsearCSV, compararProductos } from '../utils/importarProductos';
+import { buscarProductoDuplicado, limpiarNombreProducto, normalizarNombreProducto } from '../utils/nombreProducto.ts';
+import { calcularSugerenciasCatalogo } from '../utils/sugerenciasCatalogo.ts';
+import { crearProductoCatalogo } from '../services/productosCatalogo';
 import Swal from 'sweetalert2';
 
 const FORM_VACIO = { nombre: '', descripcion: '', precio_costo: '', precio_venta: '', codigo: '', categoria: '', proveedor: '' };
@@ -17,6 +21,15 @@ export default function Catalogo() {
     const { datos: productos, cargando, error } = useFirestoreCollection(
         () => query(collection(db, 'productos'), orderBy('nombre', 'asc')),
         []
+    );
+    const [limitePedidos, setLimitePedidos] = useState(120);
+    const { datos: pedidosRecientes, cargando: cargandoPedidos, error: errorPedidos } = useFirestoreCollection(
+        () => query(collection(db, 'pedidos'), orderBy('fecha_solicitud', 'desc'), limit(limitePedidos)),
+        [limitePedidos]
+    );
+    const sugerencias = useMemo(
+        () => calcularSugerenciasCatalogo(pedidosRecientes, productos),
+        [pedidosRecientes, productos]
     );
 
     const [filtro, setFiltro] = useState('');
@@ -79,13 +92,25 @@ export default function Catalogo() {
 
     const handleGuardar = async (e) => {
         e.preventDefault();
-        if (!form.nombre.trim()) return Swal.fire('Error', 'El nombre es requerido.', 'error');
+        const nombre = limpiarNombreProducto(form.nombre);
+        if (!nombre) return Swal.fire('Error', 'El nombre es requerido.', 'error');
+        const duplicado = buscarProductoDuplicado(productos, nombre, editId);
+        if (duplicado) {
+            return Swal.fire('Producto repetido', `"${duplicado.nombre}" ya existe en el catálogo. Edita su ficha en lugar de crear otra.`, 'warning');
+        }
 
-        // Validar y convertir a números correctamente
+        const costo = form.precio_costo === '' ? null : Number(form.precio_costo);
+        const venta = form.precio_venta === '' ? null : Number(form.precio_venta);
+        if ((costo != null && (!Number.isFinite(costo) || costo < 0))
+            || (venta != null && (!Number.isFinite(venta) || venta < 0))) {
+            return Swal.fire('Error', 'Los precios deben ser números iguales o mayores a cero.', 'error');
+        }
+
         const formGuardar = {
             ...form,
-            precio_costo: form.precio_costo ? parseFloat(form.precio_costo) : 0,
-            precio_venta: form.precio_venta ? parseFloat(form.precio_venta) : 0,
+            nombre,
+            precio_costo: costo,
+            precio_venta: venta,
             cantidad: form.cantidad ? parseInt(form.cantidad) : 0
         };
 
@@ -95,7 +120,7 @@ export default function Catalogo() {
                 await updateDoc(doc(db, 'productos', editId), formGuardar);
                 Swal.fire({ icon: 'success', title: 'Actualizado', timer: 1000, showConfirmButton: false });
             } else {
-                await addDoc(collection(db, 'productos'), formGuardar);
+                await crearProductoCatalogo(db, formGuardar);
                 Swal.fire({ icon: 'success', title: 'Creado', timer: 1000, showConfirmButton: false });
             }
             setShowModal(false);
@@ -118,6 +143,16 @@ export default function Catalogo() {
             codigo: producto.codigo || '',
             categoria: producto.categoria || '',
             proveedor: producto.proveedor || ''
+        });
+        setShowModal(true);
+    };
+
+    const handleCompletarSugerencia = (sugerencia) => {
+        setEditId(null);
+        setForm({
+            ...FORM_VACIO,
+            nombre: sugerencia.nombre,
+            precio_venta: sugerencia.precioReferencia ?? ''
         });
         setShowModal(true);
     };
@@ -186,20 +221,31 @@ export default function Catalogo() {
 
         setAplicandoImportacion(true);
         try {
+            const nombresExistentes = new Set(productos.map((producto) => normalizarNombreProducto(producto.nombre)));
+            let agregados = 0;
+            let omitidos = comparacion.existentes.length + comparacion.duplicados.length;
             for (const nuevo of comparacion.nuevos) {
-                await addDoc(collection(db, 'productos'), {
+                const clave = normalizarNombreProducto(nuevo.nombre);
+                if (nombresExistentes.has(clave)) {
+                    omitidos += 1;
+                    continue;
+                }
+                await crearProductoCatalogo(db, {
                     ...nuevo,
+                    nombre: limpiarNombreProducto(nuevo.nombre),
                     precio_costo: parseFloat(nuevo.precio_costo),
                     precio_venta: parseFloat(preciosVenta[nuevo.nombre])
                 });
+                nombresExistentes.add(clave);
+                agregados += 1;
             }
 
             Swal.fire({
                 icon: 'success',
                 title: 'Importación completada',
                 html: `
-                    <strong>${comparacion.nuevos.length}</strong> productos agregados<br />
-                    <strong>${comparacion.existentes.length}</strong> productos ya existían
+                    <strong>${agregados}</strong> productos agregados<br />
+                    <strong>${omitidos}</strong> productos repetidos omitidos
                 `,
                 timer: 2000,
                 showConfirmButton: false
@@ -294,6 +340,15 @@ export default function Catalogo() {
                     </Card.Body>
                 )}
             </Card>
+
+            <ProductosDetectadosCatalogo
+                sugerencias={sugerencias}
+                cargando={cargandoPedidos}
+                error={errorPedidos}
+                onCompletar={handleCompletarSugerencia}
+                puedeAmpliar={pedidosRecientes.length === limitePedidos}
+                onAmpliar={() => setLimitePedidos((actual) => actual + 120)}
+            />
 
             {filtrados.length === 0 ? (
                 <p className="text-muted text-center py-4">Sin productos que coincidan con los filtros.</p>

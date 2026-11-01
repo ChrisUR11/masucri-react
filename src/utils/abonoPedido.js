@@ -76,7 +76,9 @@ export async function registrarAbono(pedido) {
             transaccion.update(pedidoRef, {
                 monto_pagado: deCentavos(pagadoCentavos + montoCentavos),
                 ultimo_metodo_pago: metodo,
-                historial_pagos: [...(Array.isArray(datos.historial_pagos) ? datos.historial_pagos : []), { fecha: hoy, monto: deCentavos(montoCentavos), metodo }]
+                historial_pagos: [...(Array.isArray(datos.historial_pagos) ? datos.historial_pagos : []), {
+                    fecha: hoy, monto: deCentavos(montoCentavos), metodo, movimiento_id: movimientoRef.id
+                }]
             });
             transaccion.set(movimientoRef, {
                 tipo: 'entrada',

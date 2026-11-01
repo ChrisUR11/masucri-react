@@ -1,16 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Button, Form, InputGroup } from 'react-bootstrap';
 import { formatoNumero } from '../utils/formato';
+import { normalizarNombreProducto as normalizar } from '../utils/nombreProducto.ts';
 import './ProductosPedidoForm.css';
 
 const LINEA_VACIA = { nombre: '', precio_unitario: '', cantidad: 1, total: 0 };
 const MAX_SUGERENCIAS = 8;
-
-const normalizar = (texto) => String(texto ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('es-CR')
-    .trim();
 
 const precioCatalogo = (producto) => {
     if (producto?.precio_venta == null || String(producto.precio_venta).trim() === '') return '';

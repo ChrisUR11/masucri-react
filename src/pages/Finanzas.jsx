@@ -62,7 +62,7 @@ export default function Finanzas() {
     };
 
     const filtrados = useMemo(() => {
-        let lista = movimientos;
+        let lista = movimientos.filter((movimiento) => !movimiento.anulado);
         if (filtroInicio) lista = lista.filter((m) => m.fecha >= filtroInicio);
         if (filtroFin) lista = lista.filter((m) => m.fecha <= filtroFin);
         if (filtroModo !== 'ambos') lista = lista.filter((m) => m.tipo === (filtroModo === 'entradas' ? 'entrada' : 'salida'));
@@ -153,7 +153,7 @@ export default function Finanzas() {
         e.preventDefault();
         const movimientoActual = editId ? movimientos.find((m) => m.id === editId) : null;
         if (editId) {
-            if (!movimientoActual || movimientoActual.pedido_id) {
+            if (!movimientoActual || movimientoActual.pedido_id || movimientoActual.anulado) {
                 return Swal.fire('Movimiento vinculado', 'Este movimiento ya no se puede editar desde Caja. Revisa el pedido asociado.', 'info');
             }
         }
@@ -208,7 +208,7 @@ export default function Finanzas() {
         if (result.isConfirmed) {
             try {
                 const movimientoActual = movimientos.find((m) => m.id === movimiento.id);
-                if (!movimientoActual || movimientoActual.pedido_id) {
+                if (!movimientoActual || movimientoActual.pedido_id || movimientoActual.anulado) {
                     await Swal.fire('Movimiento vinculado', 'Este movimiento ya no se puede eliminar desde Caja. Revisa el pedido asociado.', 'info');
                     return;
                 }
@@ -223,7 +223,7 @@ export default function Finanzas() {
     /**
      * Descarga TODO el negocio (pedidos, movimientos y catálogo completos —
      * no solo lo que se ve filtrado en pantalla ni los últimos 200
-     * movimientos) en un solo Excel con 4 pestañas. Es una red de seguridad
+     * movimientos) en un solo Excel con pestañas de datos y pagos anulados.
      * manual: si algo se borra por error, queda esta copia.
      */
     const handleRespaldoCompleto = async () => {
