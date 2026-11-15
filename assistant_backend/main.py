@@ -154,7 +154,11 @@ def _interpret_with_model(payload: InterpretRequest) -> InterpretResponse:
     request = urllib.request.Request(
         api_url,
         data=body,
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "MASUCRI-Assistant/1.0",
+        },
         method="POST",
     )
 
@@ -162,7 +166,41 @@ def _interpret_with_model(payload: InterpretRequest) -> InterpretResponse:
         with urllib.request.urlopen(request, timeout=45) as response:
             completion = json.loads(response.read().decode("utf-8"))
         content = completion["choices"][0]["message"]["content"]
-        result = InterpretResponse.model_validate_json(content)
+        interpreted = json.loads(content)
+        if not isinstance(interpreted, dict):
+            raise ValueError("The model response must be a JSON object")
+
+        allowed_intents = {
+            "help", "summary", "search_orders", "search_catalog", "search_customer",
+            "create_order", "quick_sale", "unknown",
+        }
+        if interpreted.get("intent") not in allowed_intents:
+            interpreted["intent"] = "unknown"
+            interpreted["reply"] = "No pude reconocer la solicitud. Prueba con una búsqueda, un resumen o un borrador de pedido."
+
+        if interpreted.get("summary_scope") not in {"active", "debts", "cash", "business"}:
+            if interpreted["intent"] == "summary":
+                interpreted["intent"] = "unknown"
+                interpreted["reply"] = "No pude identificar el tipo de resumen. Indica si quieres pedidos activos, saldos, caja o resumen de negocio."
+            interpreted["summary_scope"] = "business"
+
+        if interpreted.get("period") not in {
+            "mes_actual", "mes_anterior", "ultimos_30", "este_anio", "historico", "personalizado",
+        }:
+            if interpreted["intent"] == "summary":
+                interpreted["intent"] = "unknown"
+                interpreted["reply"] = "No pude identificar el período. Indica mes actual, mes anterior, últimos 30 días, este año o histórico."
+            interpreted["period"] = "mes_actual"
+
+        if interpreted.get("status") not in {
+            None, "Pendiente", "En producción", "Por Retirar", "Entregado", "Cancelado",
+        }:
+            interpreted["status"] = None
+
+        if interpreted.get("draft") is not None and not isinstance(interpreted["draft"], dict):
+            interpreted["draft"] = None
+
+        result = InterpretResponse.model_validate(interpreted)
     except HTTPException:
         raise
     except (urllib.error.URLError, TimeoutError, KeyError, IndexError, ValueError) as exc:
