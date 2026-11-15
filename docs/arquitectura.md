@@ -33,6 +33,14 @@ La migración a estas responsabilidades es gradual: todavía hay páginas que es
 - Ampliar TypeScript gradualmente desde dinero, métricas de pedidos activos y rangos de fechas hacia modelos y reglas de pedidos. Validar en ejecución los datos antiguos de Firestore, porque sus tipos no garantizan el contenido almacenado.
 - Usar Cloud Functions solo si una operación necesita privilegios de servidor, integraciones privadas o una garantía de coordinación que el cliente y las reglas no puedan asegurar.
 
+## Asistente de MASUCRI
+
+La pantalla `src/pages/Asistente.jsx` consulta pedidos, catálogo y movimientos con Firebase Authentication y Firestore igual que las otras secciones. El interpretador local reconoce solicitudes habituales sin proveedor de IA. Las búsquedas y respuestas de negocio se ejecutan en el cliente con las utilidades existentes (`metricasNegocio`, `metricasContables`, `metricasPedidosActivos` e `historialClientes`), para conservar los criterios actuales de fechas, saldos y movimientos anulados.
+
+El servicio `assistant_backend/` es opcional y solo aplica si se decide conectar un modelo generativo después. En ese caso verifica el ID token de Firebase y el correo administrador; solo recibe el mensaje y los nombres/precios del catálogo. No recibe pedidos, clientes ni movimientos, no accede a Firestore y no realiza escrituras.
+
+Los pedidos nuevos se revisan en un borrador y se guardan con las mismas validaciones, campos y vínculo pedido/movimiento de los formularios habituales. La venta rápida usa `registrarVentaRapida`, por lo que queda entregada y registra juntos el pedido y el pago en Caja. El asistente local no cambia estados, no registra abonos por su cuenta y no borra pedidos ni movimientos.
+
 ## Dependencias y exportaciones
 
 Los archivos Excel se generan con `write-excel-file`, cargado solo al descargar. El respaldo conserva pedidos, productos, movimientos vigentes y una hoja de abonos anulados con datos de auditoría. El paquete `xlsx` anterior se retiró por sus alertas de seguridad.

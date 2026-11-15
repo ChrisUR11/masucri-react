@@ -32,6 +32,8 @@ La aplicación usa el proyecto de Firebase configurado en `src/config/firebase.j
 - `src/services/`: acceso a servicios externos y exportaciones, incorporado gradualmente.
 - `src/hooks/`: suscripciones y estado reutilizable.
 - `src/config/firebase.js`: inicialización de Authentication y Firestore.
+- `src/pages/Asistente.jsx`: búsquedas y resúmenes; los cálculos usan las reglas existentes y los pedidos requieren revisión y confirmación.
+- `assistant_backend/`: API Python opcional para interpretar solicitudes con IA; verifica Firebase Authentication y no lee ni escribe datos del negocio.
 - `test/`: pruebas de las reglas de negocio que no requieren conexión a Firebase.
 
 La separación de responsabilidades y los próximos pasos están en [docs/arquitectura.md](docs/arquitectura.md).
@@ -59,5 +61,11 @@ Las transacciones de Firestore requieren conexión, incluidas las correcciones d
 `CORREOS_PERMITIDOS` en `src/App.jsx` limita lo que muestra la interfaz. `firestore.rules` define la barrera de Firestore: permite leer y escribir únicamente a los dos administradores con sesión de Google y correo verificado. `npm run test:rules` prueba permisos autorizados y rechazados sin acceder a producción. Para que los cambios de ese archivo rijan en producción hay que desplegar las reglas por separado: `npm run deploy` solo publica la web en GitHub Pages.
 
 Para desplegar exclusivamente las reglas en el proyecto correcto, tras probarlas y autenticar Firebase CLI, ejecuta `npx firebase deploy --only firestore:rules --project masucri-65fed`.
+
+## Asistente
+
+El módulo aparece en la navegación como **Asistente** y funciona sin proveedor de IA ni servidor adicional. Busca pedidos, productos y clientes; calcula resúmenes de pedidos activos, saldos, Caja y BI con las reglas existentes; y completa borradores desde el catálogo cuando reconoce el producto y el precio. Cada pedido o venta rápida se revisa en pantalla y requiere confirmación explícita. Los adelantos se guardan junto con su movimiento de Caja y las ventas rápidas quedan como entregadas. El botón **Limpiar** borra la conversación y pide confirmación si hay borradores sin guardar; no elimina pedidos registrados.
+
+El servicio Python en `assistant_backend/` es opcional para quien más adelante quiera conectar un modelo generativo. La versión local que viene integrada no necesita ese servicio ni una clave de IA; se ejecuta dentro de la app React y escribe mediante los flujos actuales de Firebase. La conexión remota solo se activa si se configura `VITE_ASISTENTE_REMOTO=true` además de la URL.
 
 El borrado con trazabilidad consulta los movimientos en el servidor y después confirma un batch. La consulta y el batch no son una transacción frente a pagos creados concurrentemente; si se necesita esa garantía, la operación debe coordinarse en el servidor junto con reglas que bloqueen nuevos pagos durante el borrado.

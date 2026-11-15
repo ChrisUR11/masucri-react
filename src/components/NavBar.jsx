@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navbar, Nav, Container, Button } from 'react-bootstrap';
+import { Navbar, Nav, NavDropdown, Container, Button } from 'react-bootstrap';
 import { signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import Swal from 'sweetalert2';
@@ -37,8 +37,21 @@ export default function NavBar({ user }) {
                         <Nav.Link as={Link} to="/historial" active={location.pathname === '/historial'} aria-current={location.pathname === '/historial' ? 'page' : undefined}>Historial</Nav.Link>
                         <Nav.Link as={Link} to="/catalogo" active={location.pathname === '/catalogo'} aria-current={location.pathname === '/catalogo' ? 'page' : undefined}>Catálogo</Nav.Link>
                         <Nav.Link as={Link} to="/finanzas" active={location.pathname === '/finanzas'} aria-current={location.pathname === '/finanzas' ? 'page' : undefined}>Finanzas</Nav.Link>
-                        <Nav.Link as={Link} to="/bi" active={location.pathname === '/bi'} aria-current={location.pathname === '/bi' ? 'page' : undefined} className="fw-bold text-warning">BI MASUCRI</Nav.Link>
-                        <Nav.Link as={Link} to="/historial-cliente" active={location.pathname === '/historial-cliente'} aria-current={location.pathname === '/historial-cliente' ? 'page' : undefined}>Clientes</Nav.Link>
+                        <NavDropdown
+                            title={<span className="fw-bold text-warning">BI MASUCRI</span>}
+                            id="bi-masucri-dropdown"
+                            active={location.pathname === '/bi' || location.pathname === '/historial-cliente'}
+                        >
+                            <NavDropdown.Item as={Link} to="/bi" active={location.pathname === '/bi'}>
+                                Indicadores
+                            </NavDropdown.Item>
+                            <NavDropdown.Item as={Link} to="/historial-cliente" active={location.pathname === '/historial-cliente'}>
+                                Clientes
+                            </NavDropdown.Item>
+                        </NavDropdown>
+                        <Nav.Link as={Link} to="/asistente" active={location.pathname === '/asistente'} aria-current={location.pathname === '/asistente' ? 'page' : undefined} className={location.pathname === '/asistente' ? 'fw-bold text-warning' : undefined}>
+                            <i className="fas fa-wand-magic-sparkles me-1" aria-hidden="true"></i>Asistente
+                        </Nav.Link>
                     </Nav>
                     <div className="navbar-account d-flex align-items-center gap-2 mt-2 mt-lg-0">
                         <span className="text-white fw-semibold small text-break">Admin: {user.displayName || user.email}</span>

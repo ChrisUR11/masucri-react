@@ -15,6 +15,7 @@ const Finanzas = lazy(() => import('./pages/Finanzas'));
 const Historial = lazy(() => import('./pages/Historial'));
 const DashboardBI = lazy(() => import('./pages/DashboardBI'));
 const HistorialCliente = lazy(() => import('./pages/HistorialCliente'));
+const Asistente = lazy(() => import('./pages/Asistente'));
 
 const CORREOS_PERMITIDOS = ["ulloarodriguezchris@gmail.com", "anisrmj5@gmail.com"];
 
@@ -96,6 +97,7 @@ export default function App() {
                             <Route path="/" element={<Pedidos />} />
                             <Route path="/historial" element={<Historial />} />
                             <Route path="/historial-cliente" element={<HistorialCliente />} />
+                            <Route path="/asistente" element={<Asistente />} />
                             <Route path="/catalogo" element={<Catalogo />} />
                             <Route path="/finanzas" element={<Finanzas />} />
                             <Route path="/bi" element={<DashboardBI />} />

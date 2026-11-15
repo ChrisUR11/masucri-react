@@ -1,0 +1,216 @@
+.assistant-page {
+    max-width: 1180px;
+}
+
+.assistant-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid #e1e6f4;
+    border-left: 4px solid #5969bf;
+    border-radius: 1rem;
+    background: linear-gradient(115deg, #fff 0%, #f3f4ff 100%);
+    box-shadow: var(--app-shadow);
+}
+
+.assistant-heading h1 {
+    color: #4353a1;
+    font-size: clamp(1.45rem, 3vw, 2rem);
+    font-weight: 750;
+    margin: 0 0 0.25rem;
+}
+
+.assistant-mode {
+    flex: 0 0 auto;
+    margin-top: 0.2rem;
+    padding: 0.55rem 0.75rem;
+}
+
+.assistant-heading-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.6rem;
+    flex: 0 0 auto;
+}
+
+.assistant-chat-card {
+    min-height: 480px;
+    overflow: hidden;
+    border: 0;
+    border-radius: 1rem;
+}
+
+.assistant-chat-body {
+    min-height: 360px;
+    max-height: min(68vh, 780px);
+    overflow-y: auto;
+    padding: clamp(1rem, 3vw, 2rem);
+    background: #f7f8fb;
+}
+
+.assistant-empty {
+    max-width: 720px;
+    margin: 2.5rem auto;
+}
+
+.assistant-empty-icon {
+    display: grid;
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    margin: 0 auto 1rem;
+    border-radius: 50%;
+    color: #4c5bb0;
+    background: #e9ecff;
+    font-size: 1.5rem;
+}
+
+.assistant-message-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.assistant-message {
+    display: flex;
+    width: 100%;
+}
+
+.assistant-message-user {
+    justify-content: flex-end;
+}
+
+.assistant-message-assistant {
+    justify-content: flex-start;
+}
+
+.assistant-message-bubble {
+    width: min(100%, 940px);
+    padding: 1rem;
+    border: 1px solid #e1e5ec;
+    border-radius: 1rem;
+    background: #fff;
+    box-shadow: 0 0.15rem 0.5rem rgba(26, 38, 64, 0.05);
+    overflow-wrap: anywhere;
+}
+
+.assistant-message-user .assistant-message-bubble {
+    width: auto;
+    max-width: min(85%, 720px);
+    color: #fff;
+    border-color: #0d6efd;
+    border-bottom-right-radius: 0.25rem;
+    background: #0d6efd;
+    white-space: pre-wrap;
+}
+
+.assistant-message-assistant .assistant-message-bubble {
+    border-bottom-left-radius: 0.25rem;
+}
+
+.assistant-thinking {
+    align-self: flex-start;
+    padding: 0.65rem 1rem;
+    border-radius: 999px;
+    color: #596273;
+    background: #fff;
+    font-size: 0.875rem;
+}
+
+.assistant-stat {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid #e5e9ef;
+    border-radius: 0.75rem;
+    background: #fbfcfe;
+}
+
+.assistant-stat > span,
+.assistant-total > span:first-child {
+    color: #606b78;
+    font-size: 0.82rem;
+}
+
+.assistant-stat strong,
+.assistant-total strong {
+    font-size: 1.1rem;
+}
+
+.assistant-stat small {
+    color: #697482;
+}
+
+.assistant-total {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.75rem;
+    background: #edf2ff;
+}
+
+.assistant-draft {
+    overflow: hidden;
+}
+
+.assistant-draft .card-body {
+    overflow-wrap: normal;
+}
+
+.assistant-product-row {
+    padding: 0.65rem;
+    border: 1px solid #e9edf2;
+    border-radius: 0.75rem;
+    background: #fbfcfd;
+}
+
+.assistant-results-table {
+    vertical-align: middle;
+}
+
+.assistant-chat-card .card-footer .form-control {
+    min-height: 44px;
+    resize: vertical;
+}
+
+@media (max-width: 575.98px) {
+    .assistant-page {
+        padding-right: 0.75rem;
+        padding-left: 0.75rem;
+    }
+
+    .assistant-heading {
+        padding: 1rem;
+    }
+
+    .assistant-heading-actions {
+        align-items: flex-end;
+        flex-direction: column-reverse;
+    }
+
+    .assistant-chat-body {
+        max-height: 72vh;
+        padding: 0.8rem;
+    }
+
+    .assistant-message-bubble {
+        padding: 0.75rem;
+    }
+
+    .assistant-draft .card-header {
+        align-items: flex-start !important;
+        flex-direction: column;
+    }
+
+    .assistant-results-table {
+        min-width: 620px;
+    }
+}
