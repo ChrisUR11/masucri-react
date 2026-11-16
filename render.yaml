@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: masucri-asistente
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    dockerfilePath: ./assistant_backend/Dockerfile
+    dockerContext: ./assistant_backend
+    healthCheckPath: /health
+    envVars:
+      - key: FIREBASE_PROJECT_ID
+        value: masucri-65fed
+      - key: AI_CHAT_COMPLETIONS_URL
+        value: https://api.groq.com/openai/v1/chat/completions
+      - key: AI_API_KEY
+        sync: false
+      - key: AI_MODEL
+        value: openai/gpt-oss-20b
+      - key: ASSISTANT_ALLOWED_ORIGINS
+        value: https://chrisur11.github.io,http://localhost:5173,http://127.0.0.1:5173

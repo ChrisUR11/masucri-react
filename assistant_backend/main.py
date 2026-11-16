@@ -8,19 +8,27 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from typing import Literal
 
-import firebase_admin
-from firebase_admin import auth as firebase_auth, credentials
+import jwt
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from jwt import PyJWKClient
+from jwt.exceptions import PyJWKClientConnectionError, PyJWKClientError, PyJWTError
 
 
 PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "masucri-65fed")
 ADMIN_EMAILS = {"ulloarodriguezchris@gmail.com", "anisrmj5@gmail.com"}
+FIREBASE_JWKS = PyJWKClient(
+    "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com",
+    cache_keys=True,
+    headers={"User-Agent": "MASUCRI-Assistant/1.0"},
+    timeout=10,
+)
 
 
 def _allowed_origins() -> list[str]:
@@ -84,23 +92,44 @@ class InterpretResponse(BaseModel):
     reply: str = ""
 
 
-def _firebase_app():
+def _verify_firebase_id_token(token: str) -> dict:
     try:
-        return firebase_admin.get_app()
-    except ValueError:
-        credential_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-        credential = credentials.Certificate(credential_path) if credential_path else None
-        return firebase_admin.initialize_app(credential, {"projectId": PROJECT_ID})
+        signing_key = FIREBASE_JWKS.get_signing_key_from_jwt(token).key
+        claims = jwt.decode(
+            token,
+            signing_key,
+            algorithms=["RS256"],
+            audience=PROJECT_ID,
+            issuer=f"https://securetoken.google.com/{PROJECT_ID}",
+            options={"require": ["exp", "iat", "auth_time", "aud", "iss", "sub"]},
+            leeway=5,
+        )
+    except PyJWKClientConnectionError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="No se pudo validar la sesión con Firebase. Inténtalo de nuevo.",
+        ) from exc
+    except (PyJWKClientError, PyJWTError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=401, detail="La sesión no es válida. Vuelve a iniciar sesión.") from exc
+
+    subject = claims.get("sub")
+    auth_time = claims.get("auth_time")
+    if (
+        not isinstance(subject, str)
+        or not subject.strip()
+        or isinstance(auth_time, bool)
+        or not isinstance(auth_time, (int, float))
+        or auth_time > time.time() + 60
+    ):
+        raise HTTPException(status_code=401, detail="La sesión no es válida. Vuelve a iniciar sesión.")
+    return claims
 
 
 def _require_admin(authorization: str | None = Header(default=None)) -> dict:
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Inicia sesión para usar el asistente.")
     token = authorization.removeprefix("Bearer ").strip()
-    try:
-        claims = firebase_auth.verify_id_token(token, app=_firebase_app())
-    except Exception as exc:  # No revelar detalles del token ni del proveedor.
-        raise HTTPException(status_code=401, detail="La sesión no es válida. Vuelve a iniciar sesión.") from exc
+    claims = _verify_firebase_id_token(token)
 
     email = str(claims.get("email", "")).lower()
     firebase_claims = claims.get("firebase") or {}

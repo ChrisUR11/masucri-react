@@ -1,19 +1,28 @@
-# Servicio opcional de IA para MASUCRI
+# Servicio Python del asistente MASUCRI
 
-La app ya tiene un asistente local que funciona sin este servicio ni proveedor de IA. Este backend Python es solo una ampliación opcional para conectar un modelo generativo más adelante. La app sigue consultando y guardando en Firestore con Firebase; el backend solo interpreta mensajes y no recibe pedidos, clientes, movimientos ni escribe datos del negocio.
+La app web sigue consultando y guardando en Firebase. Este servicio interpreta los mensajes con Groq y devuelve acciones estructuradas; no consulta Firestore ni guarda, modifica o elimina datos del negocio. El modelo recibe el texto escrito y los nombres y precios del catálogo incluidos para reconocer productos. Si el mensaje contiene datos personales para un borrador, esos datos forman parte del texto enviado al proveedor de IA.
 
-## Preparación local
+El servicio valida los tokens de Firebase con las claves públicas de firma de Firebase y comprueba el proyecto, correo verificado, inicio con Google y la lista de administradores. No necesita una clave privada de cuenta de servicio. Las búsquedas, los cálculos y la confirmación de pedidos siguen ocurriendo en la app.
+
+## Ejecución local
 
 1. Instala Python 3.11 o posterior.
 2. Desde esta carpeta, crea un entorno virtual e instala `requirements.txt`.
-3. Copia `.env.example` a `.env` y configura las credenciales de Firebase Admin y el proveedor compatible con Chat Completions. La cuenta de servicio solo se usa para verificar el token de Firebase; no se debe copiar al frontend ni al repositorio.
-4. En otra terminal, configura `VITE_ASISTENTE_API_URL=http://127.0.0.1:8000` y `VITE_ASISTENTE_REMOTO=true` en el `.env` de la raíz.
+3. Copia `.env.example` a `.env` y configura `AI_API_KEY` con la clave de Groq. No la copies al frontend ni al repositorio.
+4. En el `.env` de la raíz, configura `VITE_ASISTENTE_API_URL=http://127.0.0.1:8000` y `VITE_ASISTENTE_REMOTO=true`.
 5. Ejecuta `uvicorn main:app --reload --port 8000 --env-file .env` desde `assistant_backend/` y `npm run dev` desde la raíz.
 
-El servicio revisa el token de Firebase, el correo verificado y la misma lista de administradores que la app y Firestore. CORS se limita a los orígenes indicados en `ASSISTANT_ALLOWED_ORIGINS`.
+## Publicación gratis en Render
 
-El modelo recibe el texto escrito y los nombres/precios del catálogo para identificar productos. La app procesa las búsquedas, ejecuta los cálculos y muestra los borradores. El servicio de IA no guarda, modifica ni elimina información.
+El archivo `render.yaml` de la raíz crea un servicio web Docker en el plan Free. Para publicarlo, crea una cuenta gratuita de Render, conecta este repositorio y crea un Blueprint desde `render.yaml`. En la configuración inicial, pega la clave de Groq cuando Render la solicite para `AI_API_KEY`; la clave queda como variable secreta del servicio, nunca en GitHub Pages.
 
-## Publicación
+Al terminar el primer deploy, copia la URL HTTPS asignada al servicio. En la compilación de la web configura:
 
-El directorio incluye un `Dockerfile` para desplegarlo como servicio HTTPS (por ejemplo, Cloud Run). Configura en el servidor las variables privadas y añade el origen real de GitHub Pages a `ASSISTANT_ALLOWED_ORIGINS`. En Cloud Run, usa una cuenta de servicio con acceso suficiente para validar tokens y guarda `AI_API_KEY` como secreto del servicio. Configura `VITE_ASISTENTE_API_URL` con la URL pública antes de construir la web. GitHub Pages solo sirve la interfaz; no ejecuta Python.
+```env
+VITE_ASISTENTE_API_URL=https://URL-REAL-DEL-SERVICIO.onrender.com
+VITE_ASISTENTE_REMOTO=true
+```
+
+Luego vuelve a compilar y publicar GitHub Pages (`npm run build` y `npm run deploy`). La configuración de CORS ya permite el origen `https://chrisur11.github.io`.
+
+Render Free se duerme tras 15 minutos sin tráfico y el siguiente acceso puede tardar cerca de un minuto en responder. No se debe añadir una tarjeta si se quiere evitar cargos: al superar los límites gratuitos, Render suspende servicios o detiene nuevas compilaciones cuando no hay método de pago. Este plan es adecuado para probar el asistente, no ofrece disponibilidad garantizada para producción.
