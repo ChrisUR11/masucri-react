@@ -15,6 +15,10 @@
     box-shadow: var(--app-shadow);
 }
 
+.assistant-heading > div:first-child {
+    min-width: 0;
+}
+
 .assistant-heading h1 {
     color: #4353a1;
     font-size: clamp(1.45rem, 3vw, 2rem);
@@ -34,6 +38,7 @@
     justify-content: flex-end;
     gap: 0.6rem;
     flex: 0 0 auto;
+    flex-wrap: wrap;
 }
 
 .assistant-chat-card {
@@ -162,7 +167,7 @@
 }
 
 .assistant-draft .card-body {
-    overflow-wrap: normal;
+    overflow-wrap: anywhere;
 }
 
 .assistant-product-row {
@@ -181,6 +186,14 @@
     resize: vertical;
 }
 
+.assistant-touch-hint {
+    display: none;
+}
+
+.assistant-data-count {
+    overflow-wrap: anywhere;
+}
+
 @media (max-width: 575.98px) {
     .assistant-page {
         padding-right: 0.75rem;
@@ -189,25 +202,116 @@
 
     .assistant-heading {
         padding: 1rem;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+
+    .assistant-heading h1 {
+        font-size: 1.4rem;
+        line-height: 1.2;
+        overflow-wrap: anywhere;
     }
 
     .assistant-heading-actions {
-        align-items: flex-end;
-        flex-direction: column-reverse;
+        width: 100%;
+        min-width: 0;
+        align-items: center;
+        justify-content: space-between;
+        flex-direction: row;
+    }
+
+    .assistant-mode {
+        max-width: 100%;
+        white-space: normal;
+        text-align: center;
+    }
+
+    .assistant-chat-card {
+        min-height: 0;
     }
 
     .assistant-chat-body {
-        max-height: 72vh;
+        min-height: 260px;
+        max-height: 58vh;
         padding: 0.8rem;
     }
 
     .assistant-message-bubble {
+        min-width: 0;
+        max-width: 100%;
         padding: 0.75rem;
+    }
+
+    .assistant-message-user .assistant-message-bubble {
+        max-width: 94%;
+    }
+
+    .assistant-message-list {
+        gap: 0.75rem;
+    }
+
+    .assistant-empty {
+        margin: 1rem auto;
+    }
+
+    .assistant-prompts > .btn {
+        flex: 1 1 100%;
+        width: 100%;
     }
 
     .assistant-draft .card-header {
         align-items: flex-start !important;
         flex-direction: column;
+    }
+
+    .assistant-product-row {
+        row-gap: 0.65rem;
+    }
+
+    .assistant-product-row > .col-5 {
+        width: 42%;
+    }
+
+    .assistant-product-row > .col-4 {
+        width: 33%;
+    }
+
+    .assistant-product-row > .col-3 {
+        width: 25%;
+    }
+
+    .assistant-total {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .assistant-chat-card .card-footer {
+        padding: 0.75rem !important;
+    }
+
+    .assistant-chat-card .card-footer .form-control {
+        min-width: 0;
+        min-height: 3.25rem;
+    }
+
+    .assistant-chat-card .card-footer .input-group > .btn {
+        min-width: 3.25rem;
+        flex: 0 0 auto;
+    }
+
+    .assistant-composer-meta {
+        width: 100%;
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .assistant-keyboard-hint {
+        display: none;
+    }
+
+    .assistant-touch-hint {
+        display: inline;
     }
 
     .assistant-results-table {

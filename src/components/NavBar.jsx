@@ -32,24 +32,24 @@ export default function NavBar({ user }) {
                 </Navbar.Brand>
                 <Navbar.Toggle aria-controls="basic-navbar-nav" aria-label={expandido ? 'Cerrar navegación' : 'Abrir navegación'} />
                 <Navbar.Collapse id="basic-navbar-nav">
-                    <Nav className="me-auto" onClick={cerrarMenu}>
-                        <Nav.Link as={Link} to="/" active={location.pathname === '/'} aria-current={location.pathname === '/' ? 'page' : undefined}>Pedidos</Nav.Link>
-                        <Nav.Link as={Link} to="/historial" active={location.pathname === '/historial'} aria-current={location.pathname === '/historial' ? 'page' : undefined}>Historial</Nav.Link>
-                        <Nav.Link as={Link} to="/catalogo" active={location.pathname === '/catalogo'} aria-current={location.pathname === '/catalogo' ? 'page' : undefined}>Catálogo</Nav.Link>
-                        <Nav.Link as={Link} to="/finanzas" active={location.pathname === '/finanzas'} aria-current={location.pathname === '/finanzas' ? 'page' : undefined}>Finanzas</Nav.Link>
+                    <Nav className="me-auto">
+                        <Nav.Link as={Link} to="/" onClick={cerrarMenu} active={location.pathname === '/'} aria-current={location.pathname === '/' ? 'page' : undefined}>Pedidos</Nav.Link>
+                        <Nav.Link as={Link} to="/historial" onClick={cerrarMenu} active={location.pathname === '/historial'} aria-current={location.pathname === '/historial' ? 'page' : undefined}>Historial</Nav.Link>
+                        <Nav.Link as={Link} to="/catalogo" onClick={cerrarMenu} active={location.pathname === '/catalogo'} aria-current={location.pathname === '/catalogo' ? 'page' : undefined}>Catálogo</Nav.Link>
+                        <Nav.Link as={Link} to="/finanzas" onClick={cerrarMenu} active={location.pathname === '/finanzas'} aria-current={location.pathname === '/finanzas' ? 'page' : undefined}>Finanzas</Nav.Link>
                         <NavDropdown
                             title={<span className="fw-bold text-warning">BI MASUCRI</span>}
                             id="bi-masucri-dropdown"
                             active={location.pathname === '/bi' || location.pathname === '/historial-cliente'}
                         >
-                            <NavDropdown.Item as={Link} to="/bi" active={location.pathname === '/bi'}>
+                            <NavDropdown.Item as={Link} to="/bi" onClick={cerrarMenu} active={location.pathname === '/bi'}>
                                 Indicadores
                             </NavDropdown.Item>
-                            <NavDropdown.Item as={Link} to="/historial-cliente" active={location.pathname === '/historial-cliente'}>
+                            <NavDropdown.Item as={Link} to="/historial-cliente" onClick={cerrarMenu} active={location.pathname === '/historial-cliente'}>
                                 Clientes
                             </NavDropdown.Item>
                         </NavDropdown>
-                        <Nav.Link as={Link} to="/asistente" active={location.pathname === '/asistente'} aria-current={location.pathname === '/asistente' ? 'page' : undefined} className={location.pathname === '/asistente' ? 'fw-bold text-warning' : undefined}>
+                        <Nav.Link as={Link} to="/asistente" onClick={cerrarMenu} active={location.pathname === '/asistente'} aria-current={location.pathname === '/asistente' ? 'page' : undefined} className={location.pathname === '/asistente' ? 'fw-bold text-warning' : undefined}>
                             <i className="fas fa-wand-magic-sparkles me-1" aria-hidden="true"></i>Asistente
                         </Nav.Link>
                     </Nav>

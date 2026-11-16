@@ -260,7 +260,7 @@ function BorradorAsistente({ id, borrador, catalogo, onChange, onGuardar, guarda
     const monedaPagadaValida = tieneMaximoDosDecimales(totalPagado) && totalPagado >= 0 && totalPagado <= total.precio;
 
     return (
-        <Card className="asistente-draft mt-3 border-primary">
+        <Card className="assistant-draft mt-3 border-primary">
             <Card.Header className="d-flex align-items-center justify-content-between gap-2 bg-primary text-white">
                 <strong><i className={`fas ${borrador.tipo === 'venta_rapida' ? 'fa-bolt' : 'fa-clipboard-list'} me-2`} aria-hidden="true"></i>{borrador.tipo === 'venta_rapida' ? 'Borrador de venta rápida' : 'Borrador de pedido'}</strong>
                 <Badge bg={borrador.tipo === 'venta_rapida' ? 'warning' : 'light'} text={borrador.tipo === 'venta_rapida' ? 'dark' : 'primary'}>
@@ -674,7 +674,9 @@ export default function Asistente() {
                                         value={mensaje}
                                         onChange={(event) => setMensaje(event.target.value)}
                                         onKeyDown={(event) => {
-                                            if (event.key === 'Enter' && !event.shiftKey) {
+                                            const esEntradaTactil = typeof window.matchMedia === 'function'
+                                                && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+                                            if (event.key === 'Enter' && !event.shiftKey && !esEntradaTactil && !event.nativeEvent.isComposing) {
                                                 event.preventDefault();
                                                 procesarMensaje(mensaje);
                                             }
@@ -685,9 +687,10 @@ export default function Asistente() {
                                         {procesando ? <Spinner size="sm" /> : <i className="fas fa-paper-plane" aria-hidden="true"></i>}
                                     </Button>
                                 </InputGroup>
-                                <div className="d-flex justify-content-between flex-wrap gap-2 mt-2 small text-muted">
-                                    <span>Enter para enviar · Shift + Enter para una nueva línea</span>
-                                    <span>Pedidos {pedidos.length} · productos {catalogo.length} · movimientos {movimientos.length}</span>
+                                <div className="assistant-composer-meta d-flex justify-content-between flex-wrap gap-2 mt-2 small text-muted">
+                                    <span className="assistant-keyboard-hint">Enter envía · Shift + Enter agrega una línea</span>
+                                    <span className="assistant-touch-hint">Toca Enviar para mandar tu mensaje</span>
+                                    <span className="assistant-data-count">Pedidos {pedidos.length} · productos {catalogo.length} · movimientos {movimientos.length}</span>
                                 </div>
                             </Form>
                         </Card.Footer>
