@@ -9,7 +9,7 @@ const ASISTENTE_REMOTO_HABILITADO = String(import.meta.env.VITE_ASISTENTE_REMOTO
  * El servicio Python solo interpreta la solicitud. Sin URL o ante una caída,
  * las consultas básicas siguen disponibles con el enrutador local.
  */
-export async function interpretarSolicitudAsistente(mensaje, catalogo = []) {
+export async function interpretarSolicitudAsistente(mensaje, catalogo = [], mensajesPrevios = []) {
     const interpretacionLocal = interpretarMensajeLocal(mensaje, catalogo);
     if (!URL_ASISTENTE || !ASISTENTE_REMOTO_HABILITADO) return { ...interpretacionLocal, source: 'local' };
 
@@ -27,6 +27,10 @@ export async function interpretarSolicitudAsistente(mensaje, catalogo = []) {
             body: JSON.stringify({
                 message: mensaje,
                 today: obtenerFechaLocal(),
+                recent_messages: mensajesPrevios.slice(-3)
+                    .map((texto) => String(texto || '').trim().slice(0, 500))
+                    .filter(Boolean)
+                    .map((text) => ({ message: text })),
                 catalog: catalogo.slice(0, 150).map((producto) => {
                     const precio = producto.precio_venta;
                     return {

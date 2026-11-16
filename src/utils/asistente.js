@@ -166,18 +166,37 @@ export function interpretarMensajeLocal(mensaje = '', catalogo = []) {
         return { intent: 'search_orders', query: 'atrasados', status: null };
     }
 
+    const consultaProductoPopular = /\b(producto|productos|articulo|articulos)\b/.test(normalizado)
+        && /\b(mas (?:vendid[oa]s?|solicitad[oa]s?|ventas|pedid[oa]s?)|top|popular(?:es)?|tendencia|se vende mas|se vendio mas)\b/.test(normalizado);
+    if (consultaProductoPopular) {
+        const rangoPersonalizado = fechasRangoTexto(texto);
+        const period = rangoPersonalizado ? 'personalizado'
+            : /\b(historico|siempre|todo el tiempo)\b/.test(normalizado) ? 'historico'
+                : /\b(30 dias|ultimos 30)\b/.test(normalizado) ? 'ultimos_30'
+                    : /\b(anio|este ano)\b/.test(normalizado) ? 'este_anio'
+                        : /\b(mes anterior|mes pasado)\b/.test(normalizado) ? 'mes_anterior' : 'mes_actual';
+        return {
+            intent: 'summary',
+            summary_scope: 'business',
+            period,
+            range_start: rangoPersonalizado?.inicio || null,
+            range_end: rangoPersonalizado?.fin || null,
+            query: ''
+        };
+    }
+
     if (/\b(catalogo|producto|productos|precio|costo)\b|cuanto cuesta|cuanto sale|precio de|costo de/.test(normalizado)) {
         const query = texto.match(/(?:producto|productos|cat[aá]logo|buscar|busca|precio de|costo de|cu[aá]nto cuesta|cu[aá]nto sale)\s+(?:de\s+)?(.+)$/i)?.[1] || '';
         return { intent: 'search_catalog', query: limpiarConsulta(query) };
     }
 
-    const solicitudDeResumen = /\b(cuanto|cuantos|total|resumen|balance|flujo|caja|ingresos|gastos|ganancia|utilidad|atrasad|debe|deuda|saldo|negocio|finanzas|bi|venta|ventas|pedidos activos|pedidos abiertos)\b/.test(normalizado);
+    const solicitudDeResumen = /\b(cuanto|cuantos|total|resumen|balance|flujo|caja|ingresos|gastos|ganancia|utilidad|atrasad|debe|deuda|saldo|negocio|finanzas|bi|venta|ventas|vendi|vendimos|vendio|vendieron|pedidos activos|pedidos abiertos)\b/.test(normalizado);
     if (solicitudDeResumen) {
         const summaryScope = /\b(caja|flujo|ingresos?|entradas?|gastos?|gastar|gaste|gastamos|gastado|salidas?|ganancia|utilidad)\b/.test(normalizado)
             ? 'cash'
             : /\b(debe|deuda|saldo|por cobrar|moroso)\b/.test(normalizado)
                 ? 'debts'
-                : /\b(bi|negocio|finanzas|historico|historial|ventas?|vendi|vendimos)\b/.test(normalizado)
+                : /\b(bi|negocio|finanzas|historico|historial|ventas?|vendi|vendimos|vendio|vendieron)\b/.test(normalizado)
                     ? 'business'
                     : 'active';
         const rangoPersonalizado = fechasRangoTexto(texto);
@@ -211,8 +230,9 @@ export function interpretarMensajeLocal(mensaje = '', catalogo = []) {
     }
 
     if (/\b(pedido|pedidos|buscar|busca|entrega)\b/.test(normalizado)) {
-        const query = limpiarConsulta(texto
-            .replace(/\b(buscar|busca|buscarme|encuentra|encu[eé]ntrame|mostrar|muestra|mostrame|mu[eé]strame|pedido|pedidos|cliente|producto|entrega|entregar|pendiente|pendientes|en producción|por retirar|entregado|cancelado)\b/gi, ' ')
+        const textoBusqueda = texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const query = limpiarConsulta(textoBusqueda
+            .replace(/\b(buscar|busca|buscarme|encuentra|encu[eé]ntrame|mostrar|muestra|mostrame|mu[eé]strame|pedido|pedidos|cliente|producto|entrega|entregar|pendiente|pendientes|en produccion|por retirar|entregado|cancelado|qu[eé]|cu[aá]les?|son|hay|tengo|tenemos|debo|deben|necesito|quiero|mis|me|de|del|la|el|los|las|para|a)\b/gi, ' ')
             .replace(/\s+/g, ' '));
         return { intent: 'search_orders', query, status };
     }

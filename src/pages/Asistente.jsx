@@ -102,8 +102,8 @@ function prepararRespuesta(interpretacion, pedidos, catalogo, movimientos) {
         return {
             title: 'Pedidos encontrados',
             text: resultados.length
-                ? `Encontré ${resultados.length} pedido${resultados.length === 1 ? '' : 's'}${query ? ` relacionado${resultados.length === 1 ? '' : 's'} con “${query}”` : ''}.`
-                : 'No encontré pedidos que coincidan con esos datos.',
+                ? `Encontré ${resultados.length} pedido${resultados.length === 1 ? '' : 's'}${query ? ` relacionado${resultados.length === 1 ? '' : 's'} con “${query}”` : ''}. Revisa los resultados y dime si quieres filtrarlos por cliente, estado o fecha.`
+                : 'No encontré pedidos con esos datos. Puedes intentar con el nombre del cliente, el producto o el estado.',
             data: { kind: 'orders', items: resultados.slice(0, 30), total: resultados.length }
         };
     }
@@ -114,7 +114,9 @@ function prepararRespuesta(interpretacion, pedidos, catalogo, movimientos) {
         ]));
         return {
             title: 'Catálogo',
-            text: resultados.length ? `Encontré ${resultados.length} producto${resultados.length === 1 ? '' : 's'}.` : 'No encontré productos con ese nombre.',
+            text: resultados.length
+                ? `Encontré ${resultados.length} producto${resultados.length === 1 ? '' : 's'}. Aquí puedes revisar precio, costo, categoría y proveedor.`
+                : 'No encontré productos con ese nombre. Prueba con parte del nombre, la categoría o el proveedor.',
             data: { kind: 'catalog', items: resultados.slice(0, 30), total: resultados.length }
         };
     }
@@ -122,7 +124,11 @@ function prepararRespuesta(interpretacion, pedidos, catalogo, movimientos) {
         const resultados = resumirClientes(pedidos, query);
         return {
             title: 'Historial de clientes',
-            text: resultados.length ? `Encontré ${resultados.length} cliente${resultados.length === 1 ? '' : 's'} relacionado${resultados.length === 1 ? '' : 's'} con la búsqueda.` : 'No encontré un cliente con ese nombre.',
+            text: resultados.length
+                ? resultados.length === 1
+                    ? `Encontré el historial de ${resultados[0].nombre}. Puedes preguntarme por sus pedidos o su saldo.`
+                    : `Encontré ${resultados.length} clientes relacionados. Puedes precisar el nombre para ver un historial específico.`
+                : 'No encontré un cliente con ese nombre. Prueba con otra parte del nombre.',
             data: { kind: 'customers', items: resultados.slice(0, 20), total: resultados.length }
         };
     }
@@ -133,8 +139,8 @@ function prepararRespuesta(interpretacion, pedidos, catalogo, movimientos) {
         const resumen = calcularPedidosActivos(status ? activos.filter((pedido) => pedido.estado === status) : activos);
         return {
             title: status ? `Pedidos: ${status}` : 'Pedidos activos ahora',
-            text: `${resumen.totales.cantidad} pedidos activos, con ${formatoColones(resumen.totales.saldoPorCobrar)} por cobrar y ${resumen.totales.atrasados} entregas atrasadas.`,
-            data: { kind: 'active', resumen }
+            text: `Ahora hay ${resumen.totales.cantidad} ${status ? `pedidos con estado ${status}` : 'pedidos activos'}, con ${formatoColones(resumen.totales.saldoPorCobrar)} por cobrar y ${resumen.totales.atrasados} entregas atrasadas.${status ? '' : ' Puedes pedirme solo los pendientes, los atrasados o un estado específico.'}`,
+            data: { kind: 'active', resumen, label: status ? 'Total del filtro' : 'Total activo' }
         };
     }
 
@@ -159,7 +165,7 @@ function prepararRespuesta(interpretacion, pedidos, catalogo, movimientos) {
             .slice(0, 20);
         return {
             title: query ? `Saldos de ${query}` : 'Saldos por cobrar',
-            text: `${formatoColones(saldoActivo)} en pedidos activos${saldoEntregado ? ` y ${formatoColones(saldoEntregado)} en pedidos entregados` : ''}.`,
+            text: `${query ? `Para ${query}, quedan ` : 'Quedan '}${formatoColones(saldoActivo)} por cobrar en pedidos activos${saldoEntregado ? ` y ${formatoColones(saldoEntregado)} en pedidos entregados` : ''}. Revisa el detalle debajo.`,
             data: { kind: 'debts', activeBalance: saldoActivo, deliveredBalance: saldoEntregado, clients: clientesConSaldo }
         };
     }
@@ -181,8 +187,7 @@ function prepararRespuesta(interpretacion, pedidos, catalogo, movimientos) {
             if (movimiento.anulado || movimiento.tipo !== 'salida' || !movimiento.fecha) return false;
             if (rangoPreset.inicio && movimiento.fecha < rangoPreset.inicio) return false;
             if (rangoPreset.fin && movimiento.fecha > rangoPreset.fin) return false;
-            return [movimiento.categoria, movimiento.descripcion, movimiento.entidad]
-                .some((valor) => sinAcentos(valor).includes(textoFiltro));
+            return coincideConsulta(textoFiltro, [movimiento.categoria, movimiento.descripcion, movimiento.entidad]);
         }) : [];
         const totalFiltrado = movimientosFiltrados.reduce((total, movimiento) => {
             const monto = Number(movimiento.monto);
@@ -191,8 +196,8 @@ function prepararRespuesta(interpretacion, pedidos, catalogo, movimientos) {
         return {
             title: `Caja · ${nombreMes(period, rangoPreset)}`,
             text: query
-                ? `Gastos coincidentes con “${query}”: ${formatoColones(totalFiltrado)}. Salidas totales: ${formatoColones(resumenPeriodo.totalSalidas)}.`
-                : `Entradas ${formatoColones(resumenPeriodo.totalEntradas)} · salidas ${formatoColones(resumenPeriodo.totalSalidas)} · flujo neto ${formatoColones(resumenPeriodo.utilidad)}.`,
+                ? `En ${nombreMes(period, rangoPreset)}, encontré ${movimientosFiltrados.length} salidas relacionadas con “${query}”, por ${formatoColones(totalFiltrado)}. Las salidas totales fueron ${formatoColones(resumenPeriodo.totalSalidas)}.`
+                : `En ${nombreMes(period, rangoPreset)}, entraron ${formatoColones(resumenPeriodo.totalEntradas)} y salieron ${formatoColones(resumenPeriodo.totalSalidas)}; el flujo neto fue ${formatoColones(resumenPeriodo.utilidad)}.`,
             data: { kind: 'cash', resumen: resumenPeriodo, periodo: nombreMes(period, rangoPreset), filtro: query ? { query, total: totalFiltrado, movimientos: movimientosFiltrados.slice(0, 10) } : null }
         };
     }
@@ -201,32 +206,71 @@ function prepararRespuesta(interpretacion, pedidos, catalogo, movimientos) {
     const resumenActivos = calcularPedidosActivos(pedidos);
     return {
         title: `Resumen del negocio · ${nombreMes(period, rangoPreset)}`,
-        text: `Flujo neto ${formatoColones(resumenPeriodo.utilidad)} y ${resumenActivos.totales.cantidad} pedidos abiertos con ${formatoColones(resumenActivos.totales.saldoPorCobrar)} por cobrar.`,
+        text: `En ${nombreMes(period, rangoPreset)}, el flujo neto fue ${formatoColones(resumenPeriodo.utilidad)}. Ahora hay ${resumenActivos.totales.cantidad} pedidos abiertos con ${formatoColones(resumenActivos.totales.saldoPorCobrar)} por cobrar. También te muestro las métricas y productos principales debajo.`,
         data: { kind: 'business', flujo: resumenPeriodo, contabilidad, activos: resumenActivos, periodo: nombreMes(period, rangoPreset), topProducts: resumenPeriodo.topProd, topClients: resumenPeriodo.topClientes }
     };
 }
 
 function interpretarSeguimientoLocal(texto, mensajes) {
-    const normalizado = sinAcentos(texto);
-    const mencionaContexto = /\b(ella|el|ese|esa|eso|su|sus|le|les|tambien|ahora|y)\b/.test(normalizado);
-    if (!mencionaContexto) return null;
-    const ultimoCliente = [...mensajes].reverse().find((item) =>
-        item.role === 'assistant' && item.data?.kind === 'customers' && item.data.items?.length === 1
-    )?.data.items[0];
-    if (!ultimoCliente) return null;
+    const normalizado = sinAcentos(texto).replace(/^[¿¡\s]+/, '');
+    const esSeguimiento = /^(?:y\b|tambien\b|ademas\b|ahora\b|entonces\b|para\b|en ese caso\b)/.test(normalizado)
+        || /^(?:el|la|los|las) (?:mes|ano|ultimos?\s+30\s+dias|historico)\b/.test(normalizado);
+    if (!esSeguimiento) return null;
 
-    if (/\b(pedido|pedidos|compra|compras|historial)\b/.test(normalizado)) {
-        if (/\b(crea|crear|agrega|agregar|nuevo|nueva|hazle|hacer)\b/.test(normalizado)) {
+    const ultimoResultado = [...mensajes].reverse().find((item) =>
+        item.role === 'assistant' && (item.interpretation || (item.data?.kind === 'customers' && item.data.items?.length === 1))
+    );
+    if (!ultimoResultado) return null;
+
+    const anterior = ultimoResultado.interpretation;
+    const cliente = ultimoResultado.data?.kind === 'customers' && ultimoResultado.data.items?.length === 1
+        ? ultimoResultado.data.items[0]
+        : null;
+
+    if (cliente && /\b(pedido|pedidos|compra|compras|historial|saldo|debe|deuda|cobrar|pagado|abonado)\b/.test(normalizado)) {
+        if (/\b(crea|crear|agrega|agregar|anade|anadir|nuevo|nueva|hazle|hacer)\b/.test(normalizado)) {
             return {
                 intent: 'create_order',
-                reply: `Preparé un borrador para ${ultimoCliente.nombre}. Completa los productos y confirma para guardar.`,
-                draft: { customer: ultimoCliente.nombre, products: [] }
+                source: 'local_followup',
+                reply: `Preparé un borrador para ${cliente.nombre}. Completa los productos y confirma para guardar.`,
+                draft: { customer: cliente.nombre, products: [] }
             };
         }
-        return { intent: 'search_orders', query: ultimoCliente.nombre };
+        if (/\b(saldo|debe|deuda|cobrar|pagado|abonado)\b/.test(normalizado)) {
+            return { intent: 'summary', summary_scope: 'debts', query: cliente.nombre, source: 'local_followup' };
+        }
+        return { intent: 'search_orders', query: cliente.nombre, source: 'local_followup' };
     }
-    if (/\b(saldo|debe|deuda|cobrar|pagado|abonado)\b/.test(normalizado)) {
-        return { intent: 'summary', summary_scope: 'debts', query: ultimoCliente.nombre };
+
+    if (!anterior) return null;
+    const periodo = /\b(mes pasado|mes anterior)\b/.test(normalizado) ? 'mes_anterior'
+        : /\b(este ano|este anio|ano actual)\b/.test(normalizado) ? 'este_anio'
+            : /\b(ultimos? 30 dias|30 dias)\b/.test(normalizado) ? 'ultimos_30'
+                : /\b(historico|siempre|todo el tiempo)\b/.test(normalizado) ? 'historico'
+                    : /\b(este mes|mes actual)\b/.test(normalizado) ? 'mes_actual' : null;
+    if (periodo && anterior.intent === 'summary' && ['cash', 'business'].includes(anterior.summary_scope)) {
+        return {
+            ...anterior,
+            period: periodo,
+            range_start: null,
+            range_end: null,
+            source: 'local_followup'
+        };
+    }
+
+    const status = /\b(pendientes?|por hacer)\b/.test(normalizado) ? 'Pendiente'
+        : /\b(en produccion|fabricando|en proceso)\b/.test(normalizado) ? 'En producción'
+            : /\b(por retirar|listos? para retirar|listos? para recoger)\b/.test(normalizado) ? 'Por Retirar'
+                : /\b(entregados?)\b/.test(normalizado) ? 'Entregado'
+                    : /\b(cancelados?|anulados?)\b/.test(normalizado) ? 'Cancelado' : null;
+    if (status && anterior.intent === 'search_orders') {
+        return { ...anterior, status, source: 'local_followup' };
+    }
+    if (status && anterior.intent === 'summary' && anterior.summary_scope === 'active') {
+        if (!['Pendiente', 'En producción', 'Por Retirar'].includes(status)) {
+            return { intent: 'search_orders', query: '', status, source: 'local_followup' };
+        }
+        return { ...anterior, status, source: 'local_followup' };
     }
     return null;
 }
@@ -427,7 +471,7 @@ function ResultadoAsistente({ data }) {
             {data.resumen.estados.map((estado) => <div className="col-12 col-md-4" key={estado.estado}>
                 <div className="assistant-stat"><span>{estado.estado}</span><strong>{estado.cantidad} pedidos</strong><small>{formatoColones(estado.saldoPorCobrar)} por cobrar · {estado.atrasados} atrasados</small></div>
             </div>)}
-            <div className="col-12"><div className="assistant-total"><span>Total activo</span><strong>{formatoColones(data.resumen.totales.valorTotal)}</strong><span>Abonado {formatoColones(data.resumen.totales.abonado)} · por cobrar {formatoColones(data.resumen.totales.saldoPorCobrar)}</span></div></div>
+            <div className="col-12"><div className="assistant-total"><span>{data.label || 'Total activo'}</span><strong>{formatoColones(data.resumen.totales.valorTotal)}</strong><span>Abonado {formatoColones(data.resumen.totales.abonado)} · por cobrar {formatoColones(data.resumen.totales.saldoPorCobrar)}</span></div></div>
         </div>
     );
 
@@ -462,6 +506,14 @@ function ResultadoAsistente({ data }) {
     return null;
 }
 
+function sugerenciasSeguimiento(data) {
+    if (!data) return [];
+    if (data.kind === 'orders') return ['¿Y los pendientes?'];
+    if (data.kind === 'cash' || data.kind === 'business') return ['¿Y el mes pasado?', '¿Y este año?'];
+    if (data.kind === 'customers' && data.items?.length === 1) return ['¿Y su saldo?', '¿Y sus pedidos?'];
+    return [];
+}
+
 export default function Asistente() {
     const { datos: pedidos, cargando: cargandoPedidos, error: errorPedidos } = useFirestoreCollection(() => collection(db, 'pedidos'), []);
     const { datos: catalogo, cargando: cargandoCatalogo, error: errorCatalogo } = useFirestoreCollection(() => collection(db, 'productos'), []);
@@ -477,6 +529,7 @@ export default function Asistente() {
 
     const cargandoDatos = cargandoPedidos || cargandoCatalogo || cargandoMovimientos;
     const errorDatos = errorPedidos || errorCatalogo || errorMovimientos;
+    const ultimoAsistenteId = [...mensajes].reverse().find((item) => item.role === 'assistant')?.id;
 
     useEffect(() => {
         mensajesFinalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -491,12 +544,16 @@ export default function Asistente() {
         }
         const idUsuario = `user-${Date.now()}`;
         const idRespuesta = `assistant-${Date.now() + 1}`;
+        const mensajesPrevios = mensajes
+            .filter((item) => item.role === 'user')
+            .map((item) => item.text)
+            .slice(-3);
         setMensajes((actuales) => [...actuales, { id: idUsuario, role: 'user', text: solicitud }]);
         setMensaje('');
         setProcesando(true);
         try {
-            const seguimiento = modoIA ? null : interpretarSeguimientoLocal(solicitud, mensajes);
-            const interpretacion = seguimiento || await interpretarSolicitudAsistente(solicitud, catalogo);
+            const seguimiento = interpretarSeguimientoLocal(solicitud, mensajes);
+            const interpretacion = seguimiento || await interpretarSolicitudAsistente(solicitud, catalogo, mensajesPrevios);
             const respuesta = prepararRespuesta(interpretacion, pedidos, catalogo, movimientos);
             const assistantMessage = {
                 id: idRespuesta,
@@ -505,7 +562,16 @@ export default function Asistente() {
                 title: respuesta.title,
                 data: respuesta.data,
                 notice: interpretacion.warning,
-                mode: interpretacion.source
+                mode: interpretacion.source,
+                interpretation: {
+                    intent: interpretacion.intent,
+                    query: interpretacion.query || '',
+                    status: interpretacion.status || null,
+                    summary_scope: interpretacion.summary_scope || null,
+                    period: interpretacion.period || null,
+                    range_start: interpretacion.range_start || null,
+                    range_end: interpretacion.range_end || null
+                }
             };
             if (['create_order', 'quick_sale'].includes(interpretacion.intent)) {
                 assistantMessage.draft = normalizarBorradorAsistente(interpretacion, catalogo);
@@ -597,7 +663,7 @@ export default function Asistente() {
             <div className="assistant-heading mb-4">
                 <div>
                     <h1><i className="fas fa-wand-magic-sparkles me-2" aria-hidden="true"></i>Asistente MASUCRI</h1>
-                    <p className="mb-0 text-muted">Busca pedidos, clientes y productos; consulta Caja; prepara pedidos para revisar y confirmar.</p>
+                    <p className="mb-0 text-muted">Busca pedidos, clientes y productos; consulta Caja; prepara pedidos para revisar y confirmar. Puedes hacer preguntas de seguimiento.</p>
                 </div>
                 <div className="assistant-heading-actions">
                     {mensajes.length > 0 && <Button size="sm" variant="outline-secondary" onClick={limpiarConversacion} disabled={procesando || Boolean(guardandoId)} title="Limpiar la conversación">
@@ -612,6 +678,7 @@ export default function Asistente() {
             {!errorDatos && !cargandoDatos && (
                 <>
                     {!modoIA && <div className="alert alert-info py-2 small"><i className="fas fa-circle-info me-2" aria-hidden="true"></i>Asistente local, sin proveedor de IA. Calcula con los datos de MASUCRI; los pedidos nuevos siempre se revisan antes de guardarse.</div>}
+                    {modoIA && <div className="alert alert-light border py-2 small"><i className="fas fa-shield-halved me-2" aria-hidden="true"></i>Groq recibe tu mensaje, hasta tres mensajes anteriores y hasta 150 nombres/precios del catálogo para interpretarlos. Las consultas de pedidos, clientes, caja y los cálculos se hacen en MASUCRI y sus resultados no se envían al modelo.</div>}
                     <Card className="assistant-chat-card">
                         <Card.Body className="assistant-chat-body">
                             {mensajes.length === 0 ? (
@@ -653,6 +720,16 @@ export default function Asistente() {
                                                         guardando={guardandoId === item.id}
                                                         error={erroresBorrador[item.id]}
                                                     />
+                                                )}
+                                                {item.id === ultimoAsistenteId && sugerenciasSeguimiento(item.data).length > 0 && (
+                                                    <div className="assistant-followups d-flex flex-wrap align-items-center gap-2 mt-3">
+                                                        <span className="small text-muted">Puedes seguir con:</span>
+                                                        {sugerenciasSeguimiento(item.data).map((sugerencia) => (
+                                                            <Button key={sugerencia} size="sm" variant="outline-primary" onClick={() => procesarMensaje(sugerencia)} disabled={procesando}>
+                                                                {sugerencia}
+                                                            </Button>
+                                                        ))}
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
