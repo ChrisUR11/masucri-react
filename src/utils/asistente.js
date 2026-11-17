@@ -97,6 +97,73 @@ function extraerCantidad(texto, nombreProducto, cantidadEtiquetada) {
     return Number.isSafeInteger(cantidad) && cantidad > 0 ? cantidad : 1;
 }
 
+function parsearPrecioNatural(valor) {
+    const normalizado = String(valor ?? '').trim().replace(/[.,]+$/, '').replace(/[^\d.,-]/g, '');
+    if (!normalizado) return null;
+    const ultimoSeparador = Math.max(normalizado.lastIndexOf(','), normalizado.lastIndexOf('.'));
+    if (ultimoSeparador < 0) {
+        const precio = Number(normalizado);
+        return Number.isFinite(precio) ? precio : null;
+    }
+
+    const decimales = normalizado.length - ultimoSeparador - 1;
+    const enteroConSeparadores = normalizado.slice(0, ultimoSeparador);
+    if (decimales === 3 && enteroConSeparadores.length <= 3) {
+        const precio = Number(normalizado.replace(/[.,]/g, ''));
+        return Number.isFinite(precio) ? precio : null;
+    }
+    if (decimales > 0 && decimales <= 2) {
+        const entero = enteroConSeparadores.replace(/[.,]/g, '') || '0';
+        const fraccion = normalizado.slice(ultimoSeparador + 1);
+        const precio = Number(`${entero}.${fraccion}`);
+        return Number.isFinite(precio) ? precio : null;
+    }
+    const precio = Number(normalizado.replace(/[.,]/g, ''));
+    return Number.isFinite(precio) ? precio : null;
+}
+
+/** Convierte variantes dictadas de una misma prenda en líneas independientes. */
+export function extraerProductosPorTalla(texto = '') {
+    const contenido = String(texto);
+    const indicePrimeraTalla = sinAcentos(contenido).search(/\btalla\b/);
+    if (indicePrimeraTalla < 0) return null;
+    const prefijo = contenido.slice(0, indicePrimeraTalla);
+    const cantidadesBase = [...prefijo.matchAll(/\b(\d+)\s+([\p{L}][\p{L}\p{N}-]*)\b/giu)];
+    const baseConCantidad = cantidadesBase.at(-1) || null;
+    const baseSinCantidad = baseConCantidad ? null : prefijo.match(/\b(?:un|una|otra|otro|producto|productos|agrega|agregar|agregale|agrégale|anade|anadele|añade|añadir|suma|sumar|sumale|incluye|pon)\s+([\p{L}][\p{L}\p{N}-]*)\s*$/iu);
+    const basePrendaConocida = baseConCantidad || baseSinCantidad
+        ? null
+        : prefijo.match(/\b(pijamas?|camisetas?|camisas?|pantalones?|vestidos?|blusas?|shorts?|mamelucos?|bodies?)\s*$/iu);
+    const nombreOriginal = baseConCantidad?.[2] || baseSinCantidad?.[1] || basePrendaConocida?.[1];
+    if (!nombreOriginal) return null;
+
+    const nombresBase = {
+        pijama: 'Pijama', pijamas: 'Pijama',
+        camiseta: 'Camiseta', camisetas: 'Camiseta',
+        camisa: 'Camisa', camisas: 'Camisa',
+        pantalon: 'Pantalón', pantalones: 'Pantalón',
+        vestido: 'Vestido', vestidos: 'Vestido',
+        blusa: 'Blusa', blusas: 'Blusa',
+        short: 'Short', shorts: 'Short',
+        mameluco: 'Mameluco', mamelucos: 'Mameluco',
+        body: 'Body', bodies: 'Body'
+    };
+    const nombreBase = nombresBase[sinAcentos(nombreOriginal)]
+        || nombreOriginal.replace(/s$/i, '').replace(/^\p{L}/u, (letra) => letra.toLocaleUpperCase('es-CR'));
+    const baseEncontrada = baseConCantidad || baseSinCantidad || basePrendaConocida;
+    const indiceNombre = baseEncontrada.index + baseEncontrada[0].lastIndexOf(nombreOriginal);
+    const variantesTexto = contenido.slice(indiceNombre + nombreOriginal.length);
+    const variantes = [...variantesTexto.matchAll(/(?:\b(?:otra|otro|una|un)\s+)?(?:de\s+)?(?:talla\s+)?(\d{1,3}(?:\s*(?:mes(?:es)?|m|año|años|xl|xxl))?)\s+(?:en|a|por)\s*(?:₡\s*)?(\d[\d.,\s]*?)(?=\s*(?:[,;]|$|y\b|otra\b|otro\b|[?!]))/gi)];
+    if (!variantes.length) return null;
+
+    const cantidadBase = baseConCantidad ? Number(baseConCantidad[1]) : null;
+    return variantes.slice(0, 20).map(([, talla, precioTexto]) => ({
+        name: `${nombreBase} talla ${talla.trim()}`,
+        quantity: variantes.length === 1 && Number.isSafeInteger(cantidadBase) && cantidadBase > 1 ? cantidadBase : 1,
+        unit_price: parsearPrecioNatural(precioTexto)
+    }));
+}
+
 const fechasRangoTexto = (texto) => {
     const rango = texto.match(/(?:desde|del)\s+(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})\s+(?:al|hasta|a)\s+(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})/i);
     if (!rango) return null;
@@ -119,6 +186,7 @@ export function interpretarMensajeLocal(mensaje = '', catalogo = []) {
 
     if (crearVenta || crearPedido) {
         const productoDeCatalogo = productoLiteralEnTexto(normalizado, catalogo);
+        const productosPorTalla = extraerProductosPorTalla(texto);
         const nombreProducto = valorCampo(texto, 'producto') || productoDeCatalogo?.nombre || extraerProductoLibre(texto);
         const cantidad = numeroCampo(texto, 'cantidad');
         const precio = numeroCampo(texto, 'precio(?:\\s+unitario)?');
@@ -138,11 +206,11 @@ export function interpretarMensajeLocal(mensaje = '', catalogo = []) {
                 customer: valorCampo(texto, 'cliente') || extraerClienteNatural(texto),
                 phone: extraerTelefono(texto),
                 due_date: fechaEntrega,
-                products: nombreProducto ? [{
+                products: productosPorTalla || (nombreProducto ? [{
                     name: nombreProducto,
                     quantity: extraerCantidad(texto, nombreProducto, cantidad),
                     unit_price: precio ?? (productoDeCatalogo ? productoDeCatalogo.precio_venta : null)
-                }] : [],
+                }] : []),
                 notes: valorCampo(texto, 'nota'),
                 discount_type: discountValue == null ? null : discountType,
                 discount_value: discountValue,
@@ -240,7 +308,7 @@ export function interpretarMensajeLocal(mensaje = '', catalogo = []) {
     if (/\b(ayuda|que puedes|como funciona|asistente)\b/.test(normalizado)) {
         return {
             intent: 'help',
-            reply: 'Puedo buscar pedidos, productos y clientes; resumir pedidos activos, saldos, caja y BI; y preparar pedidos o ventas rápidas para que los revises antes de guardar.'
+            reply: 'Puedo buscar pedidos, productos y clientes; resumir pedidos activos, saldos, caja y BI; y preparar pedidos o ventas rápidas para que los revises antes de guardar. Para tallas con precios distintos, dicta una línea por talla, por ejemplo: “3 pijamas, talla 8 en 8500, talla 6 en 6500 y 0 meses en 4000”.'
         };
     }
 

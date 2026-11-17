@@ -165,6 +165,8 @@ Guía de intención:
 - search_customer: buscar historial de compras o pedidos de clientes, no para calcular cuánto deben.
 - create_order: pedido normal pendiente; quick_sale: venta de mostrador que queda entregada.
 
+Al crear productos, devuelve una línea por cada variante que tenga talla o precio distinto. Incluye la talla dentro de name, por ejemplo «Pijama talla 8», para que quede visible y guardada en el pedido. Si el usuario dicta «3 pijamas: talla 8 en 8500, talla 6 en 6500 y 0 meses en 4000», interpreta tres variantes, una unidad por línea, con esos precios explícitos; no pongas cantidad 3 en cada línea. Si dice «3 pijamas talla 8 a 8500 cada una», es una sola línea con quantity 3. Los precios indicados por el usuario prevalecen sobre el catálogo.
+
 No confundas consultar ventas con registrar una venta: «¿cuánto vendimos?» es summary business; «registra una venta rápida» es quick_sale. «¿Qué pedidos tengo que entregar hoy?» es search_orders. «¿Cuánto debe Ana?» es summary debts, mientras «muéstrame el historial de Ana» es search_customer. Si el usuario solo menciona «venta» o «pedido» y no queda claro si consulta o registra, usa unknown y pide una aclaración breve.
 
 Ejemplos de clasificación:
@@ -176,6 +178,7 @@ Ejemplos de clasificación:
 «¿Qué pedidos debo entregar hoy?» -> search_orders, query «hoy».
 «¿Cuánto vendimos el mes pasado?» -> summary, business, period mes_anterior.
 «Registra una venta rápida para Ana de 2 camisetas a 5000 cada una» -> quick_sale, draft con cliente, producto, cantidad y precio indicados.
+«Nuevo pedido para Ana: 3 pijamas, talla 8 en 8500, talla 6 en 6500 y 0 meses en 4000» -> create_order, tres líneas: Pijama talla 8 (cantidad 1, precio 8500), Pijama talla 6 (cantidad 1, precio 6500) y Pijama talla 0 meses (cantidad 1, precio 4000).
 Si el mensaje actual dice «¿y el mes pasado?» y el anterior consultaba caja, conserva summary/cash y cambia solo el período a mes_anterior.
 Si pregunta «¿y los pendientes?» después de buscar pedidos, conserva los términos de búsqueda y usa status «Pendiente».
 Si un seguimiento depende de un dato que no aparece en el mensaje actual ni en los mensajes recientes, usa unknown y pregunta cuál dato falta; no adivines.

@@ -7,7 +7,7 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { interpretarSolicitudAsistente } from '../services/asistente';
 import { guardarPedidoAsistente } from '../services/pedidosAsistente';
 import { registrarVentaRapida } from '../utils/ventaRapida';
-import { coincideConsulta, normalizarBorradorAsistente, sinAcentos } from '../utils/asistente';
+import { coincideConsulta, extraerProductosPorTalla, normalizarBorradorAsistente, sinAcentos } from '../utils/asistente';
 import { calcularMetricas } from '../utils/metricasNegocio';
 import { calcularMetricasContables } from '../utils/metricasContables';
 import { clientesMorosos, obtenerHistorialCliente } from '../utils/historialClientes';
@@ -91,7 +91,7 @@ function prepararRespuesta(interpretacion, pedidos, catalogo, movimientos) {
     const { intent, query = '', status = null, period = 'mes_actual', summary_scope: summaryScope = 'business' } = interpretacion;
     if (intent === 'help') {
         return {
-            text: interpretacion.reply || 'Puedo buscar pedidos, productos y clientes; calcular resúmenes de caja y pedidos; y preparar un pedido o venta rápida para que la revises antes de guardar.'
+            text: interpretacion.reply || 'Puedo buscar pedidos, productos y clientes; calcular resúmenes de caja y pedidos; y preparar un pedido o venta rápida para que la revises antes de guardar. Para precios por talla, indica cada talla y precio por separado.'
         };
     }
     if (intent === 'unknown') {
@@ -213,8 +213,10 @@ function prepararRespuesta(interpretacion, pedidos, catalogo, movimientos) {
 
 function interpretarSeguimientoLocal(texto, mensajes) {
     const normalizado = sinAcentos(texto).replace(/^[¿¡\s]+/, '');
+    const quiereAgregar = /\b(agrega|agregar|agregale|anade|anadele|anadir|suma|sumar|sumale|incluye|pon)\b/.test(normalizado);
     const esSeguimiento = /^(?:y\b|tambien\b|ademas\b|ahora\b|entonces\b|para\b|en ese caso\b)/.test(normalizado)
-        || /^(?:el|la|los|las) (?:mes|ano|ultimos?\s+30\s+dias|historico)\b/.test(normalizado);
+        || /^(?:el|la|los|las) (?:mes|ano|ultimos?\s+30\s+dias|historico)\b/.test(normalizado)
+        || quiereAgregar;
     if (!esSeguimiento) return null;
 
     const ultimoResultado = [...mensajes].reverse().find((item) =>
@@ -223,9 +225,47 @@ function interpretarSeguimientoLocal(texto, mensajes) {
     if (!ultimoResultado) return null;
 
     const anterior = ultimoResultado.interpretation;
+    const borradorAnterior = ultimoResultado.draft;
     const cliente = ultimoResultado.data?.kind === 'customers' && ultimoResultado.data.items?.length === 1
         ? ultimoResultado.data.items[0]
         : null;
+
+    const mencionaProductos = /\b(producto|pijama|camiseta|camisa|pantalon|vestido|blusa|short|mameluco|body|talla|precio)\b/.test(normalizado);
+    const productosNuevos = borradorAnterior && quiereAgregar && mencionaProductos
+        ? extraerProductosPorTalla(texto)
+        : null;
+    if (borradorAnterior && productosNuevos?.length) {
+        const productosAnteriores = (borradorAnterior.productos || [])
+            .filter((producto) => String(producto?.nombre || '').trim())
+            .map((producto) => ({
+                name: producto.nombre,
+                quantity: Number(producto.cantidad) || 1,
+                unit_price: producto.precio_unitario === '' || producto.precio_unitario == null
+                    ? null
+                    : Number(producto.precio_unitario)
+            }));
+        const esVenta = borradorAnterior.tipo === 'venta_rapida' || anterior?.intent === 'quick_sale';
+        return {
+            intent: esVenta ? 'quick_sale' : 'create_order',
+            source: 'local_followup',
+            reply: `Agregué ${productosNuevos.length} línea${productosNuevos.length === 1 ? '' : 's'} con sus tallas y precios al borrador. Revisa el total antes de confirmar.`,
+            draft: {
+                customer: borradorAnterior.cliente || null,
+                phone: borradorAnterior.telefono || null,
+                due_date: borradorAnterior.fecha_entrega || null,
+                products: [...productosAnteriores, ...productosNuevos],
+                notes: borradorAnterior.descripcion || null,
+                discount_type: borradorAnterior.descuento_tipo === 'porcentaje' ? 'percentage' : 'amount',
+                discount_value: borradorAnterior.aplica_descuento && borradorAnterior.descuento_valor !== ''
+                    ? Number(borradorAnterior.descuento_valor)
+                    : null,
+                advance: !esVenta && borradorAnterior.adelanto !== '' ? Number(borradorAnterior.adelanto) : null,
+                advance_method: !esVenta ? borradorAnterior.metodo_adelanto || null : null,
+                paid: esVenta && borradorAnterior.pagado !== '' ? Number(borradorAnterior.pagado) : null,
+                payment_method: esVenta ? borradorAnterior.metodo_pago || null : null
+            }
+        };
+    }
 
     if (cliente && /\b(pedido|pedidos|compra|compras|historial|saldo|debe|deuda|cobrar|pagado|abonado)\b/.test(normalizado)) {
         if (/\b(crea|crear|agrega|agregar|anade|anadir|nuevo|nueva|hazle|hacer)\b/.test(normalizado)) {
@@ -312,7 +352,7 @@ function BorradorAsistente({ id, borrador, catalogo, onChange, onGuardar, guarda
                 </Badge>
             </Card.Header>
             <Card.Body>
-                <p className="small text-muted">Confirma productos, cantidades y precios. Al guardar se aplican las validaciones normales; cualquier adelanto se registra junto con su entrada en Caja.</p>
+                <p className="small text-muted">Confirma productos, tallas, cantidades y precios. Si un producto tiene precios distintos por talla, cada talla aparece en su propia línea. Al guardar se aplican las validaciones normales; cualquier adelanto se registra junto con su entrada en Caja.</p>
                 <Row className="g-2 mb-3">
                     <Col md={6}>
                         <Form.Label htmlFor={`assistant-customer-${id}`} className="small fw-bold">Cliente</Form.Label>
