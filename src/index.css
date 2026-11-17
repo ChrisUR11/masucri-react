@@ -866,26 +866,33 @@ a:focus-visible {
 .orders-page .production-column > .card-header {
   min-height: 48px;
   padding: 12px 16px;
-  border-top: 3px solid #707b7f;
+  border-top: 0;
   border-bottom: 1px solid var(--app-border);
   border-radius: 0 !important;
-  background: #fff !important;
-  color: var(--text-primary) !important;
+  background: #6c757d !important;
+  color: #fff !important;
 }
 
-.orders-page .production-column-heading--production {
-  border-top-color: #167682 !important;
+.orders-page .production-column > .production-column-heading--pending {
+  background: #6c757d !important;
+  color: #fff !important;
 }
 
-.orders-page .production-column-heading--pickup {
-  border-top-color: #ba701c !important;
+.orders-page .production-column > .production-column-heading--production {
+  background: #0dcaf0 !important;
+  color: #12313a !important;
+}
+
+.orders-page .production-column > .production-column-heading--pickup {
+  background: #ffc107 !important;
+  color: #30270e !important;
 }
 
 .orders-page .production-column-heading .badge {
   min-width: 28px;
   min-height: 24px;
   padding: 4px 7px;
-  background: #eef1ef !important;
+  background: rgba(255, 255, 255, 0.92) !important;
   color: var(--text-secondary) !important;
   text-align: center;
 }
@@ -1116,10 +1123,37 @@ a:focus-visible {
 }
 
 .bi-page .bi-active-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
   padding: 12px 16px;
   border: 1px solid var(--app-border);
   border-radius: 8px;
   background: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+.bi-page .bi-active-breakdown > div,
+.bi-page .bi-accounting-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+}
+
+.bi-page .bi-active-breakdown > div:last-child,
+.bi-page .bi-accounting-line:last-child {
+  margin-bottom: 0;
+}
+
+.bi-page .bi-accounting-line > strong,
+.bi-page .bi-accounting-ranking li > strong {
+  flex: 0 0 auto;
+  text-align: end;
   font-variant-numeric: tabular-nums;
 }
 
@@ -1128,8 +1162,19 @@ a:focus-visible {
 }
 
 .bi-page .bi-accounting-ranking li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 16px;
   padding-block: 8px;
   border-bottom-color: var(--app-border);
+}
+
+.bi-page .bi-accounting-ranking li > span:first-child {
+  min-width: 0;
+  flex: 1 1 15rem;
+  overflow-wrap: anywhere;
 }
 
 .bi-page .bi-entry-title {
