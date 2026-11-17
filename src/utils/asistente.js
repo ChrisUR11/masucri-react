@@ -182,11 +182,13 @@ export function interpretarMensajeLocal(mensaje = '', catalogo = []) {
     const texto = String(mensaje).trim();
     const normalizado = sinAcentos(texto);
     const crearVenta = /\bventa rapida\b|\bventa de mostrador\b|\bregistrar venta\b/.test(normalizado);
-    const crearPedido = /\b(nuevo|nueva|crear|crea|agregar|agrega|anadir|anade|añadir|añade|anotar|anota|ingresar|ingresa|registrar|registra)\b.{0,30}\bpedido\b|\bpedido nuevo\b/.test(normalizado);
+    const productosPorTalla = extraerProductosPorTalla(texto);
+    const verboAgregar = /\b(agrega|agregar|anadir|anade|anadele|agregale|anotar|anota|ingresar|ingresa|incluye|suma)\b/.test(normalizado);
+    const crearPedido = /\b(nuevo|nueva|crear|crea|agregar|agrega|anadir|anade|añadir|añade|anotar|anota|ingresar|ingresa|registrar|registra)\b.{0,30}\bpedido\b|\bpedido nuevo\b/.test(normalizado)
+        || Boolean(productosPorTalla?.length && verboAgregar);
 
     if (crearVenta || crearPedido) {
         const productoDeCatalogo = productoLiteralEnTexto(normalizado, catalogo);
-        const productosPorTalla = extraerProductosPorTalla(texto);
         const nombreProducto = valorCampo(texto, 'producto') || productoDeCatalogo?.nombre || extraerProductoLibre(texto);
         const cantidad = numeroCampo(texto, 'cantidad');
         const precio = numeroCampo(texto, 'precio(?:\\s+unitario)?');
