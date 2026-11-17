@@ -61,12 +61,12 @@ export default function App() {
     if (!user) {
         return (
             <>
-                <div className="min-vh-100 d-flex align-items-center justify-content-center bg-light p-3">
-                    <Card className="shadow p-4 text-center border-0" style={{ maxWidth: '400px', width: '100%' }}>
+                <div className="login-shell min-vh-100 d-flex align-items-center justify-content-center p-3">
+                    <Card className="login-card text-center" style={{ maxWidth: '400px', width: '100%' }}>
                         <img src={`${import.meta.env.BASE_URL}logo-masucri.png`} alt="" className="mx-auto mb-3" style={{ maxHeight: '80px', width: 'auto' }} />
                         <h1 className="h4 fw-bold">MASUCRI</h1>
                         <p className="text-muted">Acceso exclusivo para administradores</p>
-                        <Button variant="dark" size="lg" className="w-100 mt-3 shadow-sm" onClick={handleLogin}>
+                        <Button variant="primary" size="lg" className="login-action w-100 mt-3" onClick={handleLogin}>
                             Iniciar sesión con Google
                         </Button>
                     </Card>

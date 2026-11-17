@@ -385,15 +385,15 @@ function BorradorAsistente({ id, borrador, catalogo, onChange, onGuardar, guarda
                             <Form.Label className="small">Producto {indice + 1}</Form.Label>
                             <Form.Control list={`assistant-catalog-${id}`} value={producto.nombre} onChange={(event) => cambiarNombreProducto(indice, event.target.value)} placeholder="Nombre del producto" />
                         </Col>
-                        <Col xs={5} md={2}>
+                        <Col xs={6} md={2}>
                             <Form.Label className="small">Precio unitario</Form.Label>
                             <Form.Control type="number" min="0" step="0.01" value={producto.precio_unitario} onChange={(event) => actualizarProducto(indice, 'precio_unitario', event.target.value)} />
                         </Col>
-                        <Col xs={4} md={2}>
+                        <Col xs={6} md={2}>
                             <Form.Label className="small">Cantidad</Form.Label>
                             <Form.Control type="number" min="1" step="1" value={producto.cantidad} onChange={(event) => actualizarProducto(indice, 'cantidad', event.target.value)} />
                         </Col>
-                        <Col xs={3} md={2} className="d-flex justify-content-end">
+                        <Col xs={12} md={2} className="d-flex justify-content-end">
                             <Button variant="outline-danger" aria-label={`Quitar producto ${indice + 1}`} disabled={borrador.productos.length === 1} onClick={() => onChange({ ...borrador, productos: borrador.productos.filter((_, index) => index !== indice) })}>
                                 <i className="fas fa-trash" aria-hidden="true"></i>
                             </Button>
@@ -702,7 +702,7 @@ export default function Asistente() {
         <Container className="py-4 assistant-page">
             <div className="assistant-heading mb-4">
                 <div>
-                    <h1><i className="fas fa-wand-magic-sparkles me-2" aria-hidden="true"></i>Asistente MASUCRI</h1>
+                    <h1><i className="fas fa-comments me-2" aria-hidden="true"></i>Asistente MASUCRI</h1>
                     <p className="mb-0 text-muted">Busca pedidos, clientes y productos; consulta Caja; prepara pedidos para revisar y confirmar. Puedes hacer preguntas de seguimiento.</p>
                 </div>
                 <div className="assistant-heading-actions">

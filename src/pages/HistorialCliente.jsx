@@ -50,7 +50,7 @@ export default function HistorialCliente() {
     return (
         <Container className="history-client-page mt-4 pb-5">
             <div className="app-page-heading page-heading mb-4">
-                <h3 className="fw-bold m-0"><i className="fas fa-users" aria-hidden="true"></i> Historial de Clientes</h3>
+                <h3 className="fw-bold m-0"><i className="fas fa-users" aria-hidden="true"></i> Historial de clientes</h3>
             </div>
 
             <Row className="mb-4">

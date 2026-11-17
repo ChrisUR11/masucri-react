@@ -62,7 +62,7 @@ export default function Clientes() {
     return (
         <Container className="mt-4 pb-5">
             <div className="mb-4">
-                <h3 className="fw-bold mb-3">👥 Base de Clientes</h3>
+                <h3 className="fw-bold mb-3">Base de clientes</h3>
                 <Row className="g-2">
                     <Col sm={6} md={3}>
                         <Card className="border-0 bg-primary text-white">

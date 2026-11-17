@@ -96,7 +96,7 @@ export default function DashboardBI() {
             {/* ENCABEZADO */}
             <div className="app-page-heading page-heading mb-4">
                 <div>
-                    <h3 className="fw-bold m-0"><i className="fas fa-chart-line text-secondary"></i> Inteligencia de Negocios (BI)</h3>
+                    <h3 className="fw-bold m-0"><i className="fas fa-chart-line text-secondary"></i> Inteligencia de negocios (BI)</h3>
                     <small className="text-muted">
                         <i className="fas fa-calendar-alt"></i> {m.minFecha === 'N/A'
                             ? 'Aún no hay pedidos ni movimientos registrados.'
@@ -283,7 +283,7 @@ export default function DashboardBI() {
                             <ListGroup variant="flush">
                                 {m.topGastos.map(([lugar, monto], i) => (
                                     <ListGroup.Item key={lugar} className="bi-list-entry d-flex justify-content-between align-items-center py-3">
-                                        <div className="bi-entry-title fw-bold"><span className="fs-5 me-2">{['🥇', '🥈', '🥉'][i]}</span> {lugar}</div>
+                                        <div className="bi-entry-title fw-bold"><span className="me-2 text-muted">#{i + 1}</span>{lugar}</div>
                                         <Badge bg="danger" pill className="fs-6 shadow-sm">{formatoColones(monto)}</Badge>
                                     </ListGroup.Item>
                                 ))}
@@ -300,7 +300,7 @@ export default function DashboardBI() {
                             <ListGroup variant="flush">
                                 {m.topProd.map(([nombre, cantidad], i) => (
                                     <ListGroup.Item key={nombre} className="bi-list-entry d-flex justify-content-between align-items-center py-2">
-                                        <div className="bi-entry-title fw-bold small text-uppercase">{i + 1}. {nombre}</div>
+                                        <div className="bi-entry-title fw-bold small">{i + 1}. {nombre}</div>
                                         <Badge bg="primary" pill className="shadow-sm">{cantidad} pedidos</Badge>
                                     </ListGroup.Item>
                                 ))}

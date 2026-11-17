@@ -50,7 +50,7 @@ export default function NavBar({ user }) {
                             </NavDropdown.Item>
                         </NavDropdown>
                         <Nav.Link as={Link} to="/asistente" onClick={cerrarMenu} active={location.pathname === '/asistente'} aria-current={location.pathname === '/asistente' ? 'page' : undefined} className={location.pathname === '/asistente' ? 'fw-bold text-warning' : undefined}>
-                            <i className="fas fa-wand-magic-sparkles me-1" aria-hidden="true"></i>Asistente
+                            <i className="fas fa-comments me-1" aria-hidden="true"></i>Asistente
                         </Nav.Link>
                     </Nav>
                     <div className="navbar-account d-flex align-items-center gap-2 mt-2 mt-lg-0">

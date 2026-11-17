@@ -28,9 +28,9 @@ const ESTADOS_ACTIVOS = ['Pendiente', 'En producción', 'Por Retirar'];
 // de JSX tres veces (una por estado). Agregar una columna nueva ahora es
 // solo agregar un elemento aquí.
 const COLUMNAS = [
-    { estado: 'Pendiente', label: 'Pendiente', icon: 'fa-inbox', bg: '#6c757d', text: 'text-white' },
-    { estado: 'En producción', label: 'En Producción', icon: 'fa-hammer', bg: '#0dcaf0', text: 'text-dark' },
-    { estado: 'Por Retirar', label: 'Por Retirar', icon: 'fa-box-open', bg: '#ffc107', text: 'text-dark' }
+    { estado: 'Pendiente', label: 'Pendiente', icon: 'fa-inbox', tone: 'production-column-heading--pending' },
+    { estado: 'En producción', label: 'En producción', icon: 'fa-hammer', tone: 'production-column-heading--production' },
+    { estado: 'Por Retirar', label: 'Por retirar', icon: 'fa-box-open', tone: 'production-column-heading--pickup' }
 ];
 
 const FORM_PEDIDO_VACIO = {
@@ -389,7 +389,7 @@ export default function Pedidos() {
                         return (
                             <Col xs={12} sm={6} lg={4} key={col.estado}>
                                 <Card className="production-column bg-light h-100 border-0 shadow-sm">
-                                    <Card.Header className={`fw-bold d-flex justify-content-between align-items-center ${col.text}`} style={{ backgroundColor: col.bg, borderRadius: '8px 8px 0 0' }}>
+                                    <Card.Header className={`production-column-heading fw-bold d-flex justify-content-between align-items-center ${col.tone}`}>
                                         <span className="text-truncate mx-1"><i className={`fas ${col.icon}`}></i> {col.label}</span>
 
                                         <div className="d-flex align-items-center gap-1">

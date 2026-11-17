@@ -265,7 +265,7 @@ export default function Finanzas() {
     return (
         <Container className="finance-page mt-4 flex-grow-1">
             <div className="app-page-heading page-heading d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-                <h3 className="fw-bold m-0 text-success"><i className="fas fa-wallet"></i> Finanzas y Caja</h3>
+                <h3 className="fw-bold m-0 text-success"><i className="fas fa-wallet"></i> Finanzas y caja</h3>
                 <Button variant="success" className="page-heading-action fw-bold shadow-sm" onClick={() => handleOpen()}>
                     <i className="fas fa-plus"></i> Registrar Movimiento
                 </Button>

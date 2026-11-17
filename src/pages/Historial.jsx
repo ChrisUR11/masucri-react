@@ -294,7 +294,7 @@ export default function Historial() {
     return (
         <Container className="history-page mt-4 flex-grow-1">
             <div className="app-page-heading page-heading d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 d-print-none">
-                <h3 className="fw-bold m-0"><i className="fas fa-history"></i> Historial de Trabajos</h3>
+                <h3 className="fw-bold m-0"><i className="fas fa-history"></i> Historial de trabajos</h3>
                 <div className="page-heading-filters d-flex gap-2 flex-wrap flex-grow-1 justify-content-end">
                     <Form.Control
                         type="search"
