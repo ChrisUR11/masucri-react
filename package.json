@@ -23,7 +23,7 @@
   "dependencies": {
     "bootstrap": "^5.3.8",
     "chart.js": "^4.5.1",
-    "firebase": "^12.18.0",
+    "firebase": "^13.3.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
     "react": "^19.2.8",
