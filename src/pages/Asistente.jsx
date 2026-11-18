@@ -548,11 +548,37 @@ function ResultadoAsistente({ data }) {
 
 function sugerenciasSeguimiento(data) {
     if (!data) return [];
-    if (data.kind === 'orders') return ['¿Y los pendientes?'];
-    if (data.kind === 'cash' || data.kind === 'business') return ['¿Y el mes pasado?', '¿Y este año?'];
+    if (data.kind === 'orders') return ['¿Y los pendientes?', 'Lista pedidos atrasados'];
+    if (data.kind === 'active') return ['Lista pedidos atrasados', '¿Y los pendientes?', '¿Cuánto queda por cobrar?'];
+    if (data.kind === 'cash') return ['¿Y el mes pasado?', '¿Cuánto gasté en transporte este mes?'];
+    if (data.kind === 'business') return ['¿Y el mes pasado?', '¿Qué producto se vendió más?'];
+    if (data.kind === 'debts') return ['Mostrar pedidos con saldo', 'Historial de clientes'];
     if (data.kind === 'customers' && data.items?.length === 1) return ['¿Y su saldo?', '¿Y sus pedidos?'];
     return [];
 }
+
+const CONSULTAS_INICIALES = [
+    {
+        title: 'Pedidos',
+        icon: 'fa-box-open',
+        prompts: ['¿Cuántos pedidos activos están atrasados?', 'Lista pedidos atrasados', 'Mostrar pedidos pendientes']
+    },
+    {
+        title: 'Caja y BI',
+        icon: 'fa-chart-line',
+        prompts: ['¿Cómo va la caja este mes?', '¿Cuánto gasté en transporte este mes?']
+    },
+    {
+        title: 'Clientes y productos',
+        icon: 'fa-address-book',
+        prompts: ['Historial de clientes', 'Mostrar catálogo']
+    },
+    {
+        title: 'Registrar',
+        icon: 'fa-pen-to-square',
+        prompts: ['Nuevo pedido', 'Venta rápida']
+    }
+];
 
 export default function Asistente() {
     const { datos: pedidos, cargando: cargandoPedidos, error: errorPedidos } = useFirestoreCollection(() => collection(db, 'pedidos'), []);
@@ -561,6 +587,7 @@ export default function Asistente() {
     const [mensaje, setMensaje] = useState('');
     const [mensajes, setMensajes] = useState([]);
     const [procesando, setProcesando] = useState(false);
+    const [estadoIA, setEstadoIA] = useState('lista');
     const [guardandoId, setGuardandoId] = useState(null);
     const [erroresBorrador, setErroresBorrador] = useState({});
     const mensajesFinalRef = useRef(null);
@@ -570,6 +597,9 @@ export default function Asistente() {
     const cargandoDatos = cargandoPedidos || cargandoCatalogo || cargandoMovimientos;
     const errorDatos = errorPedidos || errorCatalogo || errorMovimientos;
     const ultimoAsistenteId = [...mensajes].reverse().find((item) => item.role === 'assistant')?.id;
+    const etiquetaIA = !modoIA ? 'Modo local'
+        : estadoIA === 'conectada' ? 'IA conectada'
+            : estadoIA === 'respaldo' ? 'Respaldo local' : 'IA lista';
 
     useEffect(() => {
         mensajesFinalRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -594,6 +624,8 @@ export default function Asistente() {
         try {
             const seguimiento = interpretarSeguimientoLocal(solicitud, mensajes);
             const interpretacion = seguimiento || await interpretarSolicitudAsistente(solicitud, catalogo, mensajesPrevios);
+            if (interpretacion.source === 'ia') setEstadoIA('conectada');
+            if (interpretacion.source === 'local_fallback') setEstadoIA('respaldo');
             const respuesta = prepararRespuesta(interpretacion, pedidos, catalogo, movimientos);
             const assistantMessage = {
                 id: idRespuesta,
@@ -709,7 +741,7 @@ export default function Asistente() {
                     {mensajes.length > 0 && <Button size="sm" variant="outline-secondary" onClick={limpiarConversacion} disabled={procesando || Boolean(guardandoId)} title="Limpiar la conversación">
                         <i className="fas fa-broom me-1" aria-hidden="true"></i>Limpiar
                     </Button>}
-                    <Badge bg={modoIA ? 'success' : 'secondary'} className="assistant-mode">{modoIA ? 'IA remota activa' : 'Asistente local'}</Badge>
+                    <Badge bg={!modoIA ? 'secondary' : estadoIA === 'respaldo' ? 'warning' : 'success'} text={estadoIA === 'respaldo' ? 'dark' : undefined} className="assistant-mode">{etiquetaIA}</Badge>
                 </div>
             </div>
 
@@ -717,26 +749,33 @@ export default function Asistente() {
             {!errorDatos && cargandoDatos && <EstadoCarga texto="Cargando pedidos, catálogo y movimientos para el asistente..." />}
             {!errorDatos && !cargandoDatos && (
                 <>
-                    {!modoIA && <div className="alert alert-info py-2 small"><i className="fas fa-circle-info me-2" aria-hidden="true"></i>Asistente local, sin proveedor de IA. Calcula con los datos de MASUCRI; los pedidos nuevos siempre se revisan antes de guardarse.</div>}
-                    {modoIA && <div className="alert alert-light border py-2 small"><i className="fas fa-shield-halved me-2" aria-hidden="true"></i>Groq recibe tu mensaje, hasta tres mensajes anteriores y hasta 150 nombres/precios del catálogo para interpretarlos. Las consultas de pedidos, clientes, caja y los cálculos se hacen en MASUCRI y sus resultados no se envían al modelo.</div>}
                     <Card className="assistant-chat-card">
                         <Card.Body className="assistant-chat-body">
                             {mensajes.length === 0 ? (
-                                <div className="assistant-empty text-center py-4">
-                                    <div className="assistant-empty-icon"><i className="fas fa-comments" aria-hidden="true"></i></div>
-                                    <h2 className="h5 fw-bold">¿Qué necesitas revisar?</h2>
-                                    <p className="text-muted">Los cálculos se hacen con las mismas reglas que el módulo de BI y Finanzas.</p>
-                                    <div className="assistant-prompts d-flex flex-wrap justify-content-center gap-2 mt-3">
-                                        {[
-                                            '¿Cuántos pedidos activos están atrasados?',
-                                            '¿Cómo va la caja este mes?',
-                                            'Lista pedidos atrasados',
-                                            '¿Cuánto gasté en transporte este mes?',
-                                            'Mostrar pedidos pendientes',
-                                            'Mostrar catálogo',
-                                            'Historial de clientes',
-                                            'Nuevo pedido'
-                                        ].map((prompt) => <Button key={prompt} size="sm" variant="outline-primary" onClick={() => procesarMensaje(prompt)} disabled={procesando}>{prompt}</Button>)}
+                                <div className="assistant-empty">
+                                    <div className="assistant-empty-intro">
+                                        <div className="assistant-empty-icon"><i className="fas fa-comments" aria-hidden="true"></i></div>
+                                        <h2>¿Qué necesitas revisar?</h2>
+                                        <p>Consulta pedidos, Caja, clientes o productos. También puedes dictar un pedido con varias tallas y precios.</p>
+                                        <div className="assistant-example">
+                                            <span>Por ejemplo</span>
+                                            <q>3 pijamas: talla 8 a ₡8 500, talla 6 a ₡6 500 y 0 meses a ₡4 000</q>
+                                        </div>
+                                        <p className="assistant-calculation-note mb-0">Los cálculos usan los datos actuales de MASUCRI. Revisa cada borrador antes de guardarlo.</p>
+                                    </div>
+                                    <div className="assistant-prompt-groups">
+                                        {CONSULTAS_INICIALES.map((grupo) => (
+                                            <section className="assistant-prompt-group" key={grupo.title} aria-label={grupo.title}>
+                                                <h3><i className={`fas ${grupo.icon}`} aria-hidden="true"></i>{grupo.title}</h3>
+                                                <div className="assistant-prompts">
+                                                    {grupo.prompts.map((prompt) => (
+                                                        <Button key={prompt} size="sm" variant="outline-primary" onClick={() => procesarMensaje(prompt)} disabled={procesando}>
+                                                            <span>{prompt}</span><i className="fas fa-arrow-right" aria-hidden="true"></i>
+                                                        </Button>
+                                                    ))}
+                                                </div>
+                                            </section>
+                                        ))}
                                     </div>
                                 </div>
                             ) : (
