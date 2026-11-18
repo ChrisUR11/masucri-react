@@ -11,6 +11,13 @@ updates:
     commit-message:
       prefix: "chore(deps)"
     groups:
+      firebase-major:
+        applies-to: version-updates
+        patterns:
+          - firebase
+          - "@firebase/rules-unit-testing"
+        update-types:
+          - major
       npm-minor-patch:
         applies-to: version-updates
         patterns:
