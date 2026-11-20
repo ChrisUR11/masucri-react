@@ -1100,13 +1100,19 @@ a:focus-visible {
 }
 
 .bi-page .bi-active-count {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
   min-width: 28px;
-  min-height: 28px;
+  height: 28px;
+  padding: 0 4px;
   border-radius: 6px;
   background: #eef1ef;
   color: var(--text-primary);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .bi-page .bi-active-card--1 .bi-active-count,
