@@ -7,7 +7,7 @@ import { useFirestoreCollection } from '../hooks/useFirestoreCollection';
 import { interpretarSolicitudAsistente } from '../services/asistente';
 import { guardarPedidoAsistente } from '../services/pedidosAsistente';
 import { registrarVentaRapida } from '../utils/ventaRapida';
-import { coincideConsulta, extraerProductosPorTalla, normalizarBorradorAsistente, sinAcentos } from '../utils/asistente';
+import { coincideConsulta, extraerProductosPorTalla, interpretarMensajeLocal, normalizarBorradorAsistente, sinAcentos } from '../utils/asistente';
 import { calcularMetricas } from '../utils/metricasNegocio';
 import { calcularMetricasContables } from '../utils/metricasContables';
 import { clientesMorosos, obtenerHistorialCliente } from '../utils/historialClientes';
@@ -87,6 +87,33 @@ function resumirClientes(pedidos, query) {
     }).sort((a, b) => b.totalGastado - a.totalGastado);
 }
 
+function diasHastaFecha(fecha, hoy) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(fecha || ''))) return null;
+    const [anio, mes, dia] = fecha.split('-').map(Number);
+    const [anioHoy, mesHoy, diaHoy] = hoy.split('-').map(Number);
+    return Math.round((Date.UTC(anio, mes - 1, dia) - Date.UTC(anioHoy, mesHoy - 1, diaHoy)) / 86400000);
+}
+
+function priorizarPedidos(pedidos, status) {
+    const hoy = obtenerFechaLocal();
+    return pedidos
+        .filter((pedido) => ESTADOS_ACTIVOS.has(pedido.estado))
+        .filter((pedido) => !status || sinAcentos(pedido.estado) === sinAcentos(status))
+        .map((pedido) => {
+            const dias = diasHastaFecha(pedido.fecha_entrega, hoy);
+            if (pedido.estado === 'Por Retirar') return { pedido, prioridad: 'Listo para retirar', variante: 'success', orden: 0, dias };
+            if (dias !== null && dias < 0) return { pedido, prioridad: 'Atrasado', variante: 'danger', orden: 1, dias };
+            if (dias === 0) return { pedido, prioridad: 'Entrega hoy', variante: 'danger', orden: 2, dias };
+            if (dias !== null && dias <= 2) return { pedido, prioridad: 'Próximo', variante: 'warning', orden: 3, dias };
+            if (dias !== null && dias <= 5) return { pedido, prioridad: 'En pocos días', variante: 'info', orden: 4, dias };
+            if (dias !== null) return { pedido, prioridad: 'Programado', variante: 'primary', orden: 5, dias };
+            return { pedido, prioridad: 'Sin fecha', variante: 'secondary', orden: 6, dias };
+        })
+        .sort((a, b) => a.orden - b.orden
+            || (a.dias == null && b.dias == null ? 0 : a.dias == null ? 1 : b.dias == null ? -1 : a.dias - b.dias)
+            || String(a.pedido.cliente || '').localeCompare(String(b.pedido.cliente || ''), 'es'));
+}
+
 function prepararRespuesta(interpretacion, pedidos, catalogo, movimientos) {
     const { intent, query = '', status = null, period = 'mes_actual', summary_scope: summaryScope = 'business' } = interpretacion;
     if (intent === 'help') {
@@ -98,6 +125,16 @@ function prepararRespuesta(interpretacion, pedidos, catalogo, movimientos) {
         return { text: interpretacion.reply || 'No pude reconocer esa solicitud. Prueba con una búsqueda, un resumen o un borrador de pedido.' };
     }
     if (intent === 'search_orders') {
+        if (interpretacion.priority || query === '__prioridades__') {
+            const prioridades = priorizarPedidos(pedidos, status);
+            return {
+                title: status ? `Prioridad · ${status}` : 'Prioridad de pedidos',
+                text: prioridades.length
+                    ? `Estos ${prioridades.length} pedidos activos están ordenados por urgencia: primero los listos para retirar, luego las entregas vencidas y las fechas más cercanas.`
+                    : 'No hay pedidos activos para priorizar con este filtro.',
+                data: { kind: 'priorities', items: prioridades.slice(0, 30), total: prioridades.length }
+            };
+        }
         const resultados = buscarPedidos(pedidos, query, status);
         return {
             title: 'Pedidos encontrados',
@@ -255,10 +292,6 @@ function interpretarSeguimientoLocal(texto, mensajes) {
                 due_date: borradorAnterior.fecha_entrega || null,
                 products: [...productosAnteriores, ...productosNuevos],
                 notes: borradorAnterior.descripcion || null,
-                discount_type: borradorAnterior.descuento_tipo === 'porcentaje' ? 'percentage' : 'amount',
-                discount_value: borradorAnterior.aplica_descuento && borradorAnterior.descuento_valor !== ''
-                    ? Number(borradorAnterior.descuento_valor)
-                    : null,
                 advance: !esVenta && borradorAnterior.adelanto !== '' ? Number(borradorAnterior.adelanto) : null,
                 advance_method: !esVenta ? borradorAnterior.metodo_adelanto || null : null,
                 paid: esVenta && borradorAnterior.pagado !== '' ? Number(borradorAnterior.pagado) : null,
@@ -316,14 +349,7 @@ function interpretarSeguimientoLocal(texto, mensajes) {
 }
 
 function BorradorAsistente({ id, borrador, catalogo, onChange, onGuardar, guardando, error }) {
-    const total = useMemo(() => calcularTotalesPedido(
-        borrador.productos,
-        borrador.aplica_descuento
-            ? borrador.descuento_tipo === 'porcentaje'
-                ? { descuento_porcentaje: borrador.descuento_valor }
-                : { descuento_monto: borrador.descuento_valor }
-            : { descuento_monto: 0 }
-    ), [borrador.productos, borrador.aplica_descuento, borrador.descuento_tipo, borrador.descuento_valor]);
+    const total = useMemo(() => calcularTotalesPedido(borrador.productos), [borrador.productos]);
 
     const actualizar = (campo, valor) => onChange({ ...borrador, [campo]: valor });
     const actualizarProducto = (indice, campo, valor) => {
@@ -387,7 +413,7 @@ function BorradorAsistente({ id, borrador, catalogo, onChange, onGuardar, guarda
                         </Col>
                         <Col xs={6} md={2}>
                             <Form.Label className="small">Precio unitario</Form.Label>
-                            <Form.Control type="number" min="0" step="0.01" value={producto.precio_unitario} onChange={(event) => actualizarProducto(indice, 'precio_unitario', event.target.value)} />
+                            <Form.Control type="number" min="0" step="0.01" placeholder="0" value={producto.precio_unitario} onFocus={(event) => { if (String(producto.precio_unitario).trim() && Number(producto.precio_unitario) === 0) event.currentTarget.select(); }} onChange={(event) => actualizarProducto(indice, 'precio_unitario', event.target.value)} />
                         </Col>
                         <Col xs={6} md={2}>
                             <Form.Label className="small">Cantidad</Form.Label>
@@ -403,28 +429,6 @@ function BorradorAsistente({ id, borrador, catalogo, onChange, onGuardar, guarda
 
                 <div className="p-3 bg-light rounded border mt-3 mb-3">
                     <div className="d-flex justify-content-between mb-2"><span>Subtotal</span><strong>{formatoColones(total.subtotal)}</strong></div>
-                    <Form.Check
-                        type="switch"
-                        id={`assistant-discount-${id}`}
-                        label="Aplicar descuento"
-                        checked={borrador.aplica_descuento}
-                        onChange={(event) => onChange({ ...borrador, aplica_descuento: event.target.checked, descuento_valor: event.target.checked ? borrador.descuento_valor : '' })}
-                    />
-                    {borrador.aplica_descuento && (
-                        <Row className="g-2 mt-1">
-                            <Col xs={5}>
-                                <Form.Label className="small">Tipo de descuento</Form.Label>
-                                <Form.Select value={borrador.descuento_tipo} onChange={(event) => onChange({ ...borrador, descuento_tipo: event.target.value, descuento_valor: '' })}>
-                                    <option value="monto">Monto (₡)</option>
-                                    <option value="porcentaje">Porcentaje (%)</option>
-                                </Form.Select>
-                            </Col>
-                            <Col xs={7}>
-                                <Form.Label className="small">{borrador.descuento_tipo === 'porcentaje' ? 'Porcentaje' : 'Monto'}</Form.Label>
-                                <Form.Control type="number" min="0" max={borrador.descuento_tipo === 'porcentaje' ? 100 : total.subtotal} step="0.01" value={borrador.descuento_valor} onChange={(event) => actualizar('descuento_valor', event.target.value)} />
-                            </Col>
-                        </Row>
-                    )}
                     <div className="d-flex justify-content-between align-items-center border-top pt-2 mt-3 fs-5">
                         <strong>Total</strong><strong className="text-primary">{formatoColones(total.precio)}</strong>
                     </div>
@@ -435,7 +439,7 @@ function BorradorAsistente({ id, borrador, catalogo, onChange, onGuardar, guarda
                         <Form.Label htmlFor={`assistant-payment-${id}`} className="small fw-bold">{borrador.tipo === 'venta_rapida' ? 'Pagado ahora (opcional)' : 'Adelanto (opcional)'}</Form.Label>
                         <InputGroup>
                             <InputGroup.Text>₡</InputGroup.Text>
-                            <Form.Control id={`assistant-payment-${id}`} type="number" min="0" max={total.precio} step="0.01" value={borrador.tipo === 'venta_rapida' ? borrador.pagado : borrador.adelanto} onChange={(event) => actualizar(borrador.tipo === 'venta_rapida' ? 'pagado' : 'adelanto', event.target.value)} />
+                            <Form.Control id={`assistant-payment-${id}`} type="number" inputMode="decimal" min="0" max={total.precio} step="0.01" placeholder="0" value={borrador.tipo === 'venta_rapida' ? borrador.pagado : borrador.adelanto} onFocus={(event) => { const valor = borrador.tipo === 'venta_rapida' ? borrador.pagado : borrador.adelanto; if (String(valor).trim() && Number(valor) === 0) event.currentTarget.select(); }} onChange={(event) => actualizar(borrador.tipo === 'venta_rapida' ? 'pagado' : 'adelanto', event.target.value)} />
                         </InputGroup>
                     </Col>
                     {totalPagado > 0 && (
@@ -466,6 +470,25 @@ function BorradorAsistente({ id, borrador, catalogo, onChange, onGuardar, guarda
 
 function ResultadoAsistente({ data }) {
     if (!data) return null;
+    if (data.kind === 'priorities') return (
+        <div className="table-responsive mt-2">
+            <Table size="sm" hover className="mb-0 assistant-results-table">
+                <thead><tr><th>Prioridad</th><th>Cliente</th><th>Pedido</th><th>Entrega</th><th>Estado</th><th className="text-end">Saldo</th></tr></thead>
+                <tbody>{data.items.map(({ pedido, prioridad, variante }) => (
+                    <tr key={pedido.id}>
+                        <td><Badge bg={variante} text={['warning', 'info', 'primary'].includes(variante) ? 'dark' : undefined}>{prioridad}</Badge></td>
+                        <td>{pedido.cliente || 'Sin cliente'}</td>
+                        <td>{obtenerProductosPedido(pedido).map((producto) => `${producto.cantidad} × ${producto.nombre}`).join(', ') || pedido.producto || 'Sin producto'}</td>
+                        <td>{formatoFechaLegible(pedido.fecha_entrega) || 'Sin fecha'}</td>
+                        <td>{pedido.estado || 'Sin estado'}</td>
+                        <td className="text-end">{formatoColones(Math.max(0, Number(pedido.precio || 0) - Number(pedido.monto_pagado || 0)))}</td>
+                    </tr>
+                ))}</tbody>
+            </Table>
+            {data.total > data.items.length && <p className="small text-muted mt-2 mb-0">Se muestran {data.items.length} de {data.total} pedidos activos.</p>}
+        </div>
+    );
+
     if (data.kind === 'orders') return (
         <div className="table-responsive mt-2">
             <Table size="sm" hover className="mb-0 assistant-results-table">
@@ -549,6 +572,7 @@ function ResultadoAsistente({ data }) {
 function sugerenciasSeguimiento(data) {
     if (!data) return [];
     if (data.kind === 'orders') return ['¿Y los pendientes?', 'Lista pedidos atrasados'];
+    if (data.kind === 'priorities') return ['¿Y los pendientes?', 'Lista pedidos atrasados'];
     if (data.kind === 'active') return ['Lista pedidos atrasados', '¿Y los pendientes?', '¿Cuánto queda por cobrar?'];
     if (data.kind === 'cash') return ['¿Y el mes pasado?', '¿Cuánto gasté en transporte este mes?'];
     if (data.kind === 'business') return ['¿Y el mes pasado?', '¿Qué producto se vendió más?'];
@@ -561,7 +585,7 @@ const CONSULTAS_INICIALES = [
     {
         title: 'Pedidos',
         icon: 'fa-box-open',
-        prompts: ['¿Cuántos pedidos activos están atrasados?', 'Lista pedidos atrasados', 'Mostrar pedidos pendientes']
+        prompts: ['¿Cuántos pedidos activos están atrasados?', 'Lista pedidos atrasados', 'Mostrar pedidos pendientes', '¿Cuáles pedidos hay que sacar primero?']
     },
     {
         title: 'Caja y BI',
@@ -623,7 +647,13 @@ export default function Asistente() {
         setProcesando(true);
         try {
             const seguimiento = interpretarSeguimientoLocal(solicitud, mensajes);
-            const interpretacion = seguimiento || await interpretarSolicitudAsistente(solicitud, catalogo, mensajesPrevios);
+            const prioridadLocal = interpretarMensajeLocal(solicitud, catalogo);
+            const prioridadDirecta = prioridadLocal.intent === 'search_orders' && prioridadLocal.query === '__prioridades__';
+            const productoDirecto = prioridadLocal.intent === 'create_order'
+                && /\bpedido(?:\s+(?:nuevo|nueva))?\s+de\s+/i.test(solicitud);
+            const interpretacion = seguimiento || (prioridadDirecta || productoDirecto
+                ? { ...prioridadLocal, source: 'local' }
+                : await interpretarSolicitudAsistente(solicitud, catalogo, mensajesPrevios));
             if (interpretacion.source === 'ia') setEstadoIA('conectada');
             if (interpretacion.source === 'local_fallback') setEstadoIA('respaldo');
             const respuesta = prepararRespuesta(interpretacion, pedidos, catalogo, movimientos);
@@ -637,7 +667,8 @@ export default function Asistente() {
                 mode: interpretacion.source,
                 interpretation: {
                     intent: interpretacion.intent,
-                    query: interpretacion.query || '',
+                    query: interpretacion.query === '__prioridades__' ? '' : interpretacion.query || '',
+                    priority: Boolean(interpretacion.priority || interpretacion.query === '__prioridades__'),
                     status: interpretacion.status || null,
                     summary_scope: interpretacion.summary_scope || null,
                     period: interpretacion.period || null,
@@ -646,7 +677,7 @@ export default function Asistente() {
                 }
             };
             if (['create_order', 'quick_sale'].includes(interpretacion.intent)) {
-                assistantMessage.draft = normalizarBorradorAsistente(interpretacion, catalogo);
+                assistantMessage.draft = normalizarBorradorAsistente(interpretacion, catalogo, solicitud);
                 assistantMessage.text = interpretacion.reply || 'Revisa este borrador. Completa los datos faltantes y confírmalo para guardarlo.';
             }
             setMensajes((actuales) => [...actuales, assistantMessage]);
@@ -687,8 +718,6 @@ export default function Asistente() {
                     telefono: borrador.telefono,
                     productos: borrador.productos,
                     descripcion: borrador.descripcion,
-                    descuento_tipo: borrador.descuento_tipo,
-                    descuento_valor: borrador.aplica_descuento ? borrador.descuento_valor : '',
                     pagado: borrador.pagado,
                     metodo: borrador.metodo_pago
                 });

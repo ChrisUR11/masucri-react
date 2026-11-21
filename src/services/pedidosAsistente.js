@@ -10,19 +10,7 @@ export async function guardarPedidoAsistente(borrador) {
     if (!cliente) throw new Error('Ingresa el nombre del cliente.');
 
     const productos = validarProductosPedido(borrador.productos);
-    const descuentoValor = borrador.aplica_descuento && borrador.descuento_valor !== ''
-        ? Number(borrador.descuento_valor) : 0;
-    const totales = calcularTotalesPedido(productos, !borrador.aplica_descuento
-        ? { descuento_monto: 0 }
-        : borrador.descuento_tipo === 'porcentaje'
-            ? { descuento_porcentaje: descuentoValor }
-            : { descuento_monto: descuentoValor });
-
-    if (!Number.isFinite(descuentoValor) || descuentoValor < 0 || (borrador.descuento_tipo === 'porcentaje'
-        ? descuentoValor > 100
-        : !tieneMaximoDosDecimales(descuentoValor) || descuentoValor > totales.subtotal)) {
-        throw new Error('El descuento debe estar entre cero y el subtotal (o entre 0 % y 100 %).');
-    }
+    const totales = calcularTotalesPedido(productos);
 
     const adelantoIndicado = borrador.adelanto === '' || borrador.adelanto == null ? 0 : Number(borrador.adelanto);
     if (!tieneMaximoDosDecimales(adelantoIndicado) || adelantoIndicado < 0) {

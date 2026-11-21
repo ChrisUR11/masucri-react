@@ -79,7 +79,7 @@ export default function AbonosPedido({ pedido }) {
             html: `
                 <div class="text-start">
                     <label for="abono-monto" class="form-label">Monto (₡)</label>
-                    <input id="abono-monto" type="number" step="0.01" min="0.01" class="form-control mb-2">
+                    <input id="abono-monto" type="number" step="0.01" min="0.01" placeholder="0" class="form-control mb-2">
                     <label for="abono-fecha" class="form-label">Fecha del pago</label>
                     <input id="abono-fecha" type="date" class="form-control mb-2">
                     <label for="abono-metodo" class="form-label">Método de pago</label>

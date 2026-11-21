@@ -64,15 +64,33 @@ function productoLiteralEnTexto(textoNormalizado, catalogo) {
     for (const producto of productosOrdenados) {
         const nombre = sinAcentos(producto.nombre);
         const escapado = nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const expresion = new RegExp(`(?:^|[^\\p{L}\\p{N}])${escapado}(?=$|\\s+(?:x|cantidad|precio|unitario|entrega|fecha|con descuento|descuento|adelanto|pagado)|[,;])`, 'u');
+        const expresion = new RegExp(`(?:^|[^\\p{L}\\p{N}])${escapado}(?=$|\\s+(?:x|cantidad|precio|unitario|entrega|fecha|para|con descuento|descuento|adelanto|pagado)|[,;])`, 'u');
         if (expresion.test(textoNormalizado)) return producto;
     }
     return null;
 }
 
-function extraerClienteNatural(texto) {
-    const coincidencia = texto.match(/\b(?:pedido|venta(?:\s+r[aá]pida)?)\s+(?:para|de|a)\s+(.+?)(?=\s*(?:[,;:]|$)|\s+(?:con\s+\d|producto|productos|cantidad|precio|entrega|fecha|tel[eé]fono|adelanto|descuento|pagado)\b)/i);
-    return coincidencia?.[1]?.trim() || '';
+function extraerClienteNatural(texto, catalogo = []) {
+    const coincidencia = texto.match(/\b(?:pedido|venta(?:\s+r[aá]pida)?)\s+(?:para|a)\s+(.+?)(?=\s*(?:[,;:]|$)|\s+(?:con\s+\d|producto|productos|cantidad|precio|entrega|fecha|tel[eé]fono|adelanto|descuento|pagado)\b)/i);
+    let cliente = coincidencia?.[1]?.trim() || '';
+    const producto = productoLiteralEnTexto(sinAcentos(texto), catalogo);
+    if (cliente && producto?.nombre) {
+        const escapado = String(producto.nombre).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        cliente = cliente.replace(new RegExp(`\\s+(?:de\\s+)?${escapado}$`, 'i'), '').trim();
+    }
+    if (!cliente && producto?.nombre) {
+        const escapado = String(producto.nombre).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const despuesDelProducto = texto.match(new RegExp(
+            `\\bpedido(?:\\s+(?:nuevo|nueva))?\\s+de\\s+${escapado}\\s+para\\s+(.+?)(?=\\s*(?:[,;:]|$)|\\s+(?:producto|cantidad|precio|entrega|fecha|tel[eé]fono|adelanto|pagado)\\b)`,
+            'i'
+        ));
+        cliente = despuesDelProducto?.[1]?.trim() || '';
+    }
+    return cliente;
+}
+
+function extraerProductoDespuesDePedido(texto) {
+    return texto.match(/\bpedido(?:\s+(?:nuevo|nueva))?\s+de\s+(.+?)(?=\s+(?:para|cliente|con\s+\d|cantidad|precio|entrega|fecha|tel[eé]fono|adelanto|pagado)\b|\s+(?:a|en|por)\s+₡?\d|[,;.\n]|[?!]|$)/i)?.[1]?.trim() || '';
 }
 
 function extraerTelefono(texto) {
@@ -188,12 +206,15 @@ export function interpretarMensajeLocal(mensaje = '', catalogo = []) {
         || Boolean(productosPorTalla?.length && verboAgregar);
 
     if (crearVenta || crearPedido) {
-        const productoDeCatalogo = productoLiteralEnTexto(normalizado, catalogo);
-        const nombreProducto = valorCampo(texto, 'producto') || productoDeCatalogo?.nombre || extraerProductoLibre(texto);
+        const clienteNatural = valorCampo(texto, 'cliente') || extraerClienteNatural(texto, catalogo);
+        const productoPedido = clienteNatural ? '' : extraerProductoDespuesDePedido(texto);
+        const productoDePedido = productoPedido
+            ? catalogo.find((producto) => sinAcentos(producto?.nombre) === sinAcentos(productoPedido))
+            : null;
+        const productoDeCatalogo = productoDePedido || productoLiteralEnTexto(normalizado, catalogo);
+        const nombreProducto = valorCampo(texto, 'producto') || productoDePedido?.nombre || productoDeCatalogo?.nombre || extraerProductoLibre(texto) || productoPedido;
         const cantidad = numeroCampo(texto, 'cantidad');
         const precio = numeroCampo(texto, 'precio(?:\\s+unitario)?');
-        const discountType = sinAcentos(valorCampo(texto, 'descuento tipo')) === 'porcentaje' ? 'percentage' : 'amount';
-        const discountValue = numeroCampo(texto, 'descuento');
         const fechaEntrega = fechaCampo(texto) || (() => {
             const fecha = texto.match(/(?:entrega(?:\s+el)?|para\s+el)\s+(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})/i)?.[1];
             if (!fecha) return '';
@@ -205,7 +226,7 @@ export function interpretarMensajeLocal(mensaje = '', catalogo = []) {
             intent: crearVenta ? 'quick_sale' : 'create_order',
             reply: 'Preparé un borrador. Revisa los datos, completa lo que falte y confirma para guardarlo.',
             draft: {
-                customer: valorCampo(texto, 'cliente') || extraerClienteNatural(texto),
+                customer: clienteNatural,
                 phone: extraerTelefono(texto),
                 due_date: fechaEntrega,
                 products: productosPorTalla || (nombreProducto ? [{
@@ -214,14 +235,17 @@ export function interpretarMensajeLocal(mensaje = '', catalogo = []) {
                     unit_price: precio ?? (productoDeCatalogo ? productoDeCatalogo.precio_venta : null)
                 }] : []),
                 notes: valorCampo(texto, 'nota'),
-                discount_type: discountValue == null ? null : discountType,
-                discount_value: discountValue,
                 advance: numeroCampo(texto, 'adelanto'),
                 advance_method: valorCampo(texto, 'metodo adelanto') || null,
                 paid: numeroCampo(texto, 'pagado'),
                 payment_method: valorCampo(texto, 'metodo pago') || null
             }
         };
+    }
+
+    if (/\b(pedidos?|ordenes?)\b/.test(normalizado)
+        && /\b(primero|prioridad(?:es)?|urgentes?|sacar primero|entregar primero|producir primero)\b/.test(normalizado)) {
+        return { intent: 'search_orders', query: '__prioridades__' };
     }
 
     const status = normalizado.includes('pendiente') ? 'Pendiente'
@@ -331,9 +355,37 @@ function metodoPagoPermitido(metodo, alternativo) {
     return opciones.find((opcion) => sinAcentos(opcion) === sinAcentos(metodo)) || alternativo;
 }
 
-export function normalizarBorradorAsistente(resultado, catalogo = []) {
+export function normalizarBorradorAsistente(resultado, catalogo = [], solicitud = '') {
     const borrador = resultado?.draft || {};
-    const productosOrigen = Array.isArray(borrador.products) ? borrador.products : [];
+    const mensaje = String(solicitud || '');
+    const clienteDelMensaje = valorCampo(mensaje, 'cliente') || extraerClienteNatural(mensaje, catalogo);
+    const clienteExplicito = Boolean(clienteDelMensaje);
+    const productosCatalogoMencionados = catalogo
+        .filter((producto) => String(producto?.nombre || '').trim()
+            && sinAcentos(mensaje).includes(sinAcentos(producto.nombre)))
+        .sort((a, b) => String(b.nombre).length - String(a.nombre).length);
+    const coincidenciaMasLarga = productosCatalogoMencionados[0];
+    const productoCatalogoMencionado = coincidenciaMasLarga && productosCatalogoMencionados.filter(
+        (producto) => String(producto.nombre).length === String(coincidenciaMasLarga.nombre).length
+    ).length === 1 ? coincidenciaMasLarga : null;
+    const productoPedido = extraerProductoDespuesDePedido(mensaje)
+        || (productoCatalogoMencionado && sinAcentos(productoCatalogoMencionado.nombre) !== sinAcentos(clienteDelMensaje)
+            ? productoCatalogoMencionado.nombre
+            : '');
+    const productoPedidoCatalogo = productoPedido
+        ? catalogo.find((producto) => sinAcentos(producto?.nombre) === sinAcentos(productoPedido))
+        : null;
+    const productosOrigen = Array.isArray(borrador.products) ? [...borrador.products] : [];
+    if (productoPedido && !productosOrigen.some((producto) => sinAcentos(producto?.name) === sinAcentos(productoPedido))) {
+        const linea = {
+            name: productoPedidoCatalogo?.nombre || productoPedido,
+            quantity: 1,
+            unit_price: productoPedidoCatalogo?.precio_venta ?? null
+        };
+        const indiceVacio = productosOrigen.findIndex((producto) => !String(producto?.name ?? '').trim());
+        if (indiceVacio >= 0) productosOrigen[indiceVacio] = linea;
+        else productosOrigen.push(linea);
+    }
     const productos = productosOrigen.map((linea) => {
         const nombre = String(linea?.name ?? '').trim();
         const ficha = productoDeCatalogo(nombre, catalogo);
@@ -345,16 +397,19 @@ export function normalizarBorradorAsistente(resultado, catalogo = []) {
         };
     });
 
+    const cliente = String(clienteDelMensaje || borrador.customer || '').trim();
+    const clienteEsProducto = productoPedido && (
+        sinAcentos(cliente) === sinAcentos(productoPedido)
+        || (productoPedidoCatalogo && sinAcentos(cliente) === sinAcentos(productoPedidoCatalogo.nombre))
+    );
+
     return {
         tipo: resultado?.intent === 'quick_sale' ? 'venta_rapida' : 'pedido',
-        cliente: borrador.customer || '',
+        cliente: clienteEsProducto && !clienteExplicito ? '' : cliente,
         telefono: borrador.phone || '',
         fecha_entrega: esFechaISOValida(borrador.due_date) ? borrador.due_date : '',
         productos: productos.length ? productos : [{ nombre: '', precio_unitario: '', cantidad: 1 }],
         descripcion: borrador.notes || '',
-        descuento_tipo: borrador.discount_type === 'percentage' ? 'porcentaje' : 'monto',
-        descuento_valor: borrador.discount_value == null ? '' : String(borrador.discount_value),
-        aplica_descuento: borrador.discount_value != null,
         adelanto: borrador.advance == null ? '' : String(borrador.advance),
         metodo_adelanto: metodoPagoPermitido(borrador.advance_method, 'Sinpe Móvil'),
         pagado: borrador.paid == null ? '' : String(borrador.paid),

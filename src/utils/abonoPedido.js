@@ -29,7 +29,7 @@ export async function registrarAbono(pedido) {
         html: `
             <div class="text-start mb-2">
                 <label>Deuda actual: ${formatoColones(deudaActual)}</label>
-                <input id="swal-monto" type="number" step="0.01" class="form-control border-primary" placeholder="Monto a abonar" min="0.01" max="${deudaActual}">
+                <input id="swal-monto" type="number" step="0.01" inputmode="decimal" class="form-control border-primary" placeholder="0" min="0.01" max="${deudaActual}">
             </div>
             <select id="swal-metodo" class="form-select border-primary">
                 <option>Sinpe Móvil</option>

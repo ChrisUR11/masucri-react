@@ -842,6 +842,27 @@ a:focus-visible {
   box-shadow: none !important;
 }
 
+.orders-page .orders-payment-filter {
+  flex: 0 0 220px;
+  min-height: 44px;
+}
+
+.orders-page .orders-search-controls .btn {
+  min-height: 44px;
+}
+
+.orders-page .orders-search-controls .input-group > .app-page-search {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+@media (max-width: 767.98px) {
+  .orders-page .orders-payment-filter {
+    flex-basis: auto;
+    width: 100%;
+  }
+}
+
 .orders-page .order-legend {
   padding: 16px !important;
   border-color: var(--app-border) !important;

@@ -40,9 +40,6 @@ const FORM_PEDIDO_VACIO = {
     telefono: '',
     productos: [{ nombre: '', precio_unitario: '', cantidad: 1, total: 0 }],
     desc: '',
-    aplicaDescuento: false,
-    descuento_tipo: 'monto',
-    descuento_valor: '',
     dejoAdelanto: false,
     adelanto: '',
     metodoAdelanto: 'Sinpe Móvil'
@@ -58,6 +55,7 @@ export default function Pedidos() {
     const pedidos = useMemo(() => todosPedidos.filter((p) => ESTADOS_ACTIVOS.includes(p.estado)), [todosPedidos]);
 
     const [filtroTexto, setFiltroTexto] = useState('');
+    const [filtroPago, setFiltroPago] = useState('todos');
 
     // Modales
     const [showNuevo, setShowNuevo] = useState(false);
@@ -71,19 +69,16 @@ export default function Pedidos() {
     const [formPedido, setFormPedido] = useState(FORM_PEDIDO_VACIO);
     const [guardandoPedido, setGuardandoPedido] = useState(false);
 
+    const descuentoGuardado = pedidoEdit
+        ? Number(pedidoEdit.descuento_monto ?? Math.max(
+            0,
+            calcularTotalesPedido(obtenerProductosPedido(pedidoEdit)).subtotal - (Number(pedidoEdit.precio) || 0)
+        )) || 0
+        : 0;
     const totalesPedido = useMemo(() => calcularTotalesPedido(
         formPedido.productos,
-        !formPedido.aplicaDescuento
-            ? { descuento_monto: 0 }
-            : formPedido.descuento_tipo === 'porcentaje'
-            ? { descuento_porcentaje: formPedido.descuento_valor }
-            : { descuento_monto: formPedido.descuento_valor }
-    ), [formPedido.productos, formPedido.aplicaDescuento, formPedido.descuento_tipo, formPedido.descuento_valor]);
-
-    const descuentoPorcentajeVisible = formPedido.descuento_tipo === 'porcentaje'
-        ? formPedido.descuento_valor : (formPedido.descuento_valor === '' ? '' : totalesPedido.descuento_porcentaje);
-    const descuentoMontoVisible = formPedido.descuento_tipo === 'monto'
-        ? formPedido.descuento_valor : (formPedido.descuento_valor === '' ? '' : totalesPedido.descuento_monto);
+        { descuento_monto: descuentoGuardado }
+    ), [formPedido.productos, descuentoGuardado]);
 
     // El pedido activo se busca por id en la lista en vivo, así el modal
     // siempre refleja el estado más reciente sin necesitar sincronización manual.
@@ -196,19 +191,13 @@ export default function Pedidos() {
             return Swal.fire('Revisa los productos', err.message, 'warning');
         }
         const adelantoIndicado = formPedido.dejoAdelanto ? Number(formPedido.adelanto) : 0;
-        const descuentoValor = !formPedido.aplicaDescuento || formPedido.descuento_valor === '' ? 0 : Number(formPedido.descuento_valor);
 
         if (!formPedido.cliente.trim()) return Swal.fire('Falta el cliente', 'Ingresa el nombre del cliente.', 'warning');
-        if (!Number.isFinite(descuentoValor) || descuentoValor < 0 || (formPedido.descuento_tipo === 'porcentaje'
-            ? descuentoValor > 100
-            : !tieneMaximoDosDecimales(descuentoValor) || descuentoValor > totalesPedido.subtotal)) {
-            return Swal.fire('Descuento inválido', 'El descuento debe estar entre cero y el subtotal del pedido (o entre 0 % y 100 %).', 'warning');
-        }
         if (!tieneMaximoDosDecimales(adelantoIndicado) || adelantoIndicado < 0 || (formPedido.dejoAdelanto && formPedido.adelanto === '')) {
             return Swal.fire('Adelanto inválido', 'Ingresa un adelanto válido con máximo dos decimales.', 'warning');
         }
         const mAdelanto = deCentavos(aCentavos(adelantoIndicado));
-        if (!pedidoEdit && aCentavos(mAdelanto) > aCentavos(totalesPedido.precio)) return Swal.fire('Adelanto inválido', 'El adelanto no puede superar el total con descuento.', 'warning');
+        if (!pedidoEdit && aCentavos(mAdelanto) > aCentavos(totalesPedido.precio)) return Swal.fire('Adelanto inválido', 'El adelanto no puede superar el total del pedido.', 'warning');
         if (pedidoEdit && aCentavos(pedidoEdit.monto_pagado || 0) > aCentavos(totalesPedido.precio)) {
             return Swal.fire('Total insuficiente', 'El nuevo total no puede ser menor que los pagos ya registrados.', 'warning');
         }
@@ -294,8 +283,6 @@ export default function Pedidos() {
 
     const abrirEditar = (ped) => {
         const productos = obtenerProductosPedido(ped);
-        const subtotal = calcularTotalesPedido(productos).subtotal;
-        const descuentoMonto = ped.descuento_monto ?? Math.max(0, subtotal - (Number(ped.precio) || 0));
         setShowDetalle(false);
         setPedidoEdit(ped);
         setFormPedido({
@@ -305,9 +292,6 @@ export default function Pedidos() {
             telefono: ped.telefono || '',
             productos: productos.length ? productos : [{ nombre: '', precio_unitario: '', cantidad: 1, total: 0 }],
             desc: ped.descripcion || '',
-            aplicaDescuento: descuentoMonto > 0,
-            descuento_tipo: 'monto',
-            descuento_valor: descuentoMonto > 0 ? String(descuentoMonto) : '',
             dejoAdelanto: false,
             adelanto: '',
             metodoAdelanto: 'Sinpe Móvil'
@@ -323,11 +307,16 @@ export default function Pedidos() {
             const txt = filtroTextoDebounced.toLowerCase();
             lista = lista.filter((p) => p.cliente?.toLowerCase().includes(txt)
                 || p.producto?.toLowerCase().includes(txt)
-                || p.productos?.some((item) => item.nombre?.toLowerCase().includes(txt)));
+                || obtenerProductosPedido(p).some((item) => item.nombre?.toLowerCase().includes(txt)));
+        }
+        if (filtroPago === 'con_saldo') {
+            lista = lista.filter((p) => aCentavos(p.precio || 0) - aCentavos(p.monto_pagado || 0) > 0);
+        } else if (filtroPago === 'pagados') {
+            lista = lista.filter((p) => aCentavos(p.precio || 0) - aCentavos(p.monto_pagado || 0) <= 0);
         }
         lista.sort((a, b) => new Date(a.fecha_entrega || '2099-01-01') - new Date(b.fecha_entrega || '2099-01-01'));
         return lista;
-    }, [pedidos, filtroTextoDebounced]);
+    }, [pedidos, filtroTextoDebounced, filtroPago]);
 
     return (
             <Container className="orders-page mt-4 flex-grow-1 d-flex flex-column">
@@ -342,14 +331,35 @@ export default function Pedidos() {
                     </Button>
                 </div>
             </div>
-            <Form.Control
-                type="search"
-                placeholder="Buscar cliente o producto..."
-                className="app-page-search mb-3 shadow-sm d-print-none"
-                value={filtroTexto}
-                onChange={(e) => setFiltroTexto(e.target.value)}
-                aria-label="Buscar pedido"
-            />
+            <div className="orders-search-controls d-flex flex-column flex-md-row gap-2 mb-3 d-print-none">
+                <InputGroup className="flex-grow-1">
+                    <Form.Control
+                        type="search"
+                        placeholder="Buscar cliente o producto..."
+                        className="app-page-search shadow-sm"
+                        value={filtroTexto}
+                        onChange={(e) => setFiltroTexto(e.target.value)}
+                        aria-label="Buscar pedido"
+                    />
+                    <Button
+                        variant="outline-secondary"
+                        onClick={() => { setFiltroTexto(''); setFiltroPago('todos'); }}
+                        disabled={!filtroTexto && filtroPago === 'todos'}
+                    >
+                        Limpiar
+                    </Button>
+                </InputGroup>
+                <Form.Select
+                    className="orders-payment-filter shadow-sm"
+                    value={filtroPago}
+                    onChange={(e) => setFiltroPago(e.target.value)}
+                    aria-label="Filtrar pedidos por saldo"
+                >
+                    <option value="todos">Todos los pedidos</option>
+                    <option value="con_saldo">Con saldo pendiente</option>
+                    <option value="pagados">Pagados</option>
+                </Form.Select>
+            </div>
 
             {/* LEYENDA DE COLORES */}
             <div className="order-legend mb-3 p-3 bg-white rounded border shadow-sm d-print-none">
@@ -515,34 +525,9 @@ export default function Pedidos() {
                                 <span>Subtotal de productos</span>
                                 <strong>{formatoColones(totalesPedido.subtotal)}</strong>
                             </div>
-                            <Form.Check
-                                type="switch"
-                                id="switch-descuento-pedido"
-                                className="mb-3"
-                                label={<span className="fw-bold small">¿Se aplicará descuento?</span>}
-                                checked={formPedido.aplicaDescuento}
-                                onChange={(e) => setFormPedido((f) => ({
-                                    ...f,
-                                    aplicaDescuento: e.target.checked,
-                                    descuento_valor: e.target.checked ? f.descuento_valor : ''
-                                }))}
-                            />
-                            {formPedido.aplicaDescuento && <Row className="g-2 mb-3">
-                                <Col xs={12} sm={6}>
-                                    <Form.Label htmlFor="pedido-descuento-porcentaje" className="small fw-bold">Descuento (%)</Form.Label>
-                                    <InputGroup>
-                                        <Form.Control id="pedido-descuento-porcentaje" type="number" min="0" max="100" step="any" placeholder="0" value={descuentoPorcentajeVisible} onChange={(e) => setFormPedido((f) => ({ ...f, descuento_tipo: 'porcentaje', descuento_valor: e.target.value }))} />
-                                        <InputGroup.Text>%</InputGroup.Text>
-                                    </InputGroup>
-                                </Col>
-                                <Col xs={12} sm={6}>
-                                    <Form.Label htmlFor="pedido-descuento-monto" className="small fw-bold">Descuento (₡)</Form.Label>
-                                    <InputGroup>
-                                        <InputGroup.Text>₡</InputGroup.Text>
-                                        <Form.Control id="pedido-descuento-monto" type="number" min="0" max={totalesPedido.subtotal} step="0.01" placeholder="0" value={descuentoMontoVisible} onChange={(e) => setFormPedido((f) => ({ ...f, descuento_tipo: 'monto', descuento_valor: e.target.value }))} />
-                                    </InputGroup>
-                                </Col>
-                            </Row>}
+                            {pedidoEdit && totalesPedido.descuento_monto > 0 && (
+                                <p className="small text-muted mb-2">Se conserva el descuento que ya tenía este pedido: {formatoColones(totalesPedido.descuento_monto)}.</p>
+                            )}
                             <div className="d-flex justify-content-between flex-wrap gap-2 border-top pt-2 fs-5">
                                 <strong>Total del pedido</strong>
                                 <strong className="text-primary">{formatoColones(totalesPedido.precio)}</strong>
@@ -570,7 +555,17 @@ export default function Pedidos() {
                                             <Form.Label htmlFor="pedido-adelanto" className="small">Monto del adelanto</Form.Label>
                                             <InputGroup size="sm">
                                                 <InputGroup.Text>₡</InputGroup.Text>
-                                                <Form.Control id="pedido-adelanto" type="number" step="0.01" min="0" placeholder="0" value={formPedido.adelanto} onChange={actualizarForm('adelanto')} />
+                                                <Form.Control
+                                                    id="pedido-adelanto"
+                                                    type="number"
+                                                    inputMode="decimal"
+                                                    step="0.01"
+                                                    min="0"
+                                                    placeholder="0"
+                                                    value={formPedido.adelanto}
+                                                    onFocus={(e) => { if (String(formPedido.adelanto).trim() && Number(formPedido.adelanto) === 0) e.currentTarget.select(); }}
+                                                    onChange={actualizarForm('adelanto')}
+                                                />
                                             </InputGroup>
                                         </Col>
                                         <Col xs={12} sm={6}>

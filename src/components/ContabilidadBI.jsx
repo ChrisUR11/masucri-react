@@ -6,6 +6,9 @@ export default function ContabilidadBI({ metricas, alcance, periodoTexto }) {
     const hayPorcentajeMargen = Number.isFinite(metricas.margenPromedio);
     const cobertura = `${metricas.pedidosConCosto} de ${metricas.pedidosEntregadosEnPeriodo}`;
     const alcanceEnFrase = alcance === 'histórico' ? 'todo el histórico' : 'el período elegido';
+    const textoCoberturaCostos = metricas.pedidosEntregadosEnPeriodo === 0
+        ? 'No hay pedidos entregados en este período.'
+        : `${cobertura} pedidos entregados tienen costo registrado${hayCostos ? '.' : '; sin ese dato no se puede estimar el margen.'}`;
 
     return (
         <section aria-labelledby="bi-contabilidad" className="bi-accounting mb-4">
@@ -37,8 +40,8 @@ export default function ContabilidadBI({ metricas, alcance, periodoTexto }) {
                     <Card className="bi-accounting-kpi h-100 border-0 shadow-sm">
                         <Card.Body>
                             <small className="text-muted fw-semibold">Costos de producto informados</small>
-                            <div className="bi-accounting-value fw-bold">{formatoColones(metricas.costoTotal)}</div>
-                            <small className="text-muted">{cobertura} entregados tienen costo</small>
+                            <div className="bi-accounting-value fw-bold">{hayCostos ? formatoColones(metricas.costoTotal) : 'Sin datos'}</div>
+                            <small className="text-muted">{textoCoberturaCostos}</small>
                         </Card.Body>
                     </Card>
                 </Col>

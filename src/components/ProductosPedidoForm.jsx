@@ -205,7 +205,11 @@ export default function ProductosPedidoForm({ productos = [], onChange, catalogo
                                         min="0"
                                         step="0.01"
                                         required
+                                        placeholder="0"
                                         value={linea.precio_unitario ?? ''}
+                                        onFocus={(evento) => {
+                                            if (String(linea.precio_unitario ?? '').trim() && Number(linea.precio_unitario) === 0) evento.currentTarget.select();
+                                        }}
                                         onChange={(evento) => cambiarLinea(indice, { precio_unitario: evento.target.value })}
                                     />
                                 </InputGroup>

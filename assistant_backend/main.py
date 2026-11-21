@@ -74,8 +74,6 @@ class DraftOrder(BaseModel):
     due_date: str | None = Field(default=None, max_length=10)
     products: list[DraftProduct] = Field(default_factory=list, max_length=20)
     notes: str | None = Field(default=None, max_length=1000)
-    discount_type: Literal["amount", "percentage"] | None = None
-    discount_value: float | None = Field(default=None, ge=0)
     advance: float | None = Field(default=None, ge=0)
     advance_method: str | None = Field(default=None, max_length=60)
     paid: float | None = Field(default=None, ge=0)
@@ -160,12 +158,12 @@ Guía de intención:
 - summary debts: quién debe, cuánto falta por cobrar, saldos de pedidos activos o entregados. Si preguntan por una persona, pon solo su nombre en query.
 - summary cash: ingresos, gastos, entradas, salidas o flujo de caja. Si nombran categoría, proveedor o concepto, úsalo como filtro en query; si no, query vacío.
 - summary business: tendencias, ventas, productos más vendidos o solicitados, clientes principales, margen o resumen BI. Preguntas como «¿qué producto se vendió más?» y «¿cómo va el negocio?» son resúmenes, no búsquedas de catálogo.
-- search_orders: encontrar/listar pedidos concretos por cliente, producto, fecha o estado. query debe conservar los términos útiles, incluyendo fechas relativas como hoy, mañana o ayer.
+- search_orders: encontrar/listar pedidos concretos por cliente, producto, fecha o estado. query debe conservar los términos útiles, incluyendo fechas relativas como hoy, mañana o ayer. Para «¿Cuáles pedidos hay que sacar primero?» usa query «__prioridades__»; MASUCRI ordenará los pedidos activos por urgencia usando sus fechas y estados reales.
 - search_catalog: buscar productos, precios, costos, categorías o proveedores.
 - search_customer: buscar historial de compras o pedidos de clientes, no para calcular cuánto deben.
 - create_order: pedido normal pendiente; quick_sale: venta de mostrador que queda entregada.
 
-Al crear productos, devuelve una línea por cada variante que tenga talla o precio distinto. Incluye la talla dentro de name, por ejemplo «Pijama talla 8», para que quede visible y guardada en el pedido. Si el usuario dicta «3 pijamas: talla 8 en 8500, talla 6 en 6500 y 0 meses en 4000», interpreta tres variantes, una unidad por línea, con esos precios explícitos; no pongas cantidad 3 en cada línea. Si dice «3 pijamas talla 8 a 8500 cada una», es una sola línea con quantity 3. Los precios indicados por el usuario prevalecen sobre el catálogo. Si pide agregar artículos con tallas y precios diferentes pero todavía no indica el cliente, prepara un pedido parcial con customer null para que complete el dato en pantalla.
+Al crear productos, devuelve una línea por cada variante que tenga talla o precio distinto. Incluye la talla dentro de name, por ejemplo «Pijama talla 8», para que quede visible y guardada en el pedido. Si el usuario dicta «3 pijamas: talla 8 en 8500, talla 6 en 6500 y 0 meses en 4000», interpreta tres variantes, una unidad por línea, con esos precios explícitos; no pongas cantidad 3 en cada línea. Si dice «3 pijamas talla 8 a 8500 cada una», es una sola línea con quantity 3. Los precios indicados por el usuario prevalecen sobre el catálogo. Interpreta «pedido de Vasos de graduación» como el producto, no como el nombre del cliente. Solo asigna customer cuando el usuario diga «para [nombre]» o escriba «cliente: [nombre]»; si no indica cliente, prepara el pedido parcial con customer null.
 
 No confundas consultar ventas con registrar una venta: «¿cuánto vendimos?» es summary business; «registra una venta rápida» es quick_sale. «¿Qué pedidos tengo que entregar hoy?» es search_orders. «¿Cuánto debe Ana?» es summary debts, mientras «muéstrame el historial de Ana» es search_customer. Si el usuario solo menciona «venta» o «pedido» y no queda claro si consulta o registra, usa unknown y pide una aclaración breve.
 
@@ -176,15 +174,17 @@ Ejemplos de clasificación:
 «¿Cuáles fueron mis gastos de transporte el mes pasado?» -> summary, cash, query «transporte», period mes_anterior.
 «¿Qué producto se vendió más este año?» -> summary, business, period este_anio.
 «¿Qué pedidos debo entregar hoy?» -> search_orders, query «hoy».
+«¿Cuáles pedidos hay que sacar primero?» -> search_orders, query «__prioridades__».
 «¿Cuánto vendimos el mes pasado?» -> summary, business, period mes_anterior.
 «Registra una venta rápida para Ana de 2 camisetas a 5000 cada una» -> quick_sale, draft con cliente, producto, cantidad y precio indicados.
 «Nuevo pedido para Ana: 3 pijamas, talla 8 en 8500, talla 6 en 6500 y 0 meses en 4000» -> create_order, tres líneas: Pijama talla 8 (cantidad 1, precio 8500), Pijama talla 6 (cantidad 1, precio 6500) y Pijama talla 0 meses (cantidad 1, precio 4000).
+«Agrega un pedido de Vasos de graduación» -> create_order parcial con customer null y una línea de producto «Vasos de graduación».
 «Quiero agregar un producto de 3 pijamas, una talla 8 en 8500, otra 6 en 6500 y otra de 0 meses en 4000» -> create_order parcial, tres líneas con quantity 1 y customer null.
 Si el mensaje actual dice «¿y el mes pasado?» y el anterior consultaba caja, conserva summary/cash y cambia solo el período a mes_anterior.
 Si pregunta «¿y los pendientes?» después de buscar pedidos, conserva los términos de búsqueda y usa status «Pendiente».
 Si un seguimiento depende de un dato que no aparece en el mensaje actual ni en los mensajes recientes, usa unknown y pregunta cuál dato falta; no adivines.
 
-En status usa únicamente Pendiente, En producción, Por Retirar, Entregado o Cancelado cuando la solicitud actual lo indique. Para crear pedido o venta, draft admite customer, phone, due_date (YYYY-MM-DD), products [{name, quantity, unit_price}], notes, discount_type (amount o percentage), discount_value, advance, advance_method, paid y payment_method. Métodos permitidos: Efectivo, Sinpe Móvil y Transferencia. Usa null o lista vacía para datos faltantes. Solo asigna precio desde el catálogo si el nombre coincide claramente. No inventes nombres, fechas, teléfonos, cantidades ni precios.
+En status usa únicamente Pendiente, En producción, Por Retirar, Entregado o Cancelado cuando la solicitud actual lo indique. Para crear pedido o venta, draft admite customer, phone, due_date (YYYY-MM-DD), products [{name, quantity, unit_price}], notes, advance, advance_method, paid y payment_method. Métodos permitidos: Efectivo, Sinpe Móvil y Transferencia. Usa null o lista vacía para datos faltantes. Solo asigna precio desde el catálogo si el nombre coincide claramente. No inventes nombres, fechas, teléfonos, cantidades ni precios.
 
 Los borradores requieren revisión y confirmación de la persona. Si está claro que solicitan crear un pedido o registrar una venta pero faltan datos, devuelve un borrador parcial con null o productos vacíos para que lo completen en pantalla; explica brevemente qué deben completar. Usa unknown y pregunta una sola cosa concreta cuando no esté claro si quieren consultar o registrar, o cuando la solicitud no se pueda atender. No propongas cambiar estados, abonar, borrar o anular pedidos ni editar movimientos de caja; para eso usa help y explica brevemente lo que sí puedes hacer. Para help, explica con ejemplos que puedes buscar pedidos, clientes y productos; resumir pedidos, saldos, Caja y BI; y preparar pedidos o ventas rápidas.
 """
